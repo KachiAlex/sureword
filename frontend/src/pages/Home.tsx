@@ -250,6 +250,26 @@ export default function HomeRadio() {
           </div>
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="border-t border-white/10 bg-[#0a0a0f] mt-12">
+        <div className="max-w-6xl mx-auto px-4 py-8">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <Radio className="w-5 h-5 text-purple-500" />
+              <span className="font-semibold">Zionitefm</span>
+            </div>
+            <p className="text-white/40 text-sm">
+              © 2026 Zionitefm. All rights reserved.
+            </p>
+            <div className="flex items-center gap-4 text-sm text-white/60">
+              <Link to="/archive" className="hover:text-white transition-colors">Archive</Link>
+              <Link to="/status" className="hover:text-white transition-colors">Status</Link>
+              <Link to="/login" className="hover:text-white transition-colors">Login</Link>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }
