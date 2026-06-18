@@ -218,6 +218,22 @@ app.patch('/broadcasts/:id/start', auth, requireRole('admin'), async (req, res) 
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
+app.patch('/broadcasts/:id/pause', auth, requireRole('admin'), async (req, res) => {
+  try {
+    await initDb()
+    await dbQuery("UPDATE broadcasts SET status='paused' WHERE id=$1", [req.params.id])
+    res.json({ success: true })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.patch('/broadcasts/:id/resume', auth, requireRole('admin'), async (req, res) => {
+  try {
+    await initDb()
+    await dbQuery("UPDATE broadcasts SET status='live' WHERE id=$1", [req.params.id])
+    res.json({ success: true })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
 app.get('/broadcasts/stats/overview', async (_req, res) => {
   try {
     await initDb()
