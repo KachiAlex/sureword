@@ -38,8 +38,8 @@ app.use((err, _req, res, _next) => {
         stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
 });
-// Initialize database
-(0, db_1.initDb)().catch(console.error);
+// Initialize database lazily — don't block Vercel cold start
+(0, db_1.initDb)().catch(err => console.error('DB init failed (non-blocking):', err.message));
 // Export for Vercel serverless
 const serverless_http_1 = __importDefault(require("serverless-http"));
 exports.default = (0, serverless_http_1.default)(app);

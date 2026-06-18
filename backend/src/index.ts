@@ -39,8 +39,8 @@ app.use((err: any, _req: any, res: any, _next: any) => {
   })
 })
 
-// Initialize database
-initDb().catch(console.error)
+// Initialize database lazily — don't block Vercel cold start
+initDb().catch(err => console.error('DB init failed (non-blocking):', err.message))
 
 // Export for Vercel serverless
 import serverless from 'serverless-http'
