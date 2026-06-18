@@ -12,6 +12,16 @@ import scheduleRoutes from './routes/schedule'
 
 const app = express()
 
+// Vercel rewrites /api/* to this function; strip /api so routes match
+app.use((req, _res, next) => {
+  if (req.url.startsWith('/api/')) {
+    req.url = req.url.slice(4)
+  } else if (req.url === '/api') {
+    req.url = '/'
+  }
+  next()
+})
+
 app.use(cors())
 app.use(express.json({ limit: '10mb' }))
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')))

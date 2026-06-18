@@ -48,6 +48,16 @@ const chat_1 = __importDefault(require("./routes/chat"));
 const prayer_1 = __importDefault(require("./routes/prayer"));
 const schedule_1 = __importDefault(require("./routes/schedule"));
 const app = (0, express_1.default)();
+// Vercel rewrites /api/* to this function; strip /api so routes match
+app.use((req, _res, next) => {
+    if (req.url.startsWith('/api/')) {
+        req.url = req.url.slice(4);
+    }
+    else if (req.url === '/api') {
+        req.url = '/';
+    }
+    next();
+});
 app.use((0, cors_1.default)());
 app.use(express_1.default.json({ limit: '10mb' }));
 app.use('/uploads', express_1.default.static(path_1.default.join(process.cwd(), 'uploads')));

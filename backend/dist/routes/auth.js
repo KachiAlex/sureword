@@ -11,7 +11,16 @@ const db_1 = require("../db");
 const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 router.post('/register', async (req, res) => {
-    await (0, db_1.initDb)();
+    try {
+        await Promise.race([
+            (0, db_1.initDb)(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Database initialization timed out')), 15000))
+        ]);
+    }
+    catch (err) {
+        res.status(500).json({ error: err?.message || 'Database unavailable' });
+        return;
+    }
     const { email, password, name } = req.body;
     if (!email || !password || !name) {
         res.status(400).json({ error: 'Email, password, and name are required' });
@@ -31,7 +40,11 @@ router.post('/register', async (req, res) => {
 });
 router.post('/login', async (req, res) => {
     try {
-        await (0, db_1.initDb)();
+        // Time-out DB init to avoid Vercel cold-start hangs
+        await Promise.race([
+            (0, db_1.initDb)(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Database initialization timed out')), 15000))
+        ]);
         const { email, password } = req.body;
         if (!email || !password) {
             res.status(400).json({ error: 'Email and password are required' });
