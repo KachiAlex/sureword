@@ -6,7 +6,13 @@ dotenv.config()
 
 const connectionString = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_n9ep6PLNzBIS@ep-wandering-block-ahfs3q45-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require'
 
-const pool = new Pool({ connectionString })
+const pool = new Pool({
+  connectionString,
+  ssl: { rejectUnauthorized: false },
+  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 30000,
+  max: 10
+})
 
 export interface DbClient {
   query(sql: string, params?: any[]): Promise<QueryResult>
@@ -64,8 +70,17 @@ export async function getDb(): Promise<DbClient> {
   return db
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    )
+  ])
+}
+
 export async function initDb() {
-  const client = await pool.connect()
+  const client = await withTimeout(pool.connect(), 8000, 'Database connection')
   const db = createDbClient(client)
 
   try {

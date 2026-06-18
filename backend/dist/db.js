@@ -44,7 +44,13 @@ const uuid_1 = require("uuid");
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
 const connectionString = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_n9ep6PLNzBIS@ep-wandering-block-ahfs3q45-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require';
-const pool = new pg_1.Pool({ connectionString });
+const pool = new pg_1.Pool({
+    connectionString,
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 10000,
+    idleTimeoutMillis: 30000,
+    max: 10
+});
 function createDbClient(client) {
     return {
         async query(sql, params) {
@@ -92,8 +98,14 @@ exports.db = {
 async function getDb() {
     return exports.db;
 }
+function withTimeout(promise, ms, label) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms))
+    ]);
+}
 async function initDb() {
-    const client = await pool.connect();
+    const client = await withTimeout(pool.connect(), 8000, 'Database connection');
     const db = createDbClient(client);
     try {
         // Run all schema creation in parallel to minimize cold-start latency
