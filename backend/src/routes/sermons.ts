@@ -1,7 +1,6 @@
 import { Router } from 'express'
 import { v4 as uuidv4 } from 'uuid'
 import { getDb } from '../db'
-import { authenticateToken, requireRole } from '../middleware/auth'
 import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
@@ -76,8 +75,6 @@ router.get('/:id', async (req, res) => {
 
 router.post(
   '/',
-  authenticateToken,
-  requireRole('broadcaster', 'admin'),
   upload.single('audio'),
   async (req, res) => {
     const { title, description, scripture_reference, speaker, series, date, duration } = req.body

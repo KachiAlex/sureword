@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { useAuth } from '../contexts/AuthContext'
-import { Users, Radio, Headphones, LayoutDashboard, Signal } from 'lucide-react'
+import { Radio, Headphones, LayoutDashboard, Signal } from 'lucide-react'
 
 interface Broadcast {
   id: string
@@ -13,14 +11,6 @@ interface Broadcast {
   broadcaster_id: string
 }
 
-interface User {
-  id: string
-  email: string
-  name: string
-  role: 'listener' | 'broadcaster' | 'admin'
-  created_at: string
-}
-
 interface Stats {
   total: number
   live: number
@@ -28,29 +18,22 @@ interface Stats {
 }
 
 export default function AdminDashboard() {
-  const { user } = useAuth()
-  const navigate = useNavigate()
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([])
-  const [users, setUsers] = useState<User[]>([])
   const [stats, setStats] = useState<Stats>({ total: 0, live: 0, ended: 0 })
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'broadcasts' | 'users'>('broadcasts')
 
   useEffect(() => {
-    if (!user || user.role !== 'admin') { navigate('/'); return }
     fetchData()
-  }, [user, navigate])
+  }, [])
 
   async function fetchData() {
     try {
-      const [broadcastsRes, statsRes, usersRes] = await Promise.all([
+      const [broadcastsRes, statsRes] = await Promise.all([
         axios.get('/api/broadcasts'),
-        axios.get('/api/broadcasts/stats/overview'),
-        axios.get('/api/auth/users')
+        axios.get('/api/broadcasts/stats/overview')
       ])
       setBroadcasts(broadcastsRes.data.broadcasts)
       setStats(statsRes.data)
-      setUsers(usersRes.data.users)
     } catch (err) {
       console.error('Failed to fetch dashboard data:', err)
     } finally {
@@ -58,20 +41,6 @@ export default function AdminDashboard() {
     }
   }
 
-  async function updateUserRole(userId: string, newRole: string) {
-    try {
-      await axios.put(`/api/auth/users/${userId}/role`, { role: newRole })
-      setUsers(users.map(u => u.id === userId ? { ...u, role: newRole as any } : u))
-    } catch (err) {
-      console.error('Failed to update user role:', err)
-    }
-  }
-
-  if (!user || user.role !== 'admin') return null
-
-  const tabBase = 'px-4 py-2 rounded-xl text-sm font-medium transition-colors inline-flex items-center gap-2'
-  const tabActive = 'text-[#1b1208]'
-  const tabInactive = 'text-[var(--dim)] hover:text-[var(--parchment)]'
 
   return (
     <div className="min-h-screen py-8 lg:py-12" style={{ background: 'var(--ink)', color: 'var(--parchment)' }}>
@@ -132,32 +101,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex items-center gap-2 mb-6">
-          <button
-            onClick={() => setActiveTab('broadcasts')}
-            className={tabBase}
-            style={activeTab === 'broadcasts' ? { background: 'var(--gold)', color: '#1b1208' } : { color: 'var(--dim)' }}
-            onMouseEnter={e => activeTab !== 'broadcasts' && (e.currentTarget.style.color = 'var(--parchment)')}
-            onMouseLeave={e => activeTab !== 'broadcasts' && (e.currentTarget.style.color = 'var(--dim)')}
-          >
-            <Radio className="w-4 h-4" />
-            Broadcasts
-          </button>
-          <button
-            onClick={() => setActiveTab('users')}
-            className={tabBase}
-            style={activeTab === 'users' ? { background: 'var(--gold)', color: '#1b1208' } : { color: 'var(--dim)' }}
-            onMouseEnter={e => activeTab !== 'users' && (e.currentTarget.style.color = 'var(--parchment)')}
-            onMouseLeave={e => activeTab !== 'users' && (e.currentTarget.style.color = 'var(--dim)')}
-          >
-            <Users className="w-4 h-4" />
-            Users ({users.length})
-          </button>
-        </div>
-
         {/* Content */}
-        {activeTab === 'broadcasts' ? (
           <div className="overflow-hidden rounded-2xl" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
             <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--line)', background: 'rgba(243,238,228,0.03)' }}>
               <h2 className="font-semibold">Recent Broadcasts</h2>
@@ -205,55 +149,6 @@ export default function AdminDashboard() {
               </div>
             )}
           </div>
-        ) : (
-          <div className="overflow-hidden rounded-2xl" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
-            <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--line)', background: 'rgba(243,238,228,0.03)' }}>
-              <h2 className="font-semibold">User Management</h2>
-            </div>
-            {loading ? (
-              <div className="p-12 text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto" style={{ borderColor: 'var(--gold)' }} />
-                <p className="mt-4 text-sm" style={{ color: 'var(--dim)' }}>Loading users...</p>
-              </div>
-            ) : users.length === 0 ? (
-              <div className="p-12 text-center">
-                <Users className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--line)' }} />
-                <p style={{ color: 'var(--dim)' }}>No users yet</p>
-              </div>
-            ) : (
-              <div>
-                {users.map(u => (
-                  <div
-                    key={u.id}
-                    className="px-6 py-4 flex items-center justify-between transition-colors"
-                    style={{ borderBottom: '1px solid var(--line)' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(243,238,228,0.03)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    <div>
-                      <p className="font-medium">{u.name || u.email}</p>
-                      <p className="text-sm mt-0.5" style={{ color: 'var(--dim)' }}>{u.email}</p>
-                    </div>
-                    <select
-                      value={u.role}
-                      onChange={(e) => updateUserRole(u.id, e.target.value)}
-                      className="text-sm rounded-lg px-3 py-1.5 border"
-                      style={{
-                        background: 'var(--ink)',
-                        borderColor: 'var(--line)',
-                        color: 'var(--parchment)'
-                      }}
-                    >
-                      <option value="listener" style={{ background: 'var(--ink-2)' }}>Listener</option>
-                      <option value="broadcaster" style={{ background: 'var(--ink-2)' }}>Broadcaster</option>
-                      <option value="admin" style={{ background: 'var(--ink-2)' }}>Admin</option>
-                    </select>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </div>
   )

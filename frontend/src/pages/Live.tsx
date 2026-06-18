@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
-import { useAuth } from '../contexts/AuthContext'
 import { ArrowLeft, Send, Users } from 'lucide-react'
 
 interface Broadcast {
@@ -29,8 +28,7 @@ export default function Live() {
   const { broadcastId } = useParams()
   const [searchParams] = useSearchParams()
   const showChat = searchParams.get('chat') === '1'
-  const { user } = useAuth()
-  
+
   const [broadcast, setBroadcast] = useState<Broadcast | null>(null)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [newMessage, setNewMessage] = useState('')
@@ -91,11 +89,12 @@ export default function Live() {
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault()
     const bid = broadcastId || broadcast?.id
-    if (!newMessage.trim() || !bid || !user) return
-    
+    if (!newMessage.trim() || !bid) return
+
     try {
       const { data } = await axios.post(`/api/chat/broadcast/${bid}`, {
-        message: newMessage.trim()
+        message: newMessage.trim(),
+        userName: 'Anonymous'
       })
       setChatMessages(prev => [...prev, data.message])
       setNewMessage('')
@@ -215,8 +214,7 @@ export default function Live() {
               <div ref={chatEndRef} />
             </div>
             
-            {user ? (
-              <form onSubmit={sendMessage} className="p-4 border-t" style={{ borderColor: 'var(--line)' }}>
+            <form onSubmit={sendMessage} className="p-4 border-t" style={{ borderColor: 'var(--line)' }}>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -243,12 +241,7 @@ export default function Live() {
                   </button>
                 </div>
               </form>
-            ) : (
-              <div className="p-4 border-t text-center text-sm" style={{ borderColor: 'var(--line)', color: 'var(--dim)' }}>
-                <Link to="/login" className="underline" style={{ color: 'var(--gold-soft)' }}>Sign in</Link> to chat
-              </div>
-            )}
-          </div>
+            </div>
         )}
       </div>
 

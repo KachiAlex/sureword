@@ -6,7 +6,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const uuid_1 = require("uuid");
 const db_1 = require("../db");
-const auth_1 = require("../middleware/auth");
 const multer_1 = __importDefault(require("multer"));
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
@@ -65,7 +64,7 @@ router.get('/:id', async (req, res) => {
     }
     res.json({ sermon });
 });
-router.post('/', auth_1.authenticateToken, (0, auth_1.requireRole)('broadcaster', 'admin'), upload.single('audio'), async (req, res) => {
+router.post('/', upload.single('audio'), async (req, res) => {
     const { title, description, scripture_reference, speaker, series, date, duration } = req.body;
     if (!title || !date) {
         res.status(400).json({ error: 'Title and date are required' });

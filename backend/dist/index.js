@@ -40,7 +40,6 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const path_1 = __importDefault(require("path"));
 const db_1 = require("./db");
-const auth_1 = __importDefault(require("./routes/auth"));
 const broadcasts_1 = __importDefault(require("./routes/broadcasts"));
 const sermons_1 = __importDefault(require("./routes/sermons"));
 const status_1 = __importDefault(require("./routes/status"));
@@ -52,7 +51,6 @@ app.use((0, cors_1.default)());
 app.use(express_1.default.json({ limit: '10mb' }));
 app.use('/uploads', express_1.default.static(path_1.default.join(process.cwd(), 'uploads')));
 // Mount all API routes at root (Vercel will add /api prefix)
-app.use('/auth', auth_1.default);
 app.use('/broadcasts', broadcasts_1.default);
 app.use('/sermons', sermons_1.default);
 app.use('/status', status_1.default);

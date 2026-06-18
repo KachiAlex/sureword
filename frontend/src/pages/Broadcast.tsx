@@ -1,12 +1,8 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
 import axios from 'axios'
-import { useAuth } from '../contexts/AuthContext'
 import { Radio, BookOpen, FileText, AlertCircle, ExternalLink, Copy, CheckCircle } from 'lucide-react'
 
 export default function Broadcast() {
-  const { user } = useAuth()
-  const navigate = useNavigate()
   const [isLive, setIsLive] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -15,12 +11,6 @@ export default function Broadcast() {
   const [broadcastId, setBroadcastId] = useState('')
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
-
-  useEffect(() => {
-    if (!user || (user.role !== 'broadcaster' && user.role !== 'admin')) {
-      navigate('/')
-    }
-  }, [user, navigate])
 
   async function startBroadcast() {
     if (!title.trim()) {
@@ -59,10 +49,6 @@ export default function Broadcast() {
     navigator.clipboard.writeText(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-  }
-
-  if (!user || (user.role !== 'broadcaster' && user.role !== 'admin')) {
-    return null
   }
 
   return (

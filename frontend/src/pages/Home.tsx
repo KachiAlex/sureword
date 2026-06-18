@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
-import { useAuth } from '../contexts/AuthContext'
-import { 
+import {
   ArrowRight, HomeIcon, Archive, Heart, MessageSquare
 } from 'lucide-react'
 
@@ -173,8 +172,6 @@ export default function Home() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [sermons, setSermons] = useState<Sermon[]>([])
   const [stats, setStats] = useState<Stats>({ listening: 0, peak: 0, avg: 0 })
-  const [loading, setLoading] = useState(true)
-  const { user } = useAuth()
 
   useEffect(() => {
     fetchData()
@@ -197,10 +194,7 @@ export default function Home() {
       
       // If there's a live broadcast, fetch chat and stats
       if (broadcastRes.data.broadcast?.id) {
-        const [chatRes, statsRes] = await Promise.all([
-          axios.get(`/api/chat/broadcast/${broadcastRes.data.broadcast.id}`).catch(() => ({ data: { messages: [] } })),
-          axios.get('/api/broadcasts/stats/overview').catch(() => ({ data: { live: 0, total: 0, ended: 0 } }))
-        ])
+        const chatRes = await axios.get(`/api/chat/broadcast/${broadcastRes.data.broadcast.id}`).catch(() => ({ data: { messages: [] } }))
         setChatMessages(chatRes.data.messages || [])
         setStats({
           listening: chatRes.data.messages?.length || 0,
@@ -210,8 +204,6 @@ export default function Home() {
       }
     } catch {
       // Silent fail - keep existing data
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -313,7 +305,7 @@ export default function Home() {
             
             <div>
               <Eyebrow color="dim">THIS WEEK</Eyebrow>
-              {schedule.slice(0, 3).map((item, idx) => (
+              {schedule.slice(0, 3).map((item) => (
                 <div key={item.id} className="py-2 border-b last:border-0" style={{ borderColor: 'var(--line)' }}>
                   <div className="flex justify-between text-sm">
                     <span>{item.title}</span>
@@ -463,7 +455,7 @@ export default function Home() {
       </section>
 
       {/* Staff Console Section */}
-      {user?.role === 'admin' || user?.role === 'broadcaster' ? (
+      {true ? (
         <>
           <div className="relative h-px my-16 mx-6" style={{ background: 'var(--line)' }}>
             <div 
@@ -508,16 +500,16 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2.5">
-                  <span className="font-mono text-xs" style={{ color: 'var(--dim)' }}>{user?.email || 'Media team'}</span>
-                  <div 
+                  <span className="font-mono text-xs" style={{ color: 'var(--dim)' }}>Media team</span>
+                  <div
                     className="w-8 h-8 rounded-full flex items-center justify-center font-mono text-xs"
-                    style={{ 
-                      background: 'var(--ink-2)', 
+                    style={{
+                      background: 'var(--ink-2)',
                       border: '1px solid var(--line)',
                       color: 'var(--gold-soft)'
                     }}
                   >
-                    {user?.email?.[0]?.toUpperCase() || 'M'}
+                    M
                   </div>
                 </div>
               </div>
@@ -547,7 +539,7 @@ export default function Home() {
                 style={{ background: 'var(--line)' }}
               >
                 <div className="p-4" style={{ background: 'var(--ink-2)' }}>
-                  <div className="font-mono text-2xl">{isLive ? listenerCount : '—'}</div>
+                  <div className="font-mono text-2xl">{isLive ? '—' : '—'}</div>
                   <div className="text-[10.5px] uppercase tracking-wider mt-1" style={{ color: 'var(--dim)' }}>Listening now</div>
                 </div>
                 <div className="p-4" style={{ background: 'var(--ink-2)' }}>
