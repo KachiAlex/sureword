@@ -43,13 +43,15 @@ const pg_1 = require("pg");
 const uuid_1 = require("uuid");
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
-const connectionString = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_n9ep6PLNzBIS@ep-wandering-block-ahfs3q45-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require';
+// Strip sslmode from connection string to avoid conflicting with explicit ssl config
+const rawConnectionString = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_n9ep6PLNzBIS@ep-wandering-block-ahfs3q45-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require';
+const connectionString = rawConnectionString.replace(/\?.*$/, '');
 const pool = new pg_1.Pool({
     connectionString,
-    ssl: { rejectUnauthorized: false },
-    connectionTimeoutMillis: 10000,
-    idleTimeoutMillis: 30000,
-    max: 10
+    ssl: true,
+    connectionTimeoutMillis: 8000,
+    idleTimeoutMillis: 10000,
+    max: 3
 });
 function createDbClient(client) {
     return {
