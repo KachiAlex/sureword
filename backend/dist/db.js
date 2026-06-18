@@ -43,24 +43,27 @@ const serverless_1 = require("@neondatabase/serverless");
 const uuid_1 = require("uuid");
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
-const connectionString = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_n9ep6PLNzBIS@ep-wandering-block-ahfs3q45-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require';
-// Neon's serverless driver uses HTTP/WebSocket under the hood — no TCP pooling issues
-const pool = new serverless_1.Pool({ connectionString });
-// Serverless-safe db helper — no manual connect/release needed
+// Use the non-pooler endpoint for HTTP-based queries; strip sslmode query param
+const rawUrl = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_n9ep6PLNzBIS@ep-wandering-block-ahfs3q45-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require';
+const connectionString = rawUrl.replace('-pooler.', '.').replace(/\?.*$/, '');
+// neon() uses HTTP fetch — no WebSockets, no TCP pooling issues
+// Cast to callable function: runtime supports this, types are for tagged templates
+const sql = (0, serverless_1.neon)(connectionString, { fullResults: true });
+// Serverless-safe db helper using neon HTTP API
 exports.db = {
-    async query(sql, params) {
-        return pool.query(sql, params);
+    async query(sqlStr, params) {
+        return sql(sqlStr, params);
     },
-    async get(sql, params) {
-        const result = await pool.query(sql, params);
+    async get(sqlStr, params) {
+        const result = await sql(sqlStr, params);
         return result.rows[0];
     },
-    async all(sql, params) {
-        const result = await pool.query(sql, params);
+    async all(sqlStr, params) {
+        const result = await sql(sqlStr, params);
         return result.rows;
     },
-    async run(sql, params) {
-        const result = await pool.query(sql, params);
+    async run(sqlStr, params) {
+        const result = await sql(sqlStr, params);
         return { lastID: 0, changes: result.rowCount || 0 };
     }
 };

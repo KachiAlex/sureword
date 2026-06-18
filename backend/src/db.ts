@@ -1,36 +1,41 @@
-import { Pool, QueryResult } from '@neondatabase/serverless'
+import { neon } from '@neondatabase/serverless'
 import { v4 as uuidv4 } from 'uuid'
 import dotenv from 'dotenv'
 
 dotenv.config()
 
-const connectionString = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_n9ep6PLNzBIS@ep-wandering-block-ahfs3q45-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require'
+// Use the non-pooler endpoint for HTTP-based queries; strip sslmode query param
+const rawUrl = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_n9ep6PLNzBIS@ep-wandering-block-ahfs3q45-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require'
+const connectionString = rawUrl.replace('-pooler.', '.').replace(/\?.*$/, '')
 
-// Neon's serverless driver uses HTTP/WebSocket under the hood — no TCP pooling issues
-const pool = new Pool({ connectionString })
+type NeonQueryFn = (query: string, params?: any[]) => Promise<{ rows: any[]; rowCount: number | null }>
+
+// neon() uses HTTP fetch — no WebSockets, no TCP pooling issues
+// Cast to callable function: runtime supports this, types are for tagged templates
+const sql = neon(connectionString, { fullResults: true }) as unknown as NeonQueryFn
 
 export interface DbClient {
-  query(sql: string, params?: any[]): Promise<QueryResult>
-  get<T extends Record<string, any> = any>(sql: string, params?: any[]): Promise<T | undefined>
-  all<T extends Record<string, any> = any>(sql: string, params?: any[]): Promise<T[]>
-  run(sql: string, params?: any[]): Promise<{ lastID: number; changes: number }>
+  query(sqlStr: string, params?: any[]): Promise<{ rows: any[]; rowCount: number | null }>
+  get<T extends Record<string, any> = any>(sqlStr: string, params?: any[]): Promise<T | undefined>
+  all<T extends Record<string, any> = any>(sqlStr: string, params?: any[]): Promise<T[]>
+  run(sqlStr: string, params?: any[]): Promise<{ lastID: number; changes: number }>
 }
 
-// Serverless-safe db helper — no manual connect/release needed
+// Serverless-safe db helper using neon HTTP API
 export const db: DbClient = {
-  async query(sql: string, params?: any[]): Promise<QueryResult> {
-    return pool.query(sql, params)
+  async query(sqlStr: string, params?: any[]) {
+    return sql(sqlStr, params)
   },
-  async get<T extends Record<string, any> = any>(sql: string, params?: any[]): Promise<T | undefined> {
-    const result = await pool.query(sql, params)
-    return result.rows[0] as T
+  async get<T extends Record<string, any> = any>(sqlStr: string, params?: any[]) {
+    const result = await sql(sqlStr, params)
+    return result.rows[0] as T | undefined
   },
-  async all<T extends Record<string, any> = any>(sql: string, params?: any[]): Promise<T[]> {
-    const result = await pool.query(sql, params)
+  async all<T extends Record<string, any> = any>(sqlStr: string, params?: any[]) {
+    const result = await sql(sqlStr, params)
     return result.rows as T[]
   },
-  async run(sql: string, params?: any[]): Promise<{ lastID: number; changes: number }> {
-    const result = await pool.query(sql, params)
+  async run(sqlStr: string, params?: any[]) {
+    const result = await sql(sqlStr, params)
     return { lastID: 0, changes: result.rowCount || 0 }
   }
 }

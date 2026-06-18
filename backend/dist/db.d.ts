@@ -1,9 +1,11 @@
-import { QueryResult } from '@neondatabase/serverless';
 export interface DbClient {
-    query(sql: string, params?: any[]): Promise<QueryResult>;
-    get<T extends Record<string, any> = any>(sql: string, params?: any[]): Promise<T | undefined>;
-    all<T extends Record<string, any> = any>(sql: string, params?: any[]): Promise<T[]>;
-    run(sql: string, params?: any[]): Promise<{
+    query(sqlStr: string, params?: any[]): Promise<{
+        rows: any[];
+        rowCount: number | null;
+    }>;
+    get<T extends Record<string, any> = any>(sqlStr: string, params?: any[]): Promise<T | undefined>;
+    all<T extends Record<string, any> = any>(sqlStr: string, params?: any[]): Promise<T[]>;
+    run(sqlStr: string, params?: any[]): Promise<{
         lastID: number;
         changes: number;
     }>;
