@@ -1,4 +1,4 @@
 import serverless from 'serverless-http'
 // @ts-ignore
-import app from '../backend/dist/index.js'
+import app from './dist/index.js'
 export default serverless(app)
