@@ -75,6 +75,10 @@ app.use('/status', status_1.default);
 app.use('/chat', chat_1.default);
 app.use('/prayer', prayer_1.default);
 app.use('/schedule', schedule_1.default);
+// Ping — no DB, returns instantly
+app.get('/ping', (_req, res) => {
+    res.json({ ok: true, time: new Date().toISOString() });
+});
 // Debug endpoint (no auth needed)
 app.get('/debug', (_req, res) => {
     const router = app._router;

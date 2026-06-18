@@ -21,7 +21,9 @@ if (dbReady) {
   try {
     const u = new URL(dbUrl!)
     console.log(`[DB] host: ${u.hostname}, protocol: ${u.protocol}, pathname: ${u.pathname}`)
-    pool = createPool({ connectionString: dbUrl! })
+    // Let @vercel/postgres read DATABASE_URL from env automatically
+    // instead of passing connectionString manually
+    pool = createPool()
   } catch (e: any) {
     console.error('[DB] Failed to create pool:', e.message)
     throw e
