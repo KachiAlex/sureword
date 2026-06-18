@@ -7,6 +7,7 @@ import Broadcast from './pages/Broadcast'
 import Archive from './pages/Archive'
 import AdminDashboard from './pages/AdminDashboard'
 import Status from './pages/Status'
+import Live from './pages/Live'
 
 function App() {
   return (
@@ -20,6 +21,8 @@ function App() {
             <Route path="/archive" element={<Archive />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/status" element={<Status />} />
+            <Route path="/live" element={<Live />} />
+            <Route path="/live/:broadcastId" element={<Live />} />
           </Routes>
         </Layout>
       </BrowserRouter>
