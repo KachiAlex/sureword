@@ -1,7 +1,7 @@
 {
   "version": 2,
   "framework": "vite",
-  "buildCommand": "vite build --config frontend/vite.config.ts --root frontend",
+  "buildCommand": "vite --config frontend/vite.config.ts build",
   "outputDirectory": "frontend/dist",
   "installCommand": "npm install",
   "rewrites": [

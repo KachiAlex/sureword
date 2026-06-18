@@ -7,7 +7,7 @@
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
     "build": "npm run build:frontend",
-    "build:frontend": "vite build --config frontend/vite.config.ts --root frontend",
+    "build:frontend": "vite --config frontend/vite.config.ts build",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
   },
   "devDependencies": {
