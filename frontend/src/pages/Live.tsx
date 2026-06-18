@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
+import { useAuth } from '../contexts/AuthContext'
 import { ArrowLeft, Send, Users } from 'lucide-react'
 
 interface Broadcast {
@@ -28,6 +29,7 @@ export default function Live() {
   const { broadcastId } = useParams()
   const [searchParams] = useSearchParams()
   const showChat = searchParams.get('chat') === '1'
+  const { user } = useAuth()
 
   const [broadcast, setBroadcast] = useState<Broadcast | null>(null)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
@@ -89,12 +91,11 @@ export default function Live() {
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault()
     const bid = broadcastId || broadcast?.id
-    if (!newMessage.trim() || !bid) return
+    if (!newMessage.trim() || !bid || !user) return
 
     try {
       const { data } = await axios.post(`/api/chat/broadcast/${bid}`, {
-        message: newMessage.trim(),
-        userName: 'Anonymous'
+        message: newMessage.trim()
       })
       setChatMessages(prev => [...prev, data.message])
       setNewMessage('')
@@ -214,7 +215,8 @@ export default function Live() {
               <div ref={chatEndRef} />
             </div>
             
-            <form onSubmit={sendMessage} className="p-4 border-t" style={{ borderColor: 'var(--line)' }}>
+            {user ? (
+              <form onSubmit={sendMessage} className="p-4 border-t" style={{ borderColor: 'var(--line)' }}>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -222,8 +224,8 @@ export default function Live() {
                     onChange={(e) => setNewMessage(e.target.value)}
                     placeholder="Send a message..."
                     className="flex-1 rounded-lg px-3 py-2 text-sm border"
-                    style={{ 
-                      background: 'var(--ink)', 
+                    style={{
+                      background: 'var(--ink)',
                       borderColor: 'var(--line)',
                       color: 'var(--parchment)'
                     }}
@@ -232,7 +234,7 @@ export default function Live() {
                     type="submit"
                     disabled={!newMessage.trim()}
                     className="w-10 h-10 rounded-lg flex items-center justify-center"
-                    style={{ 
+                    style={{
                       background: newMessage.trim() ? 'var(--gold)' : 'var(--line)',
                       color: newMessage.trim() ? '#1b1208' : 'var(--dim)'
                     }}
@@ -241,7 +243,12 @@ export default function Live() {
                   </button>
                 </div>
               </form>
-            </div>
+            ) : (
+              <div className="p-4 border-t text-center text-sm" style={{ borderColor: 'var(--line)', color: 'var(--dim)' }}>
+                <Link to="/login" className="underline" style={{ color: 'var(--gold-soft)' }}>Sign in</Link> to chat
+              </div>
+            )}
+          </div>
         )}
       </div>
 

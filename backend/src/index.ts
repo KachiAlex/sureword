@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import path from 'path'
 import { db } from './db'
+import authRoutes from './routes/auth'
 import broadcastRoutes from './routes/broadcasts'
 import sermonRoutes from './routes/sermons'
 import statusRoutes from './routes/status'
@@ -16,6 +17,7 @@ app.use(express.json({ limit: '10mb' }))
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')))
 
 // Mount all API routes at root (Vercel will add /api prefix)
+app.use('/auth', authRoutes)
 app.use('/broadcasts', broadcastRoutes)
 app.use('/sermons', sermonRoutes)
 app.use('/status', statusRoutes)

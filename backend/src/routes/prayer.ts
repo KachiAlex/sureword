@@ -1,12 +1,13 @@
 import { Router } from 'express'
 import { v4 as uuidv4 } from 'uuid'
 import { getDb } from '../db'
+import { authenticateToken, AuthRequest, requireRole } from '../middleware/auth'
 
 const router = Router()
 
 // Submit a prayer request
-router.post('/', async (req, res) => {
-  const { request, userName = 'Anonymous', is_private = true } = req.body
+router.post('/', authenticateToken, async (req: AuthRequest, res) => {
+  const { request, is_private = true } = req.body
   if (!request || request.trim().length === 0) {
     res.status(400).json({ error: 'Prayer request is required' })
     return
@@ -18,7 +19,7 @@ router.post('/', async (req, res) => {
     await db.run(
       `INSERT INTO prayer_requests (id, user_id, user_name, request, is_private, status)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [id, null, userName, request.trim(), is_private, 'pending']
+      [id, req.user!.id, req.user!.email.split('@')[0], request.trim(), is_private, 'pending']
     )
 
     res.status(201).json({ success: true, id })
@@ -27,8 +28,8 @@ router.post('/', async (req, res) => {
   }
 })
 
-// Get all prayer requests
-router.get('/all', async (req, res) => {
+// Get all prayer requests (admin/pastoral only)
+router.get('/all', authenticateToken, requireRole('admin', 'broadcaster'), async (req, res) => {
   try {
     const db = await getDb()
     const { status } = req.query
@@ -54,8 +55,8 @@ router.get('/all', async (req, res) => {
   }
 })
 
-// Update prayer request status
-router.put('/:id/status', async (req, res) => {
+// Update prayer request status (admin only)
+router.put('/:id/status', authenticateToken, requireRole('admin'), async (req: AuthRequest, res) => {
   const { status } = req.body
   if (!['pending', 'praying', 'answered'].includes(status)) {
     res.status(400).json({ error: 'Invalid status' })

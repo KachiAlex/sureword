@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
+import { useAuth } from '../contexts/AuthContext'
 import {
   ArrowRight, HomeIcon, Archive, Heart, MessageSquare
 } from 'lucide-react'
@@ -172,6 +173,7 @@ export default function Home() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [sermons, setSermons] = useState<Sermon[]>([])
   const [stats, setStats] = useState<Stats>({ listening: 0, peak: 0, avg: 0 })
+  const { user } = useAuth()
 
   useEffect(() => {
     fetchData()
@@ -455,7 +457,7 @@ export default function Home() {
       </section>
 
       {/* Staff Console Section */}
-      {true ? (
+      {user?.role === 'admin' || user?.role === 'broadcaster' ? (
         <>
           <div className="relative h-px my-16 mx-6" style={{ background: 'var(--line)' }}>
             <div 
@@ -500,7 +502,7 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2.5">
-                  <span className="font-mono text-xs" style={{ color: 'var(--dim)' }}>Media team</span>
+                  <span className="font-mono text-xs" style={{ color: 'var(--dim)' }}>{user?.email || 'Media team'}</span>
                   <div
                     className="w-8 h-8 rounded-full flex items-center justify-center font-mono text-xs"
                     style={{
@@ -509,7 +511,7 @@ export default function Home() {
                       color: 'var(--gold-soft)'
                     }}
                   >
-                    M
+                    {user?.email?.[0]?.toUpperCase() || 'M'}
                   </div>
                 </div>
               </div>

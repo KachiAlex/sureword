@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { v4 as uuidv4 } from 'uuid'
 import { getDb } from '../db'
+import { authenticateToken, AuthRequest, requireRole } from '../middleware/auth'
 
 const router = Router()
 
@@ -23,8 +24,8 @@ router.get('/broadcast/:broadcastId', async (req, res) => {
 })
 
 // Send a chat message
-router.post('/broadcast/:broadcastId', async (req, res) => {
-  const { message, userName = 'Anonymous' } = req.body
+router.post('/broadcast/:broadcastId', authenticateToken, async (req: AuthRequest, res) => {
+  const { message } = req.body
   if (!message || message.trim().length === 0) {
     res.status(400).json({ error: 'Message is required' })
     return
@@ -36,7 +37,7 @@ router.post('/broadcast/:broadcastId', async (req, res) => {
     await db.run(
       `INSERT INTO chat_messages (id, broadcast_id, user_id, user_name, message, is_private)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [id, req.params.broadcastId, null, userName, message.trim(), false]
+      [id, req.params.broadcastId, req.user!.id, req.user!.email.split('@')[0], message.trim(), false]
     )
 
     const newMessage = await db.get('SELECT * FROM chat_messages WHERE id = $1', [id])
@@ -47,7 +48,7 @@ router.post('/broadcast/:broadcastId', async (req, res) => {
 })
 
 // Get all chat messages for staff (including private)
-router.get('/staff/all', async (req, res) => {
+router.get('/staff/all', authenticateToken, requireRole('admin', 'broadcaster'), async (req, res) => {
   try {
     const db = await getDb()
     const { broadcastId } = req.query
@@ -74,8 +75,8 @@ router.get('/staff/all', async (req, res) => {
   }
 })
 
-// Delete a chat message
-router.delete('/:id', async (req, res) => {
+// Delete a chat message (admin only)
+router.delete('/:id', authenticateToken, requireRole('admin'), async (req, res) => {
   try {
     const db = await getDb()
     await db.run('DELETE FROM chat_messages WHERE id = $1', [req.params.id])

@@ -3,10 +3,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const uuid_1 = require("uuid");
 const db_1 = require("../db");
+const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 // Submit a prayer request
-router.post('/', async (req, res) => {
-    const { request, userName = 'Anonymous', is_private = true } = req.body;
+router.post('/', auth_1.authenticateToken, async (req, res) => {
+    const { request, is_private = true } = req.body;
     if (!request || request.trim().length === 0) {
         res.status(400).json({ error: 'Prayer request is required' });
         return;
@@ -15,15 +16,15 @@ router.post('/', async (req, res) => {
         const db = await (0, db_1.getDb)();
         const id = (0, uuid_1.v4)();
         await db.run(`INSERT INTO prayer_requests (id, user_id, user_name, request, is_private, status)
-       VALUES ($1, $2, $3, $4, $5, $6)`, [id, null, userName, request.trim(), is_private, 'pending']);
+       VALUES ($1, $2, $3, $4, $5, $6)`, [id, req.user.id, req.user.email.split('@')[0], request.trim(), is_private, 'pending']);
         res.status(201).json({ success: true, id });
     }
     catch {
         res.status(500).json({ error: 'Failed to submit prayer request' });
     }
 });
-// Get all prayer requests
-router.get('/all', async (req, res) => {
+// Get all prayer requests (admin/pastoral only)
+router.get('/all', auth_1.authenticateToken, (0, auth_1.requireRole)('admin', 'broadcaster'), async (req, res) => {
     try {
         const db = await (0, db_1.getDb)();
         const { status } = req.query;
@@ -45,8 +46,8 @@ router.get('/all', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch requests' });
     }
 });
-// Update prayer request status
-router.put('/:id/status', async (req, res) => {
+// Update prayer request status (admin only)
+router.put('/:id/status', auth_1.authenticateToken, (0, auth_1.requireRole)('admin'), async (req, res) => {
     const { status } = req.body;
     if (!['pending', 'praying', 'answered'].includes(status)) {
         res.status(400).json({ error: 'Invalid status' });

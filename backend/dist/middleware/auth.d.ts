@@ -1,4 +1,6 @@
-import { Request } from 'express';
+import { Request, Response, NextFunction } from 'express';
+export declare const JWT_SECRET: string;
+export declare const JWT_REFRESH_SECRET: string;
 export interface AuthRequest extends Request {
     user?: {
         id: string;
@@ -6,8 +8,6 @@ export interface AuthRequest extends Request {
         role: string;
     };
 }
-export declare function authenticateToken(_req: any, _res: any, next: any): void;
-export declare function requireRole(..._roles: string[]): (_req: any, _res: any, next: any) => any;
-export declare const JWT_SECRET: string;
-export declare const JWT_REFRESH_SECRET: string;
+export declare function authenticateToken(req: AuthRequest, res: Response, next: NextFunction): void;
+export declare function requireRole(...roles: string[]): (req: AuthRequest, res: Response, next: NextFunction) => void;
 //# sourceMappingURL=auth.d.ts.map
