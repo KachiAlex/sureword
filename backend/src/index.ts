@@ -1,14 +1,11 @@
 import express, { Request, Response, NextFunction } from 'express'
 import cors from 'cors'
-import dotenv from 'dotenv'
 import authRoutes from './routes/auth.js'
 import broadcastRoutes from './routes/broadcasts.js'
 import sermonRoutes from './routes/sermons.js'
 import scheduleRoutes from './routes/schedule.js'
 import chatRoutes from './routes/chat.js'
 import statusRoutes from './routes/status.js'
-
-dotenv.config()
 
 const app = express()
 

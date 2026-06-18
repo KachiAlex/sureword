@@ -1,8 +1,5 @@
 import { neon } from '@neondatabase/serverless'
 import { v4 as uuidv4 } from 'uuid'
-import dotenv from 'dotenv'
-
-dotenv.config()
 
 const rawDbUrl = process.env.DATABASE_URL?.trim()
 const dbUrl = rawDbUrl?.startsWith('psql ') ? rawDbUrl.slice(5) : rawDbUrl
