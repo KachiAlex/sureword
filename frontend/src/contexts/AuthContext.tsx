@@ -24,16 +24,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const validateToken = async () => {
       const token = localStorage.getItem('token')
+      const cachedUser = localStorage.getItem('user')
+
       if (token) {
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+        // Show cached user immediately so UI doesn't block
+        if (cachedUser) {
+          try { setUser(JSON.parse(cachedUser)) } catch {}
+        }
+        // Verify in background with timeout
         try {
-          const { data } = await axios.get('/api/auth/verify')
+          const { data } = await axios.get('/api/auth/verify', { timeout: 8000 })
           setUser(data.user)
           localStorage.setItem('user', JSON.stringify(data.user))
         } catch {
           localStorage.removeItem('token')
           localStorage.removeItem('user')
           delete axios.defaults.headers.common['Authorization']
+          setUser(null)
         }
       }
       setLoading(false)

@@ -69,110 +69,101 @@ export async function initDb() {
   const db = createDbClient(client)
 
   try {
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        email TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        name TEXT NOT NULL,
-        role TEXT NOT NULL DEFAULT 'listener',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `)
+    // Run all schema creation in parallel to minimize cold-start latency
+    await Promise.all([
+      db.query(`
+        CREATE TABLE IF NOT EXISTS users (
+          id TEXT PRIMARY KEY,
+          email TEXT UNIQUE NOT NULL,
+          password_hash TEXT NOT NULL,
+          name TEXT NOT NULL,
+          role TEXT NOT NULL DEFAULT 'listener',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `),
+      db.query(`
+        CREATE TABLE IF NOT EXISTS broadcasts (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          description TEXT,
+          scripture_reference TEXT,
+          status TEXT NOT NULL DEFAULT 'scheduled',
+          started_at TIMESTAMP,
+          ended_at TIMESTAMP,
+          broadcaster_id TEXT NOT NULL,
+          audio_path TEXT,
+          stream_key TEXT,
+          stream_type TEXT DEFAULT 'church_online',
+          church_online_url TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (broadcaster_id) REFERENCES users(id)
+        )
+      `),
+      db.query(`
+        CREATE TABLE IF NOT EXISTS sermons (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          description TEXT,
+          scripture_reference TEXT,
+          speaker TEXT,
+          series TEXT,
+          audio_url TEXT NOT NULL,
+          date TEXT NOT NULL,
+          duration INTEGER,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `),
+      db.query(`
+        CREATE TABLE IF NOT EXISTS audio_chunks (
+          id TEXT PRIMARY KEY,
+          broadcast_id TEXT NOT NULL,
+          chunk_index INTEGER NOT NULL,
+          file_path TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (broadcast_id) REFERENCES broadcasts(id)
+        )
+      `),
+      db.query(`
+        CREATE TABLE IF NOT EXISTS chat_messages (
+          id TEXT PRIMARY KEY,
+          broadcast_id TEXT,
+          user_id TEXT,
+          user_name TEXT,
+          message TEXT NOT NULL,
+          is_private BOOLEAN DEFAULT FALSE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (broadcast_id) REFERENCES broadcasts(id)
+        )
+      `),
+      db.query(`
+        CREATE TABLE IF NOT EXISTS prayer_requests (
+          id TEXT PRIMARY KEY,
+          user_id TEXT,
+          user_name TEXT,
+          request TEXT NOT NULL,
+          is_private BOOLEAN DEFAULT TRUE,
+          status TEXT DEFAULT 'pending',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `),
+      db.query(`
+        CREATE TABLE IF NOT EXISTS schedule (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          day_of_week INTEGER NOT NULL,
+          time TEXT NOT NULL,
+          type TEXT DEFAULT 'service',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
+    ])
 
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS broadcasts (
-        id TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
-        description TEXT,
-        scripture_reference TEXT,
-        status TEXT NOT NULL DEFAULT 'scheduled',
-        started_at TIMESTAMP,
-        ended_at TIMESTAMP,
-        broadcaster_id TEXT NOT NULL,
-        audio_path TEXT,
-        stream_key TEXT,
-        stream_type TEXT DEFAULT 'church_online',
-        church_online_url TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (broadcaster_id) REFERENCES users(id)
-      )
-    `)
-
-    await db.query(`
-      ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS stream_key TEXT
-    `)
-    await db.query(`
-      ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS stream_type TEXT DEFAULT 'church_online'
-    `)
-    await db.query(`
-      ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS church_online_url TEXT
-    `)
-
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS sermons (
-        id TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
-        description TEXT,
-        scripture_reference TEXT,
-        speaker TEXT,
-        series TEXT,
-        audio_url TEXT NOT NULL,
-        date TEXT NOT NULL,
-        duration INTEGER,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `)
-
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS audio_chunks (
-        id TEXT PRIMARY KEY,
-        broadcast_id TEXT NOT NULL,
-        chunk_index INTEGER NOT NULL,
-        file_path TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (broadcast_id) REFERENCES broadcasts(id)
-      )
-    `)
-
-    // Create chat_messages table
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS chat_messages (
-        id TEXT PRIMARY KEY,
-        broadcast_id TEXT,
-        user_id TEXT,
-        user_name TEXT,
-        message TEXT NOT NULL,
-        is_private BOOLEAN DEFAULT FALSE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (broadcast_id) REFERENCES broadcasts(id)
-      )
-    `)
-
-    // Create prayer_requests table
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS prayer_requests (
-        id TEXT PRIMARY KEY,
-        user_id TEXT,
-        user_name TEXT,
-        request TEXT NOT NULL,
-        is_private BOOLEAN DEFAULT TRUE,
-        status TEXT DEFAULT 'pending',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `)
-
-    // Create schedule table for recurring services
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS schedule (
-        id TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
-        day_of_week INTEGER NOT NULL,
-        time TEXT NOT NULL,
-        type TEXT DEFAULT 'service',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `)
+    // Run ALTER statements in parallel
+    await Promise.all([
+      db.query(`ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS stream_key TEXT`),
+      db.query(`ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS stream_type TEXT DEFAULT 'church_online'`),
+      db.query(`ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS church_online_url TEXT`)
+    ])
 
     // Seed default schedule
     const existingSchedule = await db.get('SELECT * FROM schedule LIMIT 1')

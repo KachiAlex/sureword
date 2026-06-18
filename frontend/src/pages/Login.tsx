@@ -23,7 +23,7 @@ export default function Login() {
     try {
       const endpoint = isRegister ? '/api/auth/register' : '/api/auth/login'
       const payload = isRegister ? { email, password, name } : { email, password }
-      const { data } = await axios.post(endpoint, payload)
+      const { data } = await axios.post(endpoint, payload, { timeout: 10000 })
       login(data.token, data.user)
 
       switch (data.user.role) {
