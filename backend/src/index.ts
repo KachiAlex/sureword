@@ -9,6 +9,7 @@ import authRoutes from './routes/auth'
 import broadcastRoutes from './routes/broadcasts'
 import sermonRoutes from './routes/sermons'
 import statusRoutes from './routes/status'
+import streamRoutes from './routes/stream'
 
 const app = express()
 const httpServer = createServer(app)
@@ -29,6 +30,7 @@ app.use('/auth', authRoutes)
 app.use('/broadcasts', broadcastRoutes)
 app.use('/sermons', sermonRoutes)
 app.use('/status', statusRoutes)
+app.use('/stream', streamRoutes)
 
 // Health check
 app.get('/', (_req, res) => {
