@@ -1,4 +1,4 @@
-export declare const dbReady: boolean;
+export declare let dbReady: boolean;
 export interface DbClient {
     query(sqlStr: string, params?: any[]): Promise<{
         rows: any[];

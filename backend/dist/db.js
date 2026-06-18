@@ -52,46 +52,51 @@ console.log('[DB] VERCEL:', process.env.VERCEL || 'undefined');
 console.log('[DB] DATABASE_URL present:', !!process.env.DATABASE_URL);
 console.log('[DB] dbUrl present:', !!dbUrl);
 exports.dbReady = !!dbUrl;
-let pool;
-if (exports.dbReady) {
+let _poolInitError = null;
+let _pool = null;
+function getPool() {
+    if (_pool)
+        return _pool;
+    if (!exports.dbReady)
+        throw new Error('DATABASE_URL not configured');
     try {
         const u = new URL(dbUrl);
         console.log(`[DB] host: ${u.hostname}, protocol: ${u.protocol}, pathname: ${u.pathname}`);
         // Let @vercel/postgres read DATABASE_URL from env automatically
-        // instead of passing connectionString manually
-        pool = (0, postgres_1.createPool)();
+        _pool = (0, postgres_1.createPool)();
+        console.log('[DB] pool created OK');
+        return _pool;
     }
     catch (e) {
-        console.error('[DB] Failed to create pool:', e.message);
-        throw e;
+        console.error('[DB] Failed to create pool:', e?.message || e);
+        _poolInitError = e?.message || String(e);
+        exports.dbReady = false;
+        throw new Error('Failed to create database pool: ' + _poolInitError);
     }
-}
-else {
-    console.error('[DB] DATABASE_URL is missing — DB operations will fail');
 }
 exports.db = {
     async query(sqlStr, params) {
         if (!exports.dbReady)
             throw new Error('DATABASE_URL not configured');
-        const result = await pool.query(sqlStr, params);
+        const result = await getPool().query(sqlStr, params);
         return { rows: result.rows, rowCount: result.rowCount };
     },
     async get(sqlStr, params) {
         if (!exports.dbReady)
             throw new Error('DATABASE_URL not configured');
-        const result = await pool.query(sqlStr, params);
+        const result = await getPool().query(sqlStr, params);
         return result.rows[0];
     },
     async all(sqlStr, params) {
         if (!exports.dbReady)
             throw new Error('DATABASE_URL not configured');
-        const result = await pool.query(sqlStr, params);
+        const result = await getPool().query(sqlStr, params);
         return result.rows;
     },
     async run(sqlStr, params) {
         if (!exports.dbReady)
             throw new Error('DATABASE_URL not configured');
-        const result = await pool.query(sqlStr, params);
+        const result = await getPool().query(sqlStr, params);
         return { lastID: 0, changes: result.rowCount || 0 };
     }
 };
