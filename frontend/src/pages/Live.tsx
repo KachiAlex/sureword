@@ -1,9 +1,8 @@
 import { useEffect, useState, useRef } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
-import { useSocket } from '../hooks/useSocket'
 import { useAuth } from '../contexts/AuthContext'
-import { ArrowLeft, Play, Pause, Volume2, VolumeX, Send, Heart } from 'lucide-react'
+import { ArrowLeft, Send, Users } from 'lucide-react'
 
 interface Broadcast {
   id: string
@@ -13,6 +12,7 @@ interface Broadcast {
   status: string
   started_at?: string
   broadcaster_id: string
+  church_online_url?: string
 }
 
 interface ChatMessage {
@@ -22,52 +22,36 @@ interface ChatMessage {
   created_at: string
 }
 
+// Church Online Platform Church ID
+const CHURCH_ONLINE_ID = 'zionitefm'
+
 export default function Live() {
   const { broadcastId } = useParams()
   const [searchParams] = useSearchParams()
   const showChat = searchParams.get('chat') === '1'
   const { user } = useAuth()
-  const { socket, connected } = useSocket()
   
   const [broadcast, setBroadcast] = useState<Broadcast | null>(null)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [newMessage, setNewMessage] = useState('')
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [isMuted, setIsMuted] = useState(false)
-  const [listenerCount, setListenerCount] = useState(0)
+  const [onlineCount, setOnlineCount] = useState(0)
   const [loading, setLoading] = useState(true)
   
-  const audioContextRef = useRef<AudioContext | null>(null)
-  const queueRef = useRef<AudioBuffer[]>([])
-  const isPlayingChunkRef = useRef(false)
-  const nextTimeRef = useRef(0)
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
 
   useEffect(() => {
     fetchBroadcast()
-    const interval = setInterval(fetchBroadcast, 10000)
+    fetchChatMessages()
+    
+    // Poll for updates
+    const interval = setInterval(() => {
+      fetchBroadcast()
+      fetchChatMessages()
+    }, 10000)
+    
     return () => clearInterval(interval)
   }, [broadcastId])
-
-  useEffect(() => {
-    if (!socket || !broadcast?.id) return
-    
-    // Join the broadcast room
-    socket.emit('listener-join', broadcast.id)
-    
-    // Listen for events
-    socket.on('audio-chunk', handleAudioChunk)
-    socket.on('listener-count', (count: number) => setListenerCount(count))
-    socket.on('new-chat-message', (msg: ChatMessage) => {
-      setChatMessages(prev => [...prev, msg])
-    })
-    
-    return () => {
-      socket.off('audio-chunk', handleAudioChunk)
-      socket.off('listener-count')
-      socket.off('new-chat-message')
-    }
-  }, [socket, broadcast?.id])
 
   // Auto-scroll chat
   useEffect(() => {
@@ -93,66 +77,24 @@ export default function Live() {
   }
 
   async function fetchChatMessages() {
-    if (!broadcast?.id) return
+    const bid = broadcastId || broadcast?.id
+    if (!bid) return
     try {
-      const { data } = await axios.get(`/api/chat/broadcast/${broadcast.id}`)
+      const { data } = await axios.get(`/api/chat/broadcast/${bid}`)
       setChatMessages(data.messages || [])
+      setOnlineCount(data.messages?.length || 0)
     } catch {
       // Silent fail
     }
   }
 
-  function handleAudioChunk({ chunk }: { chunk: ArrayBuffer }) {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new AudioContext()
-    }
-    const ctx = audioContextRef.current
-    ctx.decodeAudioData(chunk.slice(0), (buffer: AudioBuffer) => {
-      queueRef.current.push(buffer)
-      if (isPlaying && !isPlayingChunkRef.current) {
-        playNextChunk()
-      }
-    })
-  }
-
-  function playNextChunk() {
-    if (!audioContextRef.current || queueRef.current.length === 0) {
-      isPlayingChunkRef.current = false
-      return
-    }
-    isPlayingChunkRef.current = true
-    const ctx = audioContextRef.current
-    const buffer = queueRef.current.shift()!
-    const source = ctx.createBufferSource()
-    source.buffer = buffer
-    source.connect(ctx.destination)
-    if (nextTimeRef.current < ctx.currentTime) {
-      nextTimeRef.current = ctx.currentTime
-    }
-    source.start(nextTimeRef.current)
-    nextTimeRef.current += buffer.duration
-    source.onended = playNextChunk
-  }
-
-  function togglePlay() {
-    if (!isPlaying) {
-      setIsPlaying(true)
-      if (audioContextRef.current?.state === 'suspended') {
-        audioContextRef.current.resume()
-      }
-      playNextChunk()
-    } else {
-      setIsPlaying(false)
-      audioContextRef.current?.suspend()
-    }
-  }
-
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault()
-    if (!newMessage.trim() || !broadcast?.id || !user) return
+    const bid = broadcastId || broadcast?.id
+    if (!newMessage.trim() || !bid || !user) return
     
     try {
-      const { data } = await axios.post(`/api/chat/broadcast/${broadcast.id}`, {
+      const { data } = await axios.post(`/api/chat/broadcast/${bid}`, {
         message: newMessage.trim()
       })
       setChatMessages(prev => [...prev, data.message])
@@ -160,6 +102,16 @@ export default function Live() {
     } catch {
       // Silent fail
     }
+  }
+
+  // Get Church Online Platform embed URL
+  function getChurchOnlineUrl(): string {
+    // If broadcast has custom URL, use it
+    if (broadcast?.church_online_url) {
+      return broadcast.church_online_url
+    }
+    // Otherwise use default Church Online Platform URL
+    return `https://online.church/${CHURCH_ONLINE_ID}`
   }
 
   if (loading) {
@@ -201,57 +153,33 @@ export default function Live() {
           </div>
           <div className="font-serif text-sm" style={{ fontWeight: 500 }}>{broadcast.title}</div>
         </div>
-        <div className="font-mono text-xs" style={{ color: 'var(--dim)' }}>
-          {listenerCount} listening
+        <div className="font-mono text-xs flex items-center gap-1" style={{ color: 'var(--dim)' }}>
+          <Users size={14} />
+          {onlineCount} online
         </div>
       </header>
 
       {/* Main Content */}
       <div className="flex-1 flex">
-        {/* Player Section */}
-        <div className={`flex-1 p-6 ${showChat ? 'hidden md:block' : ''}`}>
-          {/* Waveform */}
-          <div className="h-32 flex items-center justify-center gap-[3px] mb-8">
-            {[30, 60, 90, 45, 70, 35, 80, 50, 65, 40, 85, 55, 30, 75, 45, 60, 40, 70, 50, 80, 35, 65, 45, 55, 70, 40, 85, 50, 30, 75].map((height, i) => (
-              <span
-                key={i}
-                className="w-[3px] rounded-sm"
-                style={{
-                  height: `${height}%`,
-                  background: 'var(--gold-soft)',
-                  animation: isPlaying && i % 2 === 0 ? 'bob 1.2s ease-in-out infinite' : undefined,
-                  animationDelay: `${i * 0.05}s`
-                }}
-              />
-            ))}
+        {/* Player Section - Church Online Platform Embed */}
+        <div className={`flex-1 flex flex-col ${showChat ? 'hidden md:block' : ''}`}>
+          {/* Church Online Platform iframe */}
+          <div className="flex-1 relative">
+            <iframe
+              ref={iframeRef}
+              src={getChurchOnlineUrl()}
+              className="absolute inset-0 w-full h-full"
+              style={{ border: 'none' }}
+              allow="autoplay; fullscreen"
+              allowFullScreen
+              title="Live Broadcast"
+            />
           </div>
-
-          {/* Controls */}
-          <div className="flex items-center justify-center gap-6 mb-8">
-            <button
-              onClick={togglePlay}
-              className="w-16 h-16 rounded-full flex items-center justify-center"
-              style={{ background: 'var(--gold)', color: '#1b1208' }}
-            >
-              {isPlaying ? (
-                <Pause size={24} fill="currentColor" />
-              ) : (
-                <Play size={24} fill="currentColor" className="ml-1" />
-              )}
-            </button>
-            <button
-              onClick={() => setIsMuted(!isMuted)}
-              className="w-10 h-10 rounded-full flex items-center justify-center border"
-              style={{ borderColor: 'var(--line)', color: 'var(--dim)' }}
-            >
-              {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-            </button>
-          </div>
-
+          
           {/* Scripture */}
           {broadcast.scripture_reference && (
             <div 
-              className="max-w-md mx-auto rounded-xl p-4 text-center"
+              className="mx-4 mt-4 mb-4 rounded-xl p-4 text-center"
               style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}
             >
               <div className="font-mono text-[10px] uppercase tracking-wider mb-2" style={{ color: 'var(--gold)' }}>
@@ -260,12 +188,6 @@ export default function Live() {
               <div className="font-serif text-lg" style={{ fontWeight: 500 }}>
                 {broadcast.scripture_reference}
               </div>
-            </div>
-          )}
-
-          {!connected && (
-            <div className="text-center text-sm mt-6" style={{ color: 'var(--dim)' }}>
-              Reconnecting to stream...
             </div>
           )}
         </div>
@@ -337,16 +259,9 @@ export default function Live() {
           className="md:hidden fixed bottom-4 right-4 w-12 h-12 rounded-full flex items-center justify-center"
           style={{ background: 'var(--gold)', color: '#1b1208' }}
         >
-          <Heart size={20} />
+          <Users size={20} />
         </Link>
       )}
-
-      <style>{`
-        @keyframes bob {
-          0%, 100% { transform: scaleY(1); }
-          50% { transform: scaleY(0.5); }
-        }
-      `}</style>
     </div>
   )
 }

@@ -1,25 +1,20 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { useAuth } from '../contexts/AuthContext'
-import { useSocket } from '../hooks/useSocket'
-import { Mic, MicOff, Radio, BookOpen, FileText, AlertCircle, Signal, Volume2 } from 'lucide-react'
+import { Radio, BookOpen, FileText, AlertCircle, ExternalLink, Copy, CheckCircle } from 'lucide-react'
 
 export default function Broadcast() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const { socket, connected } = useSocket()
   const [isLive, setIsLive] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [scripture, setScripture] = useState('')
+  const [churchOnlineUrl, setChurchOnlineUrl] = useState('')
   const [broadcastId, setBroadcastId] = useState('')
   const [error, setError] = useState('')
-  const [audioLevel, setAudioLevel] = useState(0)
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const streamRef = useRef<MediaStream | null>(null)
-  const analyserRef = useRef<AnalyserNode | null>(null)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     if (!user || (user.role !== 'broadcaster' && user.role !== 'admin')) {
@@ -39,61 +34,16 @@ export default function Broadcast() {
         title,
         description,
         scripture_reference: scripture,
+        church_online_url: churchOnlineUrl || undefined,
       })
       setBroadcastId(data.broadcast.id)
       setIsLive(true)
-      await startAudioCapture(data.broadcast.id)
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to start broadcast')
     }
   }
 
-  async function startAudioCapture(bid: string) {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      streamRef.current = stream
-
-      const audioCtx = new AudioContext()
-      const source = audioCtx.createMediaStreamSource(stream)
-      const analyser = audioCtx.createAnalyser()
-      analyser.fftSize = 64
-      source.connect(analyser)
-      analyserRef.current = analyser
-
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' })
-      mediaRecorderRef.current = mediaRecorder
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0 && socket) {
-          event.data.arrayBuffer().then((buffer) => {
-            socket.emit('audio-chunk', { broadcastId: bid, chunk: buffer })
-          })
-        }
-      }
-
-      mediaRecorder.start(1000)
-      socket?.emit('broadcaster-join', bid)
-
-      // Monitor audio levels
-      const dataArray = new Uint8Array(analyser.frequencyBinCount)
-      intervalRef.current = setInterval(() => {
-        analyser.getByteFrequencyData(dataArray)
-        const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length
-        setAudioLevel(average / 255)
-      }, 100)
-    } catch {
-      setError('Microphone access denied or not available')
-      setIsLive(false)
-    }
-  }
-
   async function stopBroadcast() {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop()
-    }
-    streamRef.current?.getTracks().forEach((t) => t.stop())
-    if (intervalRef.current) clearInterval(intervalRef.current)
-
     if (broadcastId) {
       try {
         await axios.post(`/api/broadcasts/${broadcastId}/end`)
@@ -103,7 +53,12 @@ export default function Broadcast() {
     }
     setIsLive(false)
     setBroadcastId('')
-    setAudioLevel(0)
+  }
+
+  function copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   if (!user || (user.role !== 'broadcaster' && user.role !== 'admin')) {
@@ -111,50 +66,69 @@ export default function Broadcast() {
   }
 
   return (
-    <div className="container-custom py-8 lg:py-12">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen py-8 lg:py-12" style={{ background: 'var(--ink)', color: 'var(--parchment)' }}>
+      <div className="max-w-2xl mx-auto px-6">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <Radio className="w-8 h-8 text-white" />
+          <div 
+            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+            style={{ background: 'var(--gold)' }}
+          >
+            <Radio className="w-8 h-8" style={{ color: '#1b1208' }} />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Broadcast Studio</h1>
-          <p className="text-gray-600 mt-2">Go live and connect with your congregation</p>
+          <h1 className="text-3xl font-bold" style={{ fontFamily: 'Cormorant Garamond, Georgia, serif' }}>Broadcast Studio</h1>
+          <p className="mt-2" style={{ color: 'var(--dim)' }}>Go live via Church Online Platform</p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 rounded-xl bg-red-50 text-red-700 text-sm border border-red-100 flex items-center gap-3">
+          <div 
+            className="mb-6 p-4 rounded-xl text-sm flex items-center gap-3"
+            style={{ background: 'rgba(220,38,38,0.1)', color: '#fca5a5', border: '1px solid rgba(220,38,38,0.2)' }}
+          >
             <AlertCircle className="w-5 h-5" />
             {error}
           </div>
         )}
 
-        <div className="card overflow-hidden">
+        <div 
+          className="rounded-2xl overflow-hidden"
+          style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}
+        >
           {!isLive ? (
             <div className="p-8">
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Broadcast Title</label>
+                  <label className="block text-sm font-medium mb-2">Broadcast Title</label>
                   <input
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="e.g., Sunday Morning Service"
-                    className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow"
+                    className="w-full rounded-xl px-4 py-3 text-sm border"
+                    style={{ 
+                      background: 'var(--ink)', 
+                      borderColor: 'var(--line)', 
+                      color: 'var(--parchment)'
+                    }}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                  <label className="block text-sm font-medium mb-2">Description</label>
                   <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     rows={3}
                     placeholder="Optional description..."
-                    className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow resize-none"
+                    className="w-full rounded-xl px-4 py-3 text-sm border resize-none"
+                    style={{ 
+                      background: 'var(--ink)', 
+                      borderColor: 'var(--line)', 
+                      color: 'var(--parchment)'
+                    }}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-primary-600" />
+                  <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                    <BookOpen className="w-4 h-4" style={{ color: 'var(--gold)' }} />
                     Scripture Reference
                   </label>
                   <input
@@ -162,98 +136,149 @@ export default function Broadcast() {
                     value={scripture}
                     onChange={(e) => setScripture(e.target.value)}
                     placeholder="e.g., Romans 8:1-17"
-                    className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow"
+                    className="w-full rounded-xl px-4 py-3 text-sm border"
+                    style={{ 
+                      background: 'var(--ink)', 
+                      borderColor: 'var(--line)', 
+                      color: 'var(--parchment)'
+                    }}
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                    <ExternalLink className="w-4 h-4" style={{ color: 'var(--gold)' }} />
+                    Church Online URL (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={churchOnlineUrl}
+                    onChange={(e) => setChurchOnlineUrl(e.target.value)}
+                    placeholder="https://online.church/your-church or custom embed URL"
+                    className="w-full rounded-xl px-4 py-3 text-sm border"
+                    style={{ 
+                      background: 'var(--ink)', 
+                      borderColor: 'var(--line)', 
+                      color: 'var(--parchment)'
+                    }}
+                  />
+                  <p className="text-xs mt-1" style={{ color: 'var(--dim)' }}>
+                    Leave empty to use default: https://online.church/zionitefm
+                  </p>
                 </div>
                 <div className="pt-2">
                   <button
                     onClick={startBroadcast}
-                    disabled={!connected}
-                    className="w-full btn-primary py-4 text-lg"
+                    className="w-full py-4 text-lg font-medium rounded-xl"
+                    style={{ background: 'var(--gold)', color: '#1b1208' }}
                   >
-                    <Mic className="w-5 h-5 mr-2" />
-                    {connected ? 'Go Live' : 'Connecting...'}
+                    <Radio className="w-5 h-5 inline mr-2" />
+                    Go Live
                   </button>
-                  {!connected && (
-                    <p className="text-sm text-gray-500 text-center mt-3">Waiting for server connection...</p>
-                  )}
                 </div>
               </div>
             </div>
           ) : (
             <div>
               {/* Live Header */}
-              <div className="bg-gradient-to-r from-primary-600 to-primary-700 p-6 text-white">
+              <div 
+                className="p-6 text-white"
+                style={{ background: 'var(--gold)' }}
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="relative">
-                      <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center">
-                        <Mic className="w-7 h-7 text-white" />
+                      <div 
+                        className="w-14 h-14 rounded-full flex items-center justify-center"
+                        style={{ background: 'rgba(27,18,8,0.2)' }}
+                      >
+                        <Radio className="w-7 h-7" style={{ color: '#1b1208' }} />
                       </div>
                       <span className="absolute -top-1 -right-1 flex h-4 w-4">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-                        <span className="relative inline-flex rounded-full h-4 w-4 bg-white" />
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: '#1b1208' }} />
+                        <span className="relative inline-flex rounded-full h-4 w-4" style={{ background: '#1b1208' }} />
                       </span>
                     </div>
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="px-2 py-0.5 bg-white/20 rounded text-xs font-semibold uppercase tracking-wide">Live</span>
-                        <Signal className="w-4 h-4 text-green-300" />
+                        <span 
+                          className="px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide"
+                          style={{ background: 'rgba(27,18,8,0.2)', color: '#1b1208' }}
+                        >
+                          Live
+                        </span>
                       </div>
-                      <h2 className="text-xl font-bold">{title}</h2>
+                      <h2 className="text-xl font-bold" style={{ color: '#1b1208' }}>{title}</h2>
                     </div>
                   </div>
                   <button
                     onClick={stopBroadcast}
-                    className="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm font-medium flex items-center gap-2 transition-colors backdrop-blur"
+                    className="px-5 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 transition-colors"
+                    style={{ background: 'rgba(27,18,8,0.2)', color: '#1b1208' }}
                   >
-                    <MicOff className="w-4 h-4" />
                     End Broadcast
                   </button>
                 </div>
               </div>
 
-              {/* Live Controls */}
+              {/* Live Info */}
               <div className="p-6 space-y-6">
-                {/* Audio Level Meter */}
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-                    <div className="flex items-center gap-2">
-                      <Volume2 className="w-4 h-4" />
-                      <span>Audio Level</span>
-                    </div>
-                    <span className="font-medium">{Math.round(audioLevel * 100)}%</span>
+                {/* Church Online Platform Link */}
+                <div 
+                  className="rounded-xl p-4"
+                  style={{ background: 'var(--ink)', border: '1px solid var(--line)' }}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">Church Online Platform</span>
+                    <span className="text-xs" style={{ color: 'var(--dim)' }}>Stream via this link</span>
                   </div>
-                  <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-primary-400 to-primary-600 transition-all duration-100"
-                      style={{ width: `${audioLevel * 100}%` }}
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={churchOnlineUrl || 'https://online.church/zionitefm'}
+                      className="flex-1 rounded-lg px-3 py-2 text-sm border"
+                      style={{ 
+                        background: 'var(--ink-2)', 
+                        borderColor: 'var(--line)',
+                        color: 'var(--parchment)'
+                      }}
                     />
+                    <button
+                      onClick={() => copyToClipboard(churchOnlineUrl || 'https://online.church/zionitefm')}
+                      className="px-3 py-2 rounded-lg flex items-center gap-1 text-sm"
+                      style={{ background: 'var(--gold)', color: '#1b1208' }}
+                    >
+                      {copied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      {copied ? 'Copied!' : 'Copy'}
+                    </button>
                   </div>
                 </div>
 
                 {/* Broadcast Details */}
                 <div className="space-y-3">
                   <div className="flex items-start gap-3 text-sm">
-                    <FileText className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <FileText className="w-5 h-5 mt-0.5" style={{ color: 'var(--dim)' }} />
                     <div>
-                      <span className="font-medium text-gray-700">Description</span>
-                      <p className="text-gray-600">{description || 'No description provided'}</p>
+                      <span className="font-medium">Description</span>
+                      <p style={{ color: 'var(--dim)' }}>{description || 'No description provided'}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3 text-sm">
-                    <BookOpen className="w-5 h-5 text-primary-500 mt-0.5" />
+                    <BookOpen className="w-5 h-5 mt-0.5" style={{ color: 'var(--gold)' }} />
                     <div>
-                      <span className="font-medium text-gray-700">Scripture</span>
-                      <p className="text-gray-600">{scripture || 'No scripture reference'}</p>
+                      <span className="font-medium">Scripture</span>
+                      <p style={{ color: 'var(--dim)' }}>{scripture || 'No scripture reference'}</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Tips */}
-                <div className="bg-primary-50 rounded-xl p-4 border border-primary-100">
-                  <p className="text-sm text-primary-800">
-                    <span className="font-semibold">Pro tip:</span> Keep an eye on your audio levels. Aim for the green zone (50-80%) for optimal sound quality.
+                {/* Instructions */}
+                <div 
+                  className="rounded-xl p-4"
+                  style={{ background: 'var(--ink)', border: '1px solid var(--line)' }}
+                >
+                  <p className="text-sm" style={{ color: 'var(--dim)' }}>
+                    <span className="font-semibold" style={{ color: 'var(--parchment)' }}>How to stream:</span> Use OBS, StreamYard, or Church Online Platform directly. Share the link above with your team. The live page will automatically show your stream to listeners.
                   </p>
                 </div>
               </div>

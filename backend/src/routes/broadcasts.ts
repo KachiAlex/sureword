@@ -14,6 +14,16 @@ router.get('/active', async (_req, res) => {
   res.json({ broadcast: broadcast || null })
 })
 
+router.get('/:id', async (req, res) => {
+  const db = await getDb()
+  const broadcast = await db.get('SELECT * FROM broadcasts WHERE id = $1', [req.params.id])
+  if (!broadcast) {
+    res.status(404).json({ error: 'Broadcast not found' })
+    return
+  }
+  res.json({ broadcast })
+})
+
 router.get('/', async (_req, res) => {
   const db = await getDb()
   const broadcasts = await db.all(
@@ -39,7 +49,7 @@ router.post(
   authenticateToken,
   requireRole('broadcaster', 'admin'),
   async (req: AuthRequest, res) => {
-    const { title, description, scripture_reference } = req.body
+    const { title, description, scripture_reference, church_online_url } = req.body
     if (!title) {
       res.status(400).json({ error: 'Title is required' })
       return
@@ -57,8 +67,8 @@ router.post(
 
     const id = uuidv4()
     await db.run(
-      'INSERT INTO broadcasts (id, title, description, scripture_reference, status, started_at, broadcaster_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-      [id, title, description || '', scripture_reference || '', 'live', new Date().toISOString(), req.user!.id]
+      'INSERT INTO broadcasts (id, title, description, scripture_reference, status, started_at, broadcaster_id, church_online_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+      [id, title, description || '', scripture_reference || '', 'live', new Date().toISOString(), req.user!.id, church_online_url || null]
     )
 
     const broadcast = await db.get('SELECT * FROM broadcasts WHERE id = $1', [id])

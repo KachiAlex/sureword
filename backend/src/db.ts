@@ -1,4 +1,5 @@
 import { Pool, PoolClient, QueryResult } from 'pg'
+import { v4 as uuidv4 } from 'uuid'
 import dotenv from 'dotenv'
 
 dotenv.config()
@@ -72,7 +73,8 @@ export async function initDb() {
         broadcaster_id TEXT NOT NULL,
         audio_path TEXT,
         stream_key TEXT,
-        stream_type TEXT DEFAULT 'sse',
+        stream_type TEXT DEFAULT 'church_online',
+        church_online_url TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (broadcaster_id) REFERENCES users(id)
       )
@@ -82,7 +84,10 @@ export async function initDb() {
       ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS stream_key TEXT
     `)
     await db.query(`
-      ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS stream_type TEXT DEFAULT 'sse'
+      ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS stream_type TEXT DEFAULT 'church_online'
+    `)
+    await db.query(`
+      ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS church_online_url TEXT
     `)
 
     await db.query(`
