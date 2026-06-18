@@ -8,6 +8,12 @@ dotenv.config()
 const rawUrl = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_n9ep6PLNzBIS@ep-wandering-block-ahfs3q45-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require'
 const connectionString = rawUrl.replace('-pooler.', '.').replace(/\?.*$/, '')
 
+// Debug: log which host we're connecting to (no credentials)
+try {
+  const u = new URL(connectionString)
+  console.log(`DB host: ${u.hostname}`)
+} catch { /* ignore */ }
+
 type SqlQueryFn = {
   query: (sql: string, params?: any[]) => Promise<{ rows: any[]; rowCount: number | null }>
 }
