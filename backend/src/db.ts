@@ -1,72 +1,34 @@
-import { neon } from '@neondatabase/serverless'
+import { createPool, sql } from '@vercel/postgres'
 import { v4 as uuidv4 } from 'uuid'
 import dotenv from 'dotenv'
 
 dotenv.config()
 
-let _sql: any = null
-
-function getSql() {
-  if (_sql) return _sql
-
-  const rawUrl = process.env.DATABASE_URL
-  if (!rawUrl) {
-    throw new Error('DATABASE_URL environment variable is required')
-  }
-
-  // Log that we received something (mask credentials)
-  const masked = rawUrl.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')
-  console.log(`DATABASE_URL received: ${masked}`)
-
-  // Use raw string — neon() handles postgres:// and postgresql://
-  const cs = rawUrl.trim()
-  console.log(`Connecting to Neon...`)
-
-  _sql = neon(cs, { fullResults: true })
-  return _sql
-}
-
-async function queryWithTimeout(sqlFn: any, queryStr: string, params?: any[], timeoutMs = 8000) {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    // @neondatabase/serverless doesn't use AbortController directly,
-    // but we wrap in Promise.race for timeout
-    const resultPromise = sqlFn.query(queryStr, params)
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Query timed out after ' + timeoutMs + 'ms')), timeoutMs)
-    })
-    return await Promise.race([resultPromise, timeoutPromise])
-  } finally {
-    clearTimeout(timeout)
-  }
-}
+// @vercel/postgres reads DATABASE_URL automatically from env vars
+const pool = createPool({ connectionString: process.env.DATABASE_URL })
 
 export interface DbClient {
-  query(sql: string, params?: any[]): Promise<{ rows: any[]; rowCount: number | null }>
-  get<T extends Record<string, any> = any>(sql: string, params?: any[]): Promise<T | undefined>
-  all<T extends Record<string, any> = any>(sql: string, params?: any[]): Promise<T[]>
-  run(sql: string, params?: any[]): Promise<{ lastID: number; changes: number }>
+  query(sqlStr: string, params?: any[]): Promise<{ rows: any[]; rowCount: number | null }>
+  get<T extends Record<string, any> = any>(sqlStr: string, params?: any[]): Promise<T | undefined>
+  all<T extends Record<string, any> = any>(sqlStr: string, params?: any[]): Promise<T[]>
+  run(sqlStr: string, params?: any[]): Promise<{ lastID: number; changes: number }>
 }
 
 export const db: DbClient = {
   async query(sqlStr: string, params?: any[]) {
-    const sql = getSql() as any
-    return queryWithTimeout(sql, sqlStr, params) as any
+    const result = await pool.query(sqlStr, params)
+    return { rows: result.rows as any[], rowCount: result.rowCount }
   },
   async get<T extends Record<string, any> = any>(sqlStr: string, params?: any[]) {
-    const sql = getSql() as any
-    const result = await queryWithTimeout(sql, sqlStr, params) as any
+    const result = await pool.query(sqlStr, params)
     return result.rows[0] as T | undefined
   },
   async all<T extends Record<string, any> = any>(sqlStr: string, params?: any[]) {
-    const sql = getSql() as any
-    const result = await queryWithTimeout(sql, sqlStr, params) as any
+    const result = await pool.query(sqlStr, params)
     return result.rows as T[]
   },
   async run(sqlStr: string, params?: any[]) {
-    const sql = getSql() as any
-    const result = await queryWithTimeout(sql, sqlStr, params) as any
+    const result = await pool.query(sqlStr, params)
     return { lastID: 0, changes: result.rowCount || 0 }
   }
 }

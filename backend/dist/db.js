@@ -39,61 +39,27 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.db = void 0;
 exports.getDb = getDb;
 exports.initDb = initDb;
-const serverless_1 = require("@neondatabase/serverless");
+const postgres_1 = require("@vercel/postgres");
 const uuid_1 = require("uuid");
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
-let _sql = null;
-function getSql() {
-    if (_sql)
-        return _sql;
-    const rawUrl = process.env.DATABASE_URL;
-    if (!rawUrl) {
-        throw new Error('DATABASE_URL environment variable is required');
-    }
-    // Log that we received something (mask credentials)
-    const masked = rawUrl.replace(/\/\/[^:]+:[^@]+@/, '//***:***@');
-    console.log(`DATABASE_URL received: ${masked}`);
-    // Use raw string — neon() handles postgres:// and postgresql://
-    const cs = rawUrl.trim();
-    console.log(`Connecting to Neon...`);
-    _sql = (0, serverless_1.neon)(cs, { fullResults: true });
-    return _sql;
-}
-async function queryWithTimeout(sqlFn, queryStr, params, timeoutMs = 8000) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-        // @neondatabase/serverless doesn't use AbortController directly,
-        // but we wrap in Promise.race for timeout
-        const resultPromise = sqlFn.query(queryStr, params);
-        const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Query timed out after ' + timeoutMs + 'ms')), timeoutMs);
-        });
-        return await Promise.race([resultPromise, timeoutPromise]);
-    }
-    finally {
-        clearTimeout(timeout);
-    }
-}
+// @vercel/postgres reads DATABASE_URL automatically from env vars
+const pool = (0, postgres_1.createPool)({ connectionString: process.env.DATABASE_URL });
 exports.db = {
     async query(sqlStr, params) {
-        const sql = getSql();
-        return queryWithTimeout(sql, sqlStr, params);
+        const result = await pool.query(sqlStr, params);
+        return { rows: result.rows, rowCount: result.rowCount };
     },
     async get(sqlStr, params) {
-        const sql = getSql();
-        const result = await queryWithTimeout(sql, sqlStr, params);
+        const result = await pool.query(sqlStr, params);
         return result.rows[0];
     },
     async all(sqlStr, params) {
-        const sql = getSql();
-        const result = await queryWithTimeout(sql, sqlStr, params);
+        const result = await pool.query(sqlStr, params);
         return result.rows;
     },
     async run(sqlStr, params) {
-        const sql = getSql();
-        const result = await queryWithTimeout(sql, sqlStr, params);
+        const result = await pool.query(sqlStr, params);
         return { lastID: 0, changes: result.rowCount || 0 };
     }
 };
