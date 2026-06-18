@@ -203,12 +203,15 @@ async function initDb() {
         ($3, 'Prayer Meeting', 5, '18:00', 'prayer')
       `, [(0, uuid_1.v4)(), (0, uuid_1.v4)(), (0, uuid_1.v4)()]);
         }
-        // Seed an admin user if none exists
+        // Seed an admin user if none exists, or update existing admin email
         const admin = await db.get('SELECT * FROM users WHERE role = $1', ['admin']);
         if (!admin) {
             const bcrypt = await Promise.resolve().then(() => __importStar(require('bcryptjs')));
             const hash = await bcrypt.hash('admin123', 10);
-            await db.run(`INSERT INTO users (id, email, password_hash, name, role) VALUES ($1, $2, $3, $4, $5)`, ['admin-1', 'admin@zionitefm.com', hash, 'Admin User', 'admin']);
+            await db.run(`INSERT INTO users (id, email, password_hash, name, role) VALUES ($1, $2, $3, $4, $5)`, ['admin-1', 'admin@zionite.online', hash, 'Admin User', 'admin']);
+        }
+        else if (admin.email === 'admin@zionitefm.com') {
+            await db.run(`UPDATE users SET email = $1 WHERE id = $2`, ['admin@zionite.online', admin.id]);
         }
     }
     finally {
