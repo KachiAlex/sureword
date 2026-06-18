@@ -1,10 +1,9 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
-import { useSocket } from '../hooks/useSocket'
 import { useAuth } from '../contexts/AuthContext'
 import { 
-  Play, Pause, ArrowRight, HomeIcon, Archive, Heart, MessageSquare
+  ArrowRight, HomeIcon, Archive, Heart, MessageSquare
 } from 'lucide-react'
 
 interface Broadcast {
@@ -175,14 +174,6 @@ export default function Home() {
   const [sermons, setSermons] = useState<Sermon[]>([])
   const [stats, setStats] = useState<Stats>({ listening: 0, peak: 0, avg: 0 })
   const [loading, setLoading] = useState(true)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [isMuted, setIsMuted] = useState(false)
-  const [listenerCount, setListenerCount] = useState(182)
-  const audioContextRef = useRef<AudioContext | null>(null)
-  const queueRef = useRef<AudioBuffer[]>([])
-  const isPlayingChunkRef = useRef(false)
-  const nextTimeRef = useRef(0)
-  const { socket, connected } = useSocket()
   const { user } = useAuth()
 
   useEffect(() => {
@@ -190,16 +181,6 @@ export default function Home() {
     const interval = setInterval(fetchData, 30000)
     return () => clearInterval(interval)
   }, [])
-
-  useEffect(() => {
-    if (!socket) return
-    socket.on('audio-chunk', handleAudioChunk)
-    socket.on('listener-count', (count: number) => setListenerCount(count))
-    return () => {
-      socket.off('audio-chunk', handleAudioChunk)
-      socket.off('listener-count')
-    }
-  }, [socket])
 
   async function fetchData() {
     try {
@@ -231,60 +212,6 @@ export default function Home() {
       // Silent fail - keep existing data
     } finally {
       setLoading(false)
-    }
-  }
-
-  async function fetchActiveBroadcast() {
-    try {
-      const { data } = await axios.get('/api/broadcasts/active')
-      setBroadcast(data.broadcast)
-    } catch {
-      // No active broadcast
-    }
-  }
-
-  function handleAudioChunk({ chunk }: { chunk: ArrayBuffer }) {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new AudioContext()
-    }
-    const ctx = audioContextRef.current
-    ctx.decodeAudioData(chunk.slice(0), (buffer: AudioBuffer) => {
-      queueRef.current.push(buffer)
-      if (isPlaying && !isPlayingChunkRef.current) {
-        playNextChunk()
-      }
-    })
-  }
-
-  function playNextChunk() {
-    if (!audioContextRef.current || queueRef.current.length === 0) {
-      isPlayingChunkRef.current = false
-      return
-    }
-    isPlayingChunkRef.current = true
-    const ctx = audioContextRef.current
-    const buffer = queueRef.current.shift()!
-    const source = ctx.createBufferSource()
-    source.buffer = buffer
-    source.connect(ctx.destination)
-    if (nextTimeRef.current < ctx.currentTime) {
-      nextTimeRef.current = ctx.currentTime
-    }
-    source.start(nextTimeRef.current)
-    nextTimeRef.current += buffer.duration
-    source.onended = playNextChunk
-  }
-
-  function togglePlay() {
-    if (!isPlaying) {
-      setIsPlaying(true)
-      if (audioContextRef.current?.state === 'suspended') {
-        audioContextRef.current.resume()
-      }
-      playNextChunk()
-    } else {
-      setIsPlaying(false)
-      audioContextRef.current?.suspend()
     }
   }
 
@@ -433,7 +360,7 @@ export default function Home() {
             <div className="flex items-center gap-2.5">
               <ArrowRight size={18} style={{ color: 'var(--dim)', transform: 'rotate(180deg)' }} />
               <div>
-                <Eyebrow><LiveDot /> LIVE · {listenerCount} LISTENING</Eyebrow>
+                <Eyebrow><LiveDot /> LIVE NOW</Eyebrow>
                 <div className="font-serif text-base" style={{ fontWeight: 500 }}>
                   {broadcast?.title || 'Sunday Gathering'}
                 </div>
@@ -443,17 +370,13 @@ export default function Home() {
             <Waveform isLive={isLive} />
 
             <div className="flex justify-center">
-              <button 
-                onClick={togglePlay}
-                className="w-14 h-14 rounded-full flex items-center justify-center border-0 cursor-pointer"
+              <Link
+                to={broadcast?.id ? `/live/${broadcast.id}` : '/live'}
+                className="w-14 h-14 rounded-full flex items-center justify-center border-0 no-underline"
                 style={{ background: 'var(--gold)', color: '#1b1208' }}
               >
-                {isPlaying ? (
-                  <Pause size={20} fill="currentColor" />
-                ) : (
-                  <Play size={20} fill="currentColor" className="ml-0.5" />
-                )}
-              </button>
+                <span className="text-xs font-medium">Watch</span>
+              </Link>
             </div>
 
             <Card className="text-center">
