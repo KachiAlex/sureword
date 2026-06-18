@@ -43,13 +43,8 @@ const pg_1 = require("pg");
 const uuid_1 = require("uuid");
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
-const connectionString = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_n9ep6PLNzBIS@ep-wandering-block-ahfs3q45-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
-const pool = new pg_1.Pool({
-    connectionString,
-    ssl: {
-        rejectUnauthorized: false
-    }
-});
+const connectionString = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_n9ep6PLNzBIS@ep-wandering-block-ahfs3q45-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require';
+const pool = new pg_1.Pool({ connectionString });
 function createDbClient(client) {
     return {
         async query(sql, params) {
