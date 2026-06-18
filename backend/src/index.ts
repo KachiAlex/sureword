@@ -24,20 +24,31 @@ app.use(cors())
 app.use(express.json({ limit: '10mb' }))
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')))
 
-app.use('/api/auth', authRoutes)
-app.use('/api/broadcasts', broadcastRoutes)
-app.use('/api/sermons', sermonRoutes)
-app.use('/api/status', statusRoutes)
+// Mount all API routes at root (Vercel will add /api prefix)
+app.use('/auth', authRoutes)
+app.use('/broadcasts', broadcastRoutes)
+app.use('/sermons', sermonRoutes)
+app.use('/status', statusRoutes)
+
+// Health check
+app.get('/', (_req, res) => {
+  res.json({ status: 'API is running' })
+})
 
 setupStreaming(io)
 
-const PORT = process.env.PORT || 3001
+// Export for Vercel serverless
+import serverless from 'serverless-http'
+export default serverless(app)
 
-async function start() {
-  await initDb()
-  httpServer.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`)
-  })
+// Local development
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  const PORT = process.env.PORT || 3001
+  async function start() {
+    await initDb()
+    httpServer.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`)
+    })
+  }
+  start()
 }
-
-start()
