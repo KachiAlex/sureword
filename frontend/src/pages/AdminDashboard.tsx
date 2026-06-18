@@ -69,49 +69,64 @@ export default function AdminDashboard() {
 
   if (!user || user.role !== 'admin') return null
 
-  return (
-    <div className="container-custom py-8 lg:py-12">
-      <div className="text-center mb-10">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center mx-auto mb-4 shadow-lg">
-          <LayoutDashboard className="w-8 h-8 text-white" />
-        </div>
-        <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-        <p className="text-gray-600 mt-2">Manage broadcasts and monitor platform activity</p>
-      </div>
+  const tabBase = 'px-4 py-2 rounded-xl text-sm font-medium transition-colors inline-flex items-center gap-2'
+  const tabActive = 'text-[#1b1208]'
+  const tabInactive = 'text-[var(--dim)] hover:text-[var(--parchment)]'
 
-      <div className="max-w-5xl mx-auto">
+  return (
+    <div className="min-h-screen py-8 lg:py-12" style={{ background: 'var(--ink)', color: 'var(--parchment)' }}>
+      <div className="max-w-5xl mx-auto px-6">
+        {/* Header */}
+        <div className="text-center mb-10">
+          <div
+            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+            style={{ background: 'var(--gold)' }}
+          >
+            <LayoutDashboard className="w-8 h-8" style={{ color: '#1b1208' }} />
+          </div>
+          <h1
+            className="text-3xl font-bold"
+            style={{ fontFamily: 'Cormorant Garamond, Georgia, serif' }}
+          >
+            Admin Dashboard
+          </h1>
+          <p className="mt-2" style={{ color: 'var(--dim)' }}>
+            Manage broadcasts and monitor platform activity
+          </p>
+        </div>
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-          <div className="card p-6">
+          <div className="p-6 rounded-2xl" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center">
-                <Radio className="w-6 h-6 text-primary-600" />
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(201,162,39,0.08)' }}>
+                <Radio className="w-6 h-6" style={{ color: 'var(--gold)' }} />
               </div>
               <div>
-                <p className="text-sm text-gray-500">Total Broadcasts</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
+                <p className="text-sm" style={{ color: 'var(--dim)' }}>Total Broadcasts</p>
+                <p className="text-3xl font-bold">{stats.total}</p>
               </div>
             </div>
           </div>
-          <div className="card p-6">
+          <div className="p-6 rounded-2xl" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center">
-                <Signal className="w-6 h-6 text-green-600" />
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(74,222,128,0.08)' }}>
+                <Signal className="w-6 h-6" style={{ color: '#4ade80' }} />
               </div>
               <div>
-                <p className="text-sm text-gray-500">Live Now</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.live}</p>
+                <p className="text-sm" style={{ color: 'var(--dim)' }}>Live Now</p>
+                <p className="text-3xl font-bold">{stats.live}</p>
               </div>
             </div>
           </div>
-          <div className="card p-6">
+          <div className="p-6 rounded-2xl" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center">
-                <Headphones className="w-6 h-6 text-gray-600" />
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(243,238,228,0.06)' }}>
+                <Headphones className="w-6 h-6" style={{ color: 'var(--dim)' }} />
               </div>
               <div>
-                <p className="text-sm text-gray-500">Ended</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.ended}</p>
+                <p className="text-sm" style={{ color: 'var(--dim)' }}>Ended</p>
+                <p className="text-3xl font-bold">{stats.ended}</p>
               </div>
             </div>
           </div>
@@ -121,105 +136,123 @@ export default function AdminDashboard() {
         <div className="flex items-center gap-2 mb-6">
           <button
             onClick={() => setActiveTab('broadcasts')}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-              activeTab === 'broadcasts'
-                ? 'bg-primary-100 text-primary-700'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
+            className={tabBase}
+            style={activeTab === 'broadcasts' ? { background: 'var(--gold)', color: '#1b1208' } : { color: 'var(--dim)' }}
+            onMouseEnter={e => activeTab !== 'broadcasts' && (e.currentTarget.style.color = 'var(--parchment)')}
+            onMouseLeave={e => activeTab !== 'broadcasts' && (e.currentTarget.style.color = 'var(--dim)')}
           >
-            <Radio className="w-4 h-4 inline mr-2" />
+            <Radio className="w-4 h-4" />
             Broadcasts
           </button>
           <button
             onClick={() => setActiveTab('users')}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-              activeTab === 'users'
-                ? 'bg-primary-100 text-primary-700'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
+            className={tabBase}
+            style={activeTab === 'users' ? { background: 'var(--gold)', color: '#1b1208' } : { color: 'var(--dim)' }}
+            onMouseEnter={e => activeTab !== 'users' && (e.currentTarget.style.color = 'var(--parchment)')}
+            onMouseLeave={e => activeTab !== 'users' && (e.currentTarget.style.color = 'var(--dim)')}
           >
-            <Users className="w-4 h-4 inline mr-2" />
+            <Users className="w-4 h-4" />
             Users ({users.length})
           </button>
         </div>
 
         {/* Content */}
         {activeTab === 'broadcasts' ? (
-        <div className="card overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-            <h2 className="font-semibold text-gray-900">Recent Broadcasts</h2>
-          </div>
-          {loading ? (
-            <div className="p-12 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto" />
-              <p className="text-gray-500 mt-4">Loading broadcasts...</p>
+          <div className="overflow-hidden rounded-2xl" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
+            <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--line)', background: 'rgba(243,238,228,0.03)' }}>
+              <h2 className="font-semibold">Recent Broadcasts</h2>
             </div>
-          ) : broadcasts.length === 0 ? (
-            <div className="p-12 text-center">
-              <Radio className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">No broadcasts yet</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {broadcasts.map(b => (
-                <div key={b.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
-                  <div>
-                    <p className="font-medium text-gray-900">{b.title}</p>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      {b.started_at ? new Date(b.started_at).toLocaleString() : 'Scheduled'}
-                    </p>
-                  </div>
-                  <span className={`text-xs px-3 py-1 rounded-full font-medium ${
-                    b.status === 'live' 
-                      ? 'bg-primary-100 text-primary-700' 
-                      : b.status === 'ended' 
-                        ? 'bg-gray-100 text-gray-700' 
-                        : 'bg-yellow-100 text-yellow-700'
-                  }`}>
-                    {b.status}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        ) : (
-        <div className="card overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-            <h2 className="font-semibold text-gray-900">User Management</h2>
-          </div>
-          {loading ? (
-            <div className="p-12 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto" />
-              <p className="text-gray-500 mt-4">Loading users...</p>
-            </div>
-          ) : users.length === 0 ? (
-            <div className="p-12 text-center">
-              <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">No users yet</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {users.map(u => (
-                <div key={u.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
-                  <div>
-                    <p className="font-medium text-gray-900">{u.name || u.email}</p>
-                    <p className="text-sm text-gray-500 mt-0.5">{u.email}</p>
-                  </div>
-                  <select
-                    value={u.role}
-                    onChange={(e) => updateUserRole(u.id, e.target.value)}
-                    className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            {loading ? (
+              <div className="p-12 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto" style={{ borderColor: 'var(--gold)' }} />
+                <p className="mt-4 text-sm" style={{ color: 'var(--dim)' }}>Loading broadcasts...</p>
+              </div>
+            ) : broadcasts.length === 0 ? (
+              <div className="p-12 text-center">
+                <Radio className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--line)' }} />
+                <p style={{ color: 'var(--dim)' }}>No broadcasts yet</p>
+              </div>
+            ) : (
+              <div>
+                {broadcasts.map(b => (
+                  <div
+                    key={b.id}
+                    className="px-6 py-4 flex items-center justify-between transition-colors"
+                    style={{ borderBottom: '1px solid var(--line)' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(243,238,228,0.03)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
-                    <option value="listener">Listener</option>
-                    <option value="broadcaster">Broadcaster</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </div>
-              ))}
+                    <div>
+                      <p className="font-medium">{b.title}</p>
+                      <p className="text-sm mt-0.5" style={{ color: 'var(--dim)' }}>
+                        {b.started_at ? new Date(b.started_at).toLocaleString() : 'Scheduled'}
+                      </p>
+                    </div>
+                    <span
+                      className="text-xs px-3 py-1 rounded-full font-medium"
+                      style={
+                        b.status === 'live'
+                          ? { background: 'rgba(201,162,39,0.12)', color: 'var(--gold)' }
+                          : b.status === 'ended'
+                            ? { background: 'rgba(243,238,228,0.06)', color: 'var(--dim)' }
+                            : { background: 'rgba(234,179,8,0.12)', color: '#eab308' }
+                      }
+                    >
+                      {b.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-2xl" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
+            <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--line)', background: 'rgba(243,238,228,0.03)' }}>
+              <h2 className="font-semibold">User Management</h2>
             </div>
-          )}
-        </div>
+            {loading ? (
+              <div className="p-12 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto" style={{ borderColor: 'var(--gold)' }} />
+                <p className="mt-4 text-sm" style={{ color: 'var(--dim)' }}>Loading users...</p>
+              </div>
+            ) : users.length === 0 ? (
+              <div className="p-12 text-center">
+                <Users className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--line)' }} />
+                <p style={{ color: 'var(--dim)' }}>No users yet</p>
+              </div>
+            ) : (
+              <div>
+                {users.map(u => (
+                  <div
+                    key={u.id}
+                    className="px-6 py-4 flex items-center justify-between transition-colors"
+                    style={{ borderBottom: '1px solid var(--line)' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(243,238,228,0.03)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <div>
+                      <p className="font-medium">{u.name || u.email}</p>
+                      <p className="text-sm mt-0.5" style={{ color: 'var(--dim)' }}>{u.email}</p>
+                    </div>
+                    <select
+                      value={u.role}
+                      onChange={(e) => updateUserRole(u.id, e.target.value)}
+                      className="text-sm rounded-lg px-3 py-1.5 border"
+                      style={{
+                        background: 'var(--ink)',
+                        borderColor: 'var(--line)',
+                        color: 'var(--parchment)'
+                      }}
+                    >
+                      <option value="listener" style={{ background: 'var(--ink-2)' }}>Listener</option>
+                      <option value="broadcaster" style={{ background: 'var(--ink-2)' }}>Broadcaster</option>
+                      <option value="admin" style={{ background: 'var(--ink-2)' }}>Admin</option>
+                    </select>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
