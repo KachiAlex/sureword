@@ -25,8 +25,7 @@ export default function Login() {
       const payload = isRegister ? { email, password, name } : { email, password }
       const { data } = await axios.post(endpoint, payload)
       login(data.token, data.user)
-      
-      // Route to role-based dashboard
+
       switch (data.user.role) {
         case 'admin':
           navigate('/admin')
@@ -47,10 +46,16 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-brand-50 flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--ink)', color: 'var(--parchment)' }}>
       {/* Header */}
-      <header className="container-custom py-6">
-        <Link to="/" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
+      <header className="max-w-6xl mx-auto w-full px-6 py-6">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-2 text-sm no-underline transition-colors"
+          style={{ color: 'var(--dim)' }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--parchment)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--dim)')}
+        >
           <ArrowLeft className="w-4 h-4" />
           Back to home
         </Link>
@@ -61,21 +66,33 @@ export default function Login() {
         <div className="w-full max-w-md">
           {/* Logo */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center mx-auto mb-4 shadow-lg">
-              <Radio className="w-8 h-8 text-white" />
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{ background: 'var(--gold)' }}
+            >
+              <Radio className="w-8 h-8" style={{ color: '#1b1208' }} />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1
+              className="text-2xl font-bold"
+              style={{ fontFamily: 'Cormorant Garamond, Georgia, serif' }}
+            >
               {isRegister ? 'Create Account' : 'Welcome Back'}
             </h1>
-            <p className="text-gray-600 mt-2">
-              {isRegister ? 'Join Zionitefm to start broadcasting' : 'Sign in to your account'}
+            <p className="mt-2 text-sm" style={{ color: 'var(--dim)' }}>
+              {isRegister ? 'Join Zionite FM to start broadcasting' : 'Sign in to your account'}
             </p>
           </div>
 
           {/* Form Card */}
-          <div className="card p-8">
+          <div
+            className="p-8 rounded-2xl"
+            style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}
+          >
             {error && (
-              <div className="mb-6 p-4 rounded-xl bg-red-50 text-red-700 text-sm border border-red-100">
+              <div
+                className="mb-6 p-4 rounded-xl text-sm border"
+                style={{ background: 'rgba(220,38,38,0.08)', color: '#fca5a5', borderColor: 'rgba(220,38,38,0.15)' }}
+              >
                 {error}
               </div>
             )}
@@ -83,57 +100,74 @@ export default function Login() {
             <form onSubmit={handleSubmit} className="space-y-5">
               {isRegister && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--parchment)' }}>Full Name</label>
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow"
+                    className="w-full rounded-xl px-4 py-3 text-sm border transition-shadow"
+                    style={{
+                      background: 'var(--ink)',
+                      borderColor: 'var(--line)',
+                      color: 'var(--parchment)'
+                    }}
                     placeholder="Enter your name"
                     required
                   />
                 </div>
               )}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--parchment)' }}>Email Address</label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow"
+                  className="w-full rounded-xl px-4 py-3 text-sm border transition-shadow"
+                  style={{
+                    background: 'var(--ink)',
+                    borderColor: 'var(--line)',
+                    color: 'var(--parchment)'
+                  }}
                   placeholder="you@example.com"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--parchment)' }}>Password</label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow"
+                  className="w-full rounded-xl px-4 py-3 text-sm border transition-shadow"
+                  style={{
+                    background: 'var(--ink)',
+                    borderColor: 'var(--line)',
+                    color: 'var(--parchment)'
+                  }}
                   placeholder="Enter your password"
                   required
                   minLength={6}
                 />
-                <p className="text-xs text-gray-500 mt-2">Must be at least 6 characters</p>
+                <p className="text-xs mt-2" style={{ color: 'var(--dim)' }}>Must be at least 6 characters</p>
               </div>
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full btn-primary py-3"
+                className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-medium transition-colors disabled:opacity-60"
+                style={{ background: 'var(--gold)', color: '#1b1208' }}
               >
-                {isRegister ? <UserPlus className="w-5 h-5 mr-2" /> : <LogIn className="w-5 h-5 mr-2" />}
+                {isRegister ? <UserPlus className="w-5 h-5" /> : <LogIn className="w-5 h-5" />}
                 {loading ? 'Please wait...' : isRegister ? 'Create Account' : 'Sign In'}
               </button>
             </form>
 
-            <div className="mt-6 pt-6 border-t border-gray-100">
-              <p className="text-center text-sm text-gray-600">
+            <div className="mt-6 pt-6" style={{ borderTop: '1px solid var(--line)' }}>
+              <p className="text-center text-sm" style={{ color: 'var(--dim)' }}>
                 {isRegister ? 'Already have an account?' : "Don't have an account?"}{' '}
                 <button
                   onClick={() => setIsRegister(!isRegister)}
-                  className="text-primary-600 hover:text-primary-700 font-medium"
+                  className="font-medium underline-offset-2 hover:underline"
+                  style={{ color: 'var(--gold)' }}
                 >
                   {isRegister ? 'Sign in' : 'Create one'}
                 </button>
@@ -141,8 +175,7 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Trust Indicators */}
-          <p className="text-center text-xs text-gray-500 mt-6">
+          <p className="text-center text-xs mt-6" style={{ color: 'var(--dim)' }}>
             By continuing, you agree to our Terms of Service and Privacy Policy
           </p>
         </div>
