@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -33,10 +66,9 @@ app.get('/', (_req, res) => {
 // DB health check
 app.get('/health', async (_req, res) => {
     try {
-        console.log('Health check: testing getSql()...');
-        // Just test that getSql() doesn't throw and connection string is valid
+        const { initDb } = await Promise.resolve().then(() => __importStar(require('./db')));
+        await initDb();
         const result = await db_1.db.get('SELECT NOW() as now');
-        console.log('Health check: query succeeded');
         res.json({ status: 'ok', db: 'connected', now: result?.now });
     }
     catch (err) {
@@ -53,8 +85,7 @@ app.use((err, _req, res, _next) => {
         stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
 });
-// Initialize database lazily — don't block Vercel cold start
-(0, db_1.initDb)().catch(err => console.error('DB init failed (non-blocking):', err?.message || err));
+// Routes call initDb() themselves before querying
 // Export for Vercel serverless
 const serverless_http_1 = __importDefault(require("serverless-http"));
 exports.default = (0, serverless_http_1.default)(app);

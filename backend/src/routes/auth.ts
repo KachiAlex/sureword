@@ -2,12 +2,13 @@ import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { v4 as uuidv4 } from 'uuid'
-import { getDb } from '../db'
+import { getDb, initDb } from '../db'
 import { JWT_SECRET, authenticateToken, AuthRequest, requireRole } from '../middleware/auth'
 
 const router = Router()
 
 router.post('/register', async (req, res) => {
+  await initDb()
   const { email, password, name } = req.body
   if (!email || !password || !name) {
     res.status(400).json({ error: 'Email, password, and name are required' })
@@ -34,6 +35,7 @@ router.post('/register', async (req, res) => {
 
 router.post('/login', async (req, res) => {
   try {
+    await initDb() // ensure tables exist before querying
     const { email, password } = req.body
     if (!email || !password) {
       res.status(400).json({ error: 'Email and password are required' })

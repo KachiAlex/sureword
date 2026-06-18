@@ -1,7 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import path from 'path'
-import { initDb, db } from './db'
+import { db } from './db'
 import authRoutes from './routes/auth'
 import broadcastRoutes from './routes/broadcasts'
 import sermonRoutes from './routes/sermons'
@@ -33,10 +33,9 @@ app.get('/', (_req, res) => {
 // DB health check
 app.get('/health', async (_req, res) => {
   try {
-    console.log('Health check: testing getSql()...')
-    // Just test that getSql() doesn't throw and connection string is valid
+    const { initDb } = await import('./db')
+    await initDb()
     const result = await db.get('SELECT NOW() as now')
-    console.log('Health check: query succeeded')
     res.json({ status: 'ok', db: 'connected', now: result?.now })
   } catch (err: any) {
     console.error('Health check failed:', err?.message || err)
@@ -54,8 +53,7 @@ app.use((err: any, _req: any, res: any, _next: any) => {
   })
 })
 
-// Initialize database lazily — don't block Vercel cold start
-initDb().catch(err => console.error('DB init failed (non-blocking):', err?.message || err))
+// Routes call initDb() themselves before querying
 
 // Export for Vercel serverless
 import serverless from 'serverless-http'

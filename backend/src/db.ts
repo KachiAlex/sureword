@@ -85,10 +85,20 @@ const SCHEMA_QUERIES = [
   `ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS church_online_url TEXT`
 ]
 
+let _dbInitPromise: Promise<void> | null = null
+let _dbInitDone = false
+
 export async function initDb() {
+  if (_dbInitDone) return
+  if (_dbInitPromise) return _dbInitPromise
+
+  _dbInitPromise = _initDbInternal()
+  return _dbInitPromise
+}
+
+async function _initDbInternal() {
   console.log('DB init starting...')
   try {
-    // Test connection first with a simple query
     console.log('Testing DB connection...')
     await db.query('SELECT 1 as test')
     console.log('DB connection OK')
@@ -127,4 +137,5 @@ export async function initDb() {
     console.log('DB admin email updated')
   }
   console.log('DB init complete')
+  _dbInitDone = true
 }
