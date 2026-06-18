@@ -1,5 +1,9 @@
 import { useState, useCallback, useRef } from 'react'
 
+// Church Online Platform configuration
+const DEFAULT_CHURCH_ID = 'zionite.online.church'
+const COP_BASE_URL = 'https://live.churchonlineplatform.com'
+
 interface RTMPOptions {
   onConnect?: () => void
   onError?: (error: string) => void
