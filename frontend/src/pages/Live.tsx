@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
 import { useAuth } from '../contexts/AuthContext'
-import { ArrowLeft, Send, Users, Radio, BookOpen } from 'lucide-react'
+import { ArrowLeft, Send, Users, Radio, BookOpen, Play } from 'lucide-react'
 
 interface Broadcast {
   id: string
@@ -27,45 +27,72 @@ const CHURCH_ONLINE_ID = 'zionitefm'
 
 /* ── StreamPlayer ─────────────────────────────────── */
 function StreamPlayer({ broadcastId }: { broadcastId: string }) {
+  const [started, setStarted] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
-  const lastPlayedRef = useRef(-1)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const [bufferedChunks, setBufferedChunks] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(false)
+  const queueRef = useRef<Blob[]>([])
+  const nextFetchRef = useRef(0)
+  const fetchIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [bufferedCount, setBufferedCount] = useState(0)
+  const playingRef = useRef(false)
+  const startedRef = useRef(false)
 
+  // Discover starting point and begin fetching
   useEffect(() => {
-    lastPlayedRef.current = -1
-
-    async function tick() {
+    if (!started) return
+    startedRef.current = true
+    async function init() {
       try {
         const infoRes = await fetch(`/api/stream/${broadcastId}/info`)
-        if (!infoRes.ok) return
-        const info = await infoRes.json()
-        const target = info.latestChunk ?? -1
-        if (target <= lastPlayedRef.current) return // nothing new
-
-        const res = await fetch(`/api/stream/${broadcastId}/chunk/${target}`)
-        if (!res.ok) return
-        const blob = await res.blob()
-        const url = URL.createObjectURL(blob)
-        const audio = audioRef.current
-        if (!audio) { URL.revokeObjectURL(url); return }
-        audio.src = url
-        audio.onended = () => { URL.revokeObjectURL(url); setIsPlaying(false) }
-        audio.onerror = () => { URL.revokeObjectURL(url); setIsPlaying(false) }
-        try {
-          await audio.play()
-          setIsPlaying(true)
-          lastPlayedRef.current = target
-          setBufferedChunks(c => c + 1)
-        } catch { setIsPlaying(false) }
+        if (infoRes.ok) {
+          const info = await infoRes.json()
+          const startFrom = Math.max(0, (info.latestChunk ?? -1) - 1)
+          nextFetchRef.current = startFrom
+        }
       } catch {}
     }
+    init()
 
-    tick()
-    intervalRef.current = setInterval(tick, 2500)
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [broadcastId])
+    fetchIntervalRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/stream/${broadcastId}/chunk/${nextFetchRef.current}`)
+        if (res.ok) {
+          const blob = await res.blob()
+          if (blob.size > 0) {
+            queueRef.current.push(blob)
+            setBufferedCount(c => c + 1)
+            if (!playingRef.current) playNext()
+          }
+          nextFetchRef.current++
+        } else if (res.status === 404) {
+          // Not uploaded yet, wait
+        }
+      } catch {}
+    }, 2000)
+
+    return () => { if (fetchIntervalRef.current) clearInterval(fetchIntervalRef.current) }
+  }, [broadcastId, started])
+
+  async function playNext() {
+    if (queueRef.current.length === 0) {
+      playingRef.current = false
+      return
+    }
+    playingRef.current = true
+    const blob = queueRef.current.shift()!
+    const url = URL.createObjectURL(blob)
+    const audio = audioRef.current
+    if (!audio) { URL.revokeObjectURL(url); playNext(); return }
+    audio.src = url
+    audio.onended = () => { URL.revokeObjectURL(url); playNext() }
+    audio.onerror = () => { URL.revokeObjectURL(url); playNext() }
+    try { await audio.play() } catch { URL.revokeObjectURL(url); playNext() }
+  }
+
+  function handleStart() {
+    setStarted(true)
+    // Give fetch effect time to init, then attempt first play
+    setTimeout(() => { if (queueRef.current.length > 0 && !playingRef.current) playNext() }, 500)
+  }
 
   return (
     <div className="mx-4 mt-4 rounded-xl p-4" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
@@ -73,9 +100,17 @@ function StreamPlayer({ broadcastId }: { broadcastId: string }) {
         <span className="text-sm font-medium flex items-center gap-2">
           <Radio className="w-4 h-4" style={{ color: 'var(--gold)' }} /> Audio Stream
         </span>
-        <span className="text-xs" style={{ color: 'var(--dim)' }}>{bufferedChunks} chunks buffered</span>
+        <span className="text-xs" style={{ color: 'var(--dim)' }}>{bufferedCount} chunks buffered</span>
       </div>
-      <audio ref={audioRef} className="w-full" controls style={{ height: 40 }} />
+      {!started ? (
+        <button onClick={handleStart}
+          className="w-full py-3 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors hover:opacity-90"
+          style={{ background: 'var(--gold)', color: 'var(--ink)' }}>
+          <Play className="w-4 h-4" /> Click to Listen
+        </button>
+      ) : (
+        <audio ref={audioRef} className="w-full" controls style={{ height: 40 }} />
+      )}
     </div>
   )
 }
