@@ -80,11 +80,10 @@ interface Props {
 /* ── MonitorPlayer (feedback loop) ─────────────────── */
 function MonitorPlayer({ broadcastId, enabled, volume }: { broadcastId: string; enabled: boolean; volume: number }) {
   const audioRef = useRef<HTMLAudioElement>(null)
-  const mseRef = useRef<MediaSource | null>(null)
-  const sourceBufferRef = useRef<SourceBuffer | null>(null)
   const nextChunkRef = useRef(0)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const queueRef = useRef<ArrayBuffer[]>([])
+  const queueRef = useRef<Blob[]>([])
+  const playingRef = useRef(false)
   const [latestChunk, setLatestChunk] = useState(-1)
   const [bufferedCount, setBufferedCount] = useState(0)
 
@@ -99,7 +98,8 @@ function MonitorPlayer({ broadcastId, enabled, volume }: { broadcastId: string; 
         const res = await fetch(`/api/stream/${broadcastId}/info`)
         if (res.ok) {
           const data = await res.json()
-          const startFrom = Math.max(0, (data.latestChunk ?? -1) - 2)
+          // Start from the latest chunk (real-time, not lagging behind)
+          const startFrom = Math.max(0, data.latestChunk ?? 0)
           nextChunkRef.current = startFrom
           setLatestChunk(data.latestChunk ?? -1)
         }
@@ -109,54 +109,55 @@ function MonitorPlayer({ broadcastId, enabled, volume }: { broadcastId: string; 
   }, [broadcastId, enabled])
 
   useEffect(() => {
-    if (!enabled || latestChunk < 0 || !window.MediaSource) return
-    const ms = new MediaSource()
-    mseRef.current = ms
-    if (audioRef.current) audioRef.current.src = URL.createObjectURL(ms)
+    if (!enabled || latestChunk < 0) return
 
-    function appendNext() {
-      const sb = sourceBufferRef.current
-      if (!sb || sb.updating || queueRef.current.length === 0) return
-      try { sb.appendBuffer(queueRef.current.shift()!) } catch { queueRef.current.shift() }
+    async function fetchNext() {
+      try {
+        const res = await fetch(`/api/stream/${broadcastId}/chunk/${nextChunkRef.current}`)
+        if (res.ok) {
+          const blob = await res.blob()
+          queueRef.current.push(blob)
+          setBufferedCount(c => c + 1)
+          nextChunkRef.current++
+          if (!playingRef.current) playNext()
+        } else if (res.status === 404) {
+          // Chunk not uploaded yet — broadcaster is ahead of monitor, wait
+        }
+      } catch {}
     }
 
-    ms.addEventListener('sourceopen', () => {
-      const sb = ms.addSourceBuffer('audio/webm;codecs=opus')
-      sourceBufferRef.current = sb
-      sb.mode = 'sequence'
-      sb.addEventListener('updateend', appendNext)
+    async function playNext() {
+      if (queueRef.current.length === 0) {
+        playingRef.current = false
+        return
+      }
+      playingRef.current = true
+      const blob = queueRef.current.shift()!
+      const url = URL.createObjectURL(blob)
+      const audio = audioRef.current
+      if (!audio) { URL.revokeObjectURL(url); return }
+      audio.src = url
+      audio.onended = () => {
+        URL.revokeObjectURL(url)
+        playNext()
+      }
+      audio.onerror = () => {
+        URL.revokeObjectURL(url)
+        playNext()
+      }
+      try { await audio.play() } catch { playNext() }
+    }
 
-      let consecutive404s = 0
-      intervalRef.current = setInterval(async () => {
-        try {
-          const res = await fetch(`/api/stream/${broadcastId}/chunk/${nextChunkRef.current}`)
-          if (res.ok) {
-            consecutive404s = 0
-            const buf = await res.arrayBuffer()
-            if (buf.byteLength > 0) {
-              queueRef.current.push(buf)
-              setBufferedCount(c => c + 1)
-              appendNext()
-            }
-            nextChunkRef.current++
-          } else if (res.status === 404) {
-            consecutive404s++
-            if (consecutive404s >= 2) { nextChunkRef.current++; consecutive404s = 0 }
-          }
-        } catch {}
-      }, 2500)
-    })
-
+    intervalRef.current = setInterval(fetchNext, 2500)
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
-      if (sourceBufferRef.current) { try { ms.removeSourceBuffer(sourceBufferRef.current) } catch {} }
-      if (ms.readyState === 'open') { try { ms.endOfStream() } catch {} }
       queueRef.current = []
+      playingRef.current = false
     }
   }, [broadcastId, enabled, latestChunk])
 
   return (
-    <audio ref={audioRef} className="w-full" controls style={{ height: 36 }} autoPlay muted={false} />
+    <audio ref={audioRef} className="w-full" controls style={{ height: 36 }} />
   )
 }
 

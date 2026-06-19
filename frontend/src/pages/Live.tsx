@@ -30,11 +30,10 @@ function StreamPlayer({ broadcastId }: { broadcastId: string }) {
   const audioRef = useRef<HTMLAudioElement>(null)
   const [bufferedChunks, setBufferedChunks] = useState(0)
   const [latestChunk, setLatestChunk] = useState(-1)
-  const mseRef = useRef<MediaSource | null>(null)
-  const sourceBufferRef = useRef<SourceBuffer | null>(null)
   const nextChunkRef = useRef(0)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const queueRef = useRef<ArrayBuffer[]>([])
+  const queueRef = useRef<Blob[]>([])
+  const playingRef = useRef(false)
 
   // Query stream info and set starting point
   useEffect(() => {
@@ -53,63 +52,44 @@ function StreamPlayer({ broadcastId }: { broadcastId: string }) {
   }, [broadcastId])
 
   useEffect(() => {
-    if (!window.MediaSource || latestChunk < 0) return
-    const ms = new MediaSource()
-    mseRef.current = ms
-    if (audioRef.current) {
-      audioRef.current.src = URL.createObjectURL(ms)
-    }
+    if (latestChunk < 0) return
 
-    function appendNext() {
-      const sb = sourceBufferRef.current
-      if (!sb || sb.updating || queueRef.current.length === 0) return
+    async function fetchNext() {
       try {
-        sb.appendBuffer(queueRef.current.shift()!)
-      } catch {
-        // MSE error, skip this chunk
-        queueRef.current.shift()
-      }
+        const res = await fetch(`/api/stream/${broadcastId}/chunk/${nextChunkRef.current}`)
+        if (res.ok) {
+          const blob = await res.blob()
+          queueRef.current.push(blob)
+          setBufferedChunks(c => c + 1)
+          nextChunkRef.current++
+          if (!playingRef.current) playNext()
+        } else if (res.status === 404) {
+          // Chunk not ready yet — wait for broadcaster
+        }
+      } catch {}
     }
 
-    ms.addEventListener('sourceopen', () => {
-      const sb = ms.addSourceBuffer('audio/webm;codecs=opus')
-      sourceBufferRef.current = sb
-      sb.mode = 'sequence'
-      sb.addEventListener('updateend', appendNext)
+    async function playNext() {
+      if (queueRef.current.length === 0) {
+        playingRef.current = false
+        return
+      }
+      playingRef.current = true
+      const blob = queueRef.current.shift()!
+      const url = URL.createObjectURL(blob)
+      const audio = audioRef.current
+      if (!audio) { URL.revokeObjectURL(url); return }
+      audio.src = url
+      audio.onended = () => { URL.revokeObjectURL(url); playNext() }
+      audio.onerror = () => { URL.revokeObjectURL(url); playNext() }
+      try { await audio.play() } catch { playNext() }
+    }
 
-      // Fetch chunks periodically
-      let consecutive404s = 0
-      intervalRef.current = setInterval(async () => {
-        try {
-          const res = await fetch(`/api/stream/${broadcastId}/chunk/${nextChunkRef.current}`)
-          if (res.ok) {
-            consecutive404s = 0
-            const buf = await res.arrayBuffer()
-            if (buf.byteLength > 0) {
-              queueRef.current.push(buf)
-              setBufferedChunks(c => c + 1)
-              appendNext()
-            }
-            nextChunkRef.current++
-          } else if (res.status === 404) {
-            consecutive404s++
-            // Skip missing chunks after 2 consecutive 404s to avoid stalling
-            if (consecutive404s >= 2) {
-              nextChunkRef.current++
-              consecutive404s = 0
-            }
-          }
-        } catch {}
-      }, 2500)
-    })
-
+    intervalRef.current = setInterval(fetchNext, 2500)
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
-      if (sourceBufferRef.current) {
-        try { ms.removeSourceBuffer(sourceBufferRef.current) } catch {}
-      }
-      if (ms.readyState === 'open') { try { ms.endOfStream() } catch {} }
       queueRef.current = []
+      playingRef.current = false
     }
   }, [broadcastId, latestChunk])
 

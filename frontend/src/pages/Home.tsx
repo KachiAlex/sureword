@@ -234,10 +234,16 @@ export default function Home() {
           >
             Zionitefm
           </span>
-          {!user && (
+          {!user ? (
             <Link to="/login" className="ml-2 text-xs tracking-wider uppercase flex items-center gap-1 transition-colors hover:opacity-80"
               style={{ color: 'var(--gold)' }}>
               <LogIn className="w-3.5 h-3.5" /> Staff login
+            </Link>
+          ) : (
+            <Link to="/admin" className="ml-2 text-xs tracking-wider uppercase flex items-center gap-1 transition-colors hover:opacity-80"
+              style={{ color: 'var(--gold)' }}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--gold)' }} />
+              Dashboard
             </Link>
           )}
         </div>
