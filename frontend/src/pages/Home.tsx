@@ -354,6 +354,72 @@ export default function Home() {
                 <button className="btn-gold w-full text-xs"><Heart className="w-3.5 h-3.5" /> Give Now</button>
               </section>
             </div>
+
+            {/* Testimony + Podcast + App (inside left column to avoid gap) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {/* Testimony Corner */}
+              <section className="rounded-2xl border border-[rgba(243,238,228,0.08)] bg-[#1c1d24] p-5">
+                <SectionHeader title="Testimony Corner" action="View All" to="/testimonies" />
+                <div className="relative">
+                  <p className="text-sm text-[#9c958a] leading-relaxed italic">
+                    "ZioniteFM has been a blessing to me. I started listening during a difficult season, and the messages brought hope, healing, and direction."
+                  </p>
+                  <div className="flex items-center gap-3 mt-4">
+                    <img src="https://ui-avatars.com/api/?name=Gloria+A&background=c9a227&color=1b1208&size=36" className="w-9 h-9 rounded-full" alt="" />
+                    <div>
+                      <p className="text-sm font-medium text-white">Gloria A.</p>
+                      <p className="text-[10px] text-[#9c958a]">Lagos, Nigeria</p>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Podcast Archive */}
+              <section className="rounded-2xl border border-[rgba(243,238,228,0.08)] bg-[#1c1d24] p-5">
+                <SectionHeader title="Podcast Archive" action="View All" to="/podcasts" />
+                <div className="space-y-3">
+                  {PODCASTS.map((pod,i)=>{
+                    const colors = ["from-amber-900/20","from-emerald-900/20","from-blue-900/20"]
+                    return (
+                      <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-[rgba(243,238,228,0.03)] transition-colors cursor-pointer">
+                        <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${colors[i]} to-[#14141a] flex items-center justify-center flex-shrink-0`}>
+                          <Play className="w-5 h-5 text-white fill-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">{pod.title}</p>
+                          <p className="text-[11px] text-[#9c958a]">{pod.speaker}</p>
+                        </div>
+                        <span className="text-[10px] text-[#9c958a] font-mono">{pod.duration}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+                <button className="btn-gold w-full text-xs mt-3">Browse All Episodes</button>
+              </section>
+
+              {/* Get the App */}
+              <section className="rounded-2xl border border-[rgba(243,238,228,0.08)] bg-[#1c1d24] p-5">
+                <SectionHeader title="Get the ZioniteFM App" action="" to="#" />
+                <p className="text-xs text-[#9c958a] mb-3">Take ZioniteFM with you anywhere you go.</p>
+                <div className="space-y-2 mb-4">
+                  {["Listen Live","Sermons & Podcasts","Prayer Wall","Push Notifications"].map(item=>{
+                    return (
+                      <div key={item} className="flex items-center gap-2 text-xs text-[#9c958a]">
+                        <ChevronRight className="w-3 h-3 text-[#c9a227]" /> {item}
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="flex gap-2">
+                  <button className="flex-1 flex items-center justify-center gap-1.5 bg-[#21222c] hover:bg-[#2a2b36] text-white text-[10px] font-medium px-3 py-2 rounded-lg border border-[rgba(243,238,228,0.08)] transition-colors">
+                    <Smartphone className="w-3.5 h-3.5" /> App Store
+                  </button>
+                  <button className="flex-1 flex items-center justify-center gap-1.5 bg-[#21222c] hover:bg-[#2a2b36] text-white text-[10px] font-medium px-3 py-2 rounded-lg border border-[rgba(243,238,228,0.08)] transition-colors">
+                    <Smartphone className="w-3.5 h-3.5" /> Google Play
+                  </button>
+                </div>
+              </section>
+            </div>
           </div>
 
           {/* RIGHT COLUMN (4/12) */}
@@ -435,76 +501,6 @@ export default function Home() {
               </div>
             </section>
           </div>
-        </div>
-      </div>
-
-      {/* ====== TESTIMONY + PODCAST + APP ROW ====== */}
-      <div className="max-w-[1440px] mx-auto px-4 md:px-6 pb-12">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-
-          {/* Testimony Corner */}
-          <section className="rounded-2xl border border-[rgba(243,238,228,0.08)] bg-[#1c1d24] p-5">
-            <SectionHeader title="Testimony Corner" action="View All" to="/testimonies" />
-            <div className="relative">
-              <p className="text-sm text-[#9c958a] leading-relaxed italic">
-                "ZioniteFM has been a blessing to me. I started listening during a difficult season, and the messages brought hope, healing, and direction."
-              </p>
-              <div className="flex items-center gap-3 mt-4">
-                <img src="https://ui-avatars.com/api/?name=Gloria+A&background=c9a227&color=1b1208&size=36" className="w-9 h-9 rounded-full" alt="" />
-                <div>
-                  <p className="text-sm font-medium text-white">Gloria A.</p>
-                  <p className="text-[10px] text-[#9c958a]">Lagos, Nigeria</p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Podcast Archive */}
-          <section className="rounded-2xl border border-[rgba(243,238,228,0.08)] bg-[#1c1d24] p-5">
-            <SectionHeader title="Podcast Archive" action="View All" to="/podcasts" />
-            <div className="space-y-3">
-              {PODCASTS.map((pod,i)=>{
-                const colors = ["from-amber-900/20","from-emerald-900/20","from-blue-900/20"]
-                return (
-                  <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-[rgba(243,238,228,0.03)] transition-colors cursor-pointer">
-                    <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${colors[i]} to-[#14141a] flex items-center justify-center flex-shrink-0`}>
-                      <Play className="w-5 h-5 text-white fill-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">{pod.title}</p>
-                      <p className="text-[11px] text-[#9c958a]">{pod.speaker}</p>
-                    </div>
-                    <span className="text-[10px] text-[#9c958a] font-mono">{pod.duration}</span>
-                  </div>
-                )
-              })}
-            </div>
-            <button className="btn-gold w-full text-xs mt-3">Browse All Episodes</button>
-          </section>
-
-          {/* Get the App */}
-          <section className="rounded-2xl border border-[rgba(243,238,228,0.08)] bg-[#1c1d24] p-5">
-            <SectionHeader title="Get the ZioniteFM App" action="" to="#" />
-            <p className="text-xs text-[#9c958a] mb-3">Take ZioniteFM with you anywhere you go.</p>
-            <div className="space-y-2 mb-4">
-              {["Listen Live","Sermons & Podcasts","Prayer Wall","Push Notifications"].map(item=>{
-                const icon = item==="Listen Live"?Headphones:item==="Sermons & Podcasts"?BookOpen:item==="Prayer Wall"?MessageSquare:Send
-                return (
-                  <div key={item} className="flex items-center gap-2 text-xs text-[#9c958a]">
-                    <ChevronRight className="w-3 h-3 text-[#c9a227]" /> {item}
-                  </div>
-                )
-              })}
-            </div>
-            <div className="flex gap-2">
-              <button className="flex-1 flex items-center justify-center gap-1.5 bg-[#21222c] hover:bg-[#2a2b36] text-white text-[10px] font-medium px-3 py-2 rounded-lg border border-[rgba(243,238,228,0.08)] transition-colors">
-                <Smartphone className="w-3.5 h-3.5" /> App Store
-              </button>
-              <button className="flex-1 flex items-center justify-center gap-1.5 bg-[#21222c] hover:bg-[#2a2b36] text-white text-[10px] font-medium px-3 py-2 rounded-lg border border-[rgba(243,238,228,0.08)] transition-colors">
-                <Smartphone className="w-3.5 h-3.5" /> Google Play
-              </button>
-            </div>
-          </section>
         </div>
       </div>
 
