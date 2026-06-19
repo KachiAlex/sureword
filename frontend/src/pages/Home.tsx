@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import axios from 'axios'
 import { useAuth } from '../contexts/AuthContext'
 import {
-  ArrowRight, HomeIcon, Archive, Heart, MessageSquare
+  ArrowRight, HomeIcon, Archive, Heart, MessageSquare, LogIn
 } from 'lucide-react'
 
 interface Broadcast {
@@ -234,6 +234,12 @@ export default function Home() {
           >
             Zionitefm
           </span>
+          {!user && (
+            <Link to="/login" className="ml-2 text-xs tracking-wider uppercase flex items-center gap-1 transition-colors hover:opacity-80"
+              style={{ color: 'var(--gold)' }}>
+              <LogIn className="w-3.5 h-3.5" /> Staff login
+            </Link>
+          )}
         </div>
         
         <div 

@@ -77,9 +77,92 @@ interface Props {
   actionLoading: boolean
 }
 
+/* ── MonitorPlayer (feedback loop) ─────────────────── */
+function MonitorPlayer({ broadcastId, enabled, volume }: { broadcastId: string; enabled: boolean; volume: number }) {
+  const audioRef = useRef<HTMLAudioElement>(null)
+  const mseRef = useRef<MediaSource | null>(null)
+  const sourceBufferRef = useRef<SourceBuffer | null>(null)
+  const nextChunkRef = useRef(0)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const queueRef = useRef<ArrayBuffer[]>([])
+  const [latestChunk, setLatestChunk] = useState(-1)
+  const [bufferedCount, setBufferedCount] = useState(0)
+
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.volume = volume / 100
+  }, [volume])
+
+  useEffect(() => {
+    if (!enabled) return
+    async function init() {
+      try {
+        const res = await fetch(`/api/stream/${broadcastId}/info`)
+        if (res.ok) {
+          const data = await res.json()
+          const startFrom = Math.max(0, (data.latestChunk ?? -1) - 2)
+          nextChunkRef.current = startFrom
+          setLatestChunk(data.latestChunk ?? -1)
+        }
+      } catch {}
+    }
+    init()
+  }, [broadcastId, enabled])
+
+  useEffect(() => {
+    if (!enabled || latestChunk < 0 || !window.MediaSource) return
+    const ms = new MediaSource()
+    mseRef.current = ms
+    if (audioRef.current) audioRef.current.src = URL.createObjectURL(ms)
+
+    function appendNext() {
+      const sb = sourceBufferRef.current
+      if (!sb || sb.updating || queueRef.current.length === 0) return
+      try { sb.appendBuffer(queueRef.current.shift()!) } catch { queueRef.current.shift() }
+    }
+
+    ms.addEventListener('sourceopen', () => {
+      const sb = ms.addSourceBuffer('audio/webm;codecs=opus')
+      sourceBufferRef.current = sb
+      sb.mode = 'sequence'
+      sb.addEventListener('updateend', appendNext)
+
+      let consecutive404s = 0
+      intervalRef.current = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/stream/${broadcastId}/chunk/${nextChunkRef.current}`)
+          if (res.ok) {
+            consecutive404s = 0
+            const buf = await res.arrayBuffer()
+            if (buf.byteLength > 0) {
+              queueRef.current.push(buf)
+              setBufferedCount(c => c + 1)
+              appendNext()
+            }
+            nextChunkRef.current++
+          } else if (res.status === 404) {
+            consecutive404s++
+            if (consecutive404s >= 2) { nextChunkRef.current++; consecutive404s = 0 }
+          }
+        } catch {}
+      }, 2500)
+    })
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      if (sourceBufferRef.current) { try { ms.removeSourceBuffer(sourceBufferRef.current) } catch {} }
+      if (ms.readyState === 'open') { try { ms.endOfStream() } catch {} }
+      queueRef.current = []
+    }
+  }, [broadcastId, enabled, latestChunk])
+
+  return (
+    <audio ref={audioRef} className="w-full" controls style={{ height: 36 }} autoPlay muted={false} />
+  )
+}
+
 export default function RadioStudio({
   broadcastId, title, description, scripture,
-  churchOnlineUrl, status, startTime, selectedDevice,
+  churchOnlineUrl: _churchOnlineUrl, status, startTime, selectedDevice,
   onPause, onResume, onEnd, actionLoading
 }: Props) {
   const [micMuted, setMicMuted] = useState(false)
@@ -89,6 +172,8 @@ export default function RadioStudio({
   const [streamStats, setStreamStats] = useState({ chunkCount: 0, bitrate: 0, latestChunk: -1 })
   const [uploadError, setUploadError] = useState('')
   const [micStream, setMicStream] = useState<MediaStream | null>(null)
+  const [monitorEnabled, setMonitorEnabled] = useState(false)
+  const [monitorVolume, setMonitorVolume] = useState(60)
 
   const isLive = status === 'live'
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -273,6 +358,40 @@ export default function RadioStudio({
           <StatCard icon={Zap} label="Bitrate" value={`${streamStats.bitrate} kbps`} />
           <StatCard icon={Headphones} label="Listeners" value={listenerCount} />
           <StatCard icon={Wifi} label="Status" value={isLive ? 'Streaming' : 'Paused'} color={isLive ? '#4ade80' : '#f59e0b'} />
+        </div>
+
+        {/* Feedback Monitor */}
+        <div className="rounded-xl p-4" style={{ background: 'var(--ink)', border: '1px solid var(--line)' }}>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium flex items-center gap-2">
+              <Headphones className="w-4 h-4" style={{ color: 'var(--gold)' }} /> Feedback Monitor
+              <span className="text-xs font-normal" style={{ color: 'var(--dim)' }}>(hear what listeners hear)</span>
+            </span>
+            <button onClick={() => setMonitorEnabled(!monitorEnabled)}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+              style={{
+                background: monitorEnabled ? 'rgba(34,197,94,0.1)' : 'rgba(220,38,38,0.1)',
+                color: monitorEnabled ? '#4ade80' : '#fca5a5',
+                border: `1px solid ${monitorEnabled ? 'rgba(34,197,94,0.2)' : 'rgba(220,38,38,0.2)'}`
+              }}>
+              {monitorEnabled ? 'On' : 'Off'}
+            </button>
+          </div>
+          {monitorEnabled && (
+            <>
+              <MonitorPlayer broadcastId={broadcastId} enabled={isLive && monitorEnabled} volume={monitorVolume} />
+              <div className="flex items-center gap-3 mt-3">
+                {monitorVolume === 0 ? <VolumeX className="w-4 h-4" style={{ color: 'var(--dim)' }} /> :
+                  monitorVolume > 60 ? <Volume2 className="w-4 h-4" style={{ color: 'var(--gold)' }} /> :
+                  <Volume1 className="w-4 h-4" style={{ color: 'var(--gold)' }} />}
+                <input type="range" min={0} max={100} value={monitorVolume}
+                  onChange={e => setMonitorVolume(parseInt(e.target.value))}
+                  className="flex-1 h-2 rounded-lg appearance-none cursor-pointer"
+                  style={{ background: `linear-gradient(to right, var(--gold) ${monitorVolume}%, var(--line) ${monitorVolume}%)` }} />
+                <span className="text-xs font-mono w-8 text-right">{monitorVolume}%</span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Mic Controls */}
