@@ -188,7 +188,7 @@ export default function RadioStudio({
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const streamUrl = churchOnlineUrl || 'https://online.church/zionitefm'
+  const streamUrl = `${window.location.origin}/live${broadcastId ? `/${broadcastId}` : ''}`
 
   return (
     <div>
