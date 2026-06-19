@@ -270,7 +270,7 @@ export default function Home() {
       </div>
 
       {/* ====== MAIN DASHBOARD GRID ====== */}
-      <div className="max-w-[1440px] mx-auto px-4 md:px-6 pb-12">
+      <div className="max-w-[1440px] mx-auto px-4 md:px-6 pb-5">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
 
           {/* LEFT COLUMN (8/12) */}
