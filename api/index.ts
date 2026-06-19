@@ -62,7 +62,7 @@ async function initDb() {
   )`)
   await dbQuery(`CREATE TABLE IF NOT EXISTS chat_messages (
     id TEXT PRIMARY KEY, broadcast_id TEXT, user_id TEXT, user_name TEXT,
-    message TEXT NOT NULL, is_private BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    recipient_id TEXT, guest_name TEXT, message TEXT NOT NULL, is_private BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`)
   await dbQuery(`CREATE TABLE IF NOT EXISTS schedule (
     id TEXT PRIMARY KEY, title TEXT NOT NULL, day_of_week INTEGER NOT NULL,
@@ -112,6 +112,14 @@ function auth(req: AuthReq, res: Response, next: NextFunction) {
   } catch { res.status(401).json({ error: 'Invalid token' }); return }
 }
 
+function optionalAuth(req: AuthReq, res: Response, next: NextFunction) {
+  const token = req.headers.authorization?.replace('Bearer ', '')
+  if (token) {
+    try { req.user = jwt.verify(token, process.env.JWT_SECRET || 'dev') } catch {}
+  }
+  next()
+}
+
 function requireRole(role: string) {
   return (req: AuthReq, res: Response, next: NextFunction) => {
     if (req.user?.role !== role) { res.status(403).json({ error: 'Forbidden' }); return }
@@ -144,7 +152,7 @@ app.post('/auth/login', async (req, res) => {
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
       res.status(401).json({ error: 'Invalid credentials' }); return
     }
-    const token = jwt.sign({ id: user.id, email: user.email, role: user.role },
+    const token = jwt.sign({ id: user.id, email: user.email, name: user.name, role: user.role },
       process.env.JWT_SECRET || 'dev', { expiresIn: '7d' })
     res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
@@ -292,10 +300,23 @@ app.get('/schedule', async (_req, res) => {
 })
 
 // ── Chat routes ───────────────────────────────────────────────
-app.get('/chat/:broadcastId', async (req, res) => {
+app.get('/chat/:broadcastId', optionalAuth, async (req, res) => {
   try {
     await initDb()
-    const rows = await dbQuery('SELECT * FROM chat_messages WHERE broadcast_id=$1 ORDER BY created_at DESC LIMIT 100', [req.params.broadcastId])
+    const userId = (req as any).user?.id || null
+    // Public + private where user is sender or recipient
+    let rows
+    if (userId) {
+      rows = await dbQuery(
+        `SELECT * FROM chat_messages WHERE broadcast_id=$1 AND (
+          is_private=FALSE OR user_id=$2 OR recipient_id=$2
+        ) ORDER BY created_at DESC LIMIT 200`,
+        [req.params.broadcastId, userId])
+    } else {
+      rows = await dbQuery(
+        `SELECT * FROM chat_messages WHERE broadcast_id=$1 AND is_private=FALSE ORDER BY created_at DESC LIMIT 200`,
+        [req.params.broadcastId])
+    }
     res.json({ messages: rows.reverse() })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
@@ -303,11 +324,42 @@ app.get('/chat/:broadcastId', async (req, res) => {
 app.post('/chat/:broadcastId', auth, async (req: AuthReq, res) => {
   try {
     await initDb()
-    const { message } = req.body
+    const { message, recipientId } = req.body
+    if (!message?.trim()) { res.status(400).json({ error: 'Empty message' }); return }
     const id = uuidv4()
-    await dbQuery(`INSERT INTO chat_messages (id, broadcast_id, user_id, user_name, message) VALUES ($1,$2,$3,$4,$5)`,
-      [id, req.params.broadcastId, req.user.id, req.user.email, message])
+    const isPrivate = !!recipientId
+    await dbQuery(
+      `INSERT INTO chat_messages (id, broadcast_id, user_id, user_name, recipient_id, message, is_private) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [id, req.params.broadcastId, req.user.id, req.user.name || req.user.email, recipientId || null, message.trim(), isPrivate])
+    res.status(201).json({ id, message, isPrivate })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.post('/chat/:broadcastId/guest', async (req, res) => {
+  try {
+    await initDb()
+    const { message, guestName } = req.body
+    if (!message?.trim()) { res.status(400).json({ error: 'Empty message' }); return }
+    if (!guestName?.trim()) { res.status(400).json({ error: 'Guest name required' }); return }
+    const id = uuidv4()
+    await dbQuery(
+      `INSERT INTO chat_messages (id, broadcast_id, guest_name, message, is_private) VALUES ($1,$2,$3,$4,$5)`,
+      [id, req.params.broadcastId, guestName.trim(), message.trim(), false])
     res.status(201).json({ id, message })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.get('/chat/:broadcastId/users', async (req, res) => {
+  try {
+    await initDb()
+    // Active users who posted in this broadcast in the last 30 min
+    const rows = await dbQuery(
+      `SELECT DISTINCT user_id, user_name FROM chat_messages
+       WHERE broadcast_id=$1 AND user_id IS NOT NULL
+         AND created_at > datetime('now', '-30 minutes')
+       ORDER BY user_name`,
+      [req.params.broadcastId])
+    res.json({ users: rows })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 

@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
 import { useAuth } from '../contexts/AuthContext'
-import { ArrowLeft, Send, Users, Radio, BookOpen, Play, Pause, Volume2, Volume1, VolumeX } from 'lucide-react'
+import { ArrowLeft, Send, Users, Radio, BookOpen, Play, Pause, Volume2, Volume1, VolumeX, Lock, Globe, MessageSquare, Clock, User, ChevronDown } from 'lucide-react'
 
 interface Broadcast {
   id: string
@@ -17,8 +17,12 @@ interface Broadcast {
 
 interface ChatMessage {
   id: string
-  user_name: string
+  user_id?: string
+  user_name?: string
+  guest_name?: string
+  recipient_id?: string
   message: string
+  is_private: boolean
   created_at: string
 }
 
@@ -45,7 +49,6 @@ function AudioBars({ active }: { active: boolean }) {
 function StreamPlayer({ broadcastId }: { broadcastId: string }) {
   const [started, setStarted] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [bufferedCount, setBufferedCount] = useState(0)
   const [listenerCount, setListenerCount] = useState(0)
   const [volume, setVolume] = useState(80)
   const [statusText, setStatusText] = useState('Waiting...')
@@ -53,7 +56,6 @@ function StreamPlayer({ broadcastId }: { broadcastId: string }) {
   const decodedRef = useRef<AudioBuffer[]>([])
   const nextFetchRef = useRef(-1)
   const fetchIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const statsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const playingRef = useRef(false)
   const userPausedRef = useRef(false)
   const ctxRef = useRef<AudioContext | null>(null)
@@ -75,7 +77,6 @@ function StreamPlayer({ broadcastId }: { broadcastId: string }) {
       const buf = await ctxRef.current.decodeAudioData(ab)
       if (buf.duration > 0.05) {
         decodedRef.current.push(buf)
-        setBufferedCount(c => c + 1)
       }
     } catch {}
   }
@@ -248,22 +249,29 @@ export default function Live() {
   const [broadcast, setBroadcast] = useState<Broadcast | null>(null)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [newMessage, setNewMessage] = useState('')
+  const [chatMode, setChatMode] = useState<'public' | 'private'>('public')
+  const [privateRecipient, setPrivateRecipient] = useState<{ user_id: string; user_name: string } | null>(null)
+  const [guestName, setGuestName] = useState('')
+  const [chatUsers, setChatUsers] = useState<{ user_id: string; user_name: string }[]>([])
+  const [showRecipientPicker, setShowRecipientPicker] = useState(false)
   const [onlineCount, setOnlineCount] = useState(0)
   const [loading, setLoading] = useState(true)
-  
+
   const chatEndRef = useRef<HTMLDivElement>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
   useEffect(() => {
     fetchBroadcast()
     fetchChatMessages()
-    
+    fetchChatUsers()
+
     // Poll for updates
     const interval = setInterval(() => {
       fetchBroadcast()
       fetchChatMessages()
-    }, 10000)
-    
+      fetchChatUsers()
+    }, 4000)
+
     return () => clearInterval(interval)
   }, [broadcastId])
 
@@ -274,12 +282,10 @@ export default function Live() {
 
   async function fetchBroadcast() {
     try {
-      // If specific broadcast ID provided, fetch that one
       if (broadcastId && broadcastId !== 'current') {
         const { data } = await axios.get(`/api/broadcasts/${broadcastId}`)
         setBroadcast(data.broadcast)
       } else {
-        // Otherwise fetch active broadcast
         const { data } = await axios.get('/api/broadcasts/active')
         setBroadcast(data.broadcast)
       }
@@ -296,7 +302,20 @@ export default function Live() {
     try {
       const { data } = await axios.get(`/api/chat/${bid}`)
       setChatMessages(data.messages || [])
-      setOnlineCount(data.messages?.length || 0)
+    } catch {
+      // Silent fail
+    }
+  }
+
+  async function fetchChatUsers() {
+    const bid = broadcastId || broadcast?.id
+    if (!bid) return
+    try {
+      const { data } = await axios.get(`/api/chat/${bid}/users`)
+      // Exclude self
+      const others = (data.users || []).filter((u: any) => u.user_id !== user?.id)
+      setChatUsers(others)
+      setOnlineCount(data.users?.length || 0)
     } catch {
       // Silent fail
     }
@@ -305,17 +324,43 @@ export default function Live() {
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault()
     const bid = broadcastId || broadcast?.id
-    if (!newMessage.trim() || !bid || !user) return
+    const text = newMessage.trim()
+    if (!text || !bid) return
 
     try {
-      const { data } = await axios.post(`/api/chat/${bid}`, {
-        message: newMessage.trim()
-      })
-      setChatMessages(prev => [...prev, data.message])
+      if (user) {
+        // Authenticated user
+        const payload: any = { message: text }
+        if (chatMode === 'private' && privateRecipient) {
+          payload.recipientId = privateRecipient.user_id
+        }
+        await axios.post(`/api/chat/${bid}`, payload)
+      } else {
+        // Guest
+        const name = guestName.trim() || 'Guest'
+        await axios.post(`/api/chat/${bid}/guest`, {
+          message: text,
+          guestName: name
+        })
+      }
       setNewMessage('')
+      fetchChatMessages()
     } catch {
       // Silent fail
     }
+  }
+
+  function formatTime(ts: string) {
+    const d = new Date(ts)
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+
+  function displayName(msg: ChatMessage) {
+    return msg.guest_name || msg.user_name || 'Anonymous'
+  }
+
+  function isOwnMessage(msg: ChatMessage) {
+    return !!user && msg.user_id === user.id
   }
 
   // Get Church Online Platform embed URL
@@ -430,35 +475,162 @@ export default function Live() {
 
         {/* Chat Section */}
         {showChat && (
-          <div 
+          <div
             className="w-full md:w-80 border-l flex flex-col"
             style={{ borderColor: 'var(--line)', background: 'var(--ink-2)' }}
           >
+            {/* Chat Header */}
             <div className="p-4 border-b" style={{ borderColor: 'var(--line)' }}>
-              <h3 className="font-serif" style={{ fontWeight: 500 }}>Chat</h3>
-              <p className="text-xs" style={{ color: 'var(--dim)' }}>Be kind and encouraging</p>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-serif flex items-center gap-2" style={{ fontWeight: 500 }}>
+                  <MessageSquare className="w-4 h-4" style={{ color: 'var(--gold)' }} />
+                  Chat
+                </h3>
+                <span className="text-[10px] font-mono" style={{ color: 'var(--dim)' }}>
+                  {onlineCount} active
+                </span>
+              </div>
+
+              {/* Mode Toggle */}
+              {user && (
+                <div className="flex gap-1 rounded-lg p-0.5" style={{ background: 'var(--ink)' }}>
+                  <button
+                    onClick={() => { setChatMode('public'); setPrivateRecipient(null); }}
+                    className="flex-1 flex items-center justify-center gap-1 text-[11px] py-1 rounded-md transition-colors"
+                    style={{
+                      background: chatMode === 'public' ? 'var(--gold)' : 'transparent',
+                      color: chatMode === 'public' ? '#1b1208' : 'var(--dim)'
+                    }}
+                  >
+                    <Globe className="w-3 h-3" /> Public
+                  </button>
+                  <button
+                    onClick={() => setChatMode('private')}
+                    className="flex-1 flex items-center justify-center gap-1 text-[11px] py-1 rounded-md transition-colors"
+                    style={{
+                      background: chatMode === 'private' ? 'var(--gold)' : 'transparent',
+                      color: chatMode === 'private' ? '#1b1208' : 'var(--dim)'
+                    }}
+                  >
+                    <Lock className="w-3 h-3" /> Private
+                  </button>
+                </div>
+              )}
+
+              {/* Private Recipient */}
+              {user && chatMode === 'private' && (
+                <div className="mt-2 relative">
+                  <button
+                    onClick={() => setShowRecipientPicker(!showRecipientPicker)}
+                    className="w-full text-left text-[11px] flex items-center gap-1.5 px-2 py-1.5 rounded-md border"
+                    style={{ borderColor: 'var(--line)', color: 'var(--dim)' }}
+                  >
+                    {privateRecipient ? (
+                      <>
+                        <User className="w-3 h-3" style={{ color: 'var(--gold)' }} />
+                        <span style={{ color: 'var(--parchment)' }}>{privateRecipient.user_name}</span>
+                      </>
+                    ) : (
+                      <>Select recipient...</>
+                    )}
+                    <ChevronDown className="w-3 h-3 ml-auto" />
+                  </button>
+                  {showRecipientPicker && (
+                    <div className="absolute top-full left-0 right-0 mt-1 rounded-md border z-10 overflow-hidden"
+                      style={{ borderColor: 'var(--line)', background: 'var(--ink)' }}>
+                      {chatUsers.length === 0 ? (
+                        <div className="px-3 py-2 text-[11px]" style={{ color: 'var(--dim)' }}>
+                          No active users yet
+                        </div>
+                      ) : (
+                        chatUsers.map(u => (
+                          <button
+                            key={u.user_id}
+                            onClick={() => { setPrivateRecipient(u); setShowRecipientPicker(false); }}
+                            className="w-full text-left px-3 py-2 text-[11px] flex items-center gap-1.5 hover:opacity-80 transition-colors"
+                            style={{ color: 'var(--parchment)' }}
+                          >
+                            <User className="w-3 h-3" style={{ color: 'var(--gold)' }} />
+                            {u.user_name}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            
+
+            {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {chatMessages.map((msg) => (
-                <div key={msg.id}>
-                  <span className="font-mono text-[11px]" style={{ color: 'var(--gold-soft)' }}>
-                    {msg.user_name}
-                  </span>
-                  <p className="text-sm">{msg.message}</p>
+                <div key={msg.id} className={`flex flex-col ${isOwnMessage(msg) ? 'items-end' : 'items-start'}`}>
+                  <div className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${isOwnMessage(msg) ? 'rounded-br-sm' : 'rounded-bl-sm'}`}
+                    style={{
+                      background: isOwnMessage(msg)
+                        ? (msg.is_private ? '#4a3b2a' : 'var(--gold)')
+                        : (msg.is_private ? '#2a2a3a' : 'var(--ink)'),
+                      color: isOwnMessage(msg) && !msg.is_private ? '#1b1208' : 'var(--parchment)',
+                      border: msg.is_private ? '1px solid var(--line)' : 'none'
+                    }}>
+                    {/* Name + badge */}
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="font-mono text-[10px] font-medium" style={{ color: isOwnMessage(msg) && !msg.is_private ? '#1b1208' : 'var(--gold-soft)' }}>
+                        {displayName(msg)}
+                      </span>
+                      {msg.is_private && (
+                        <Lock className="w-2.5 h-2.5" style={{ opacity: 0.6 }} />
+                      )}
+                      {msg.guest_name && (
+                        <span className="text-[9px] px-1 rounded" style={{ background: 'var(--line)', color: 'var(--dim)' }}>guest</span>
+                      )}
+                    </div>
+                    <p className="text-[13px] leading-relaxed">{msg.message}</p>
+                    <span className="text-[9px] mt-0.5 block opacity-50 flex items-center gap-0.5">
+                      <Clock className="w-2 h-2" /> {formatTime(msg.created_at)}
+                    </span>
+                  </div>
                 </div>
               ))}
+              {chatMessages.length === 0 && (
+                <div className="text-center py-8 text-xs" style={{ color: 'var(--dim)' }}>
+                  <MessageSquare className="w-6 h-6 mx-auto mb-2 opacity-30" />
+                  No messages yet.<br />Be the first to say something!
+                </div>
+              )}
               <div ref={chatEndRef} />
             </div>
-            
-            {user ? (
-              <form onSubmit={sendMessage} className="p-4 border-t" style={{ borderColor: 'var(--line)' }}>
+
+            {/* Input */}
+            <div className="p-4 border-t" style={{ borderColor: 'var(--line)' }}>
+              {/* Guest name input */}
+              {!user && (
+                <div className="mb-2">
+                  <input
+                    type="text"
+                    value={guestName}
+                    onChange={(e) => setGuestName(e.target.value)}
+                    placeholder="Your name..."
+                    maxLength={20}
+                    className="w-full rounded-lg px-3 py-1.5 text-[11px] border"
+                    style={{
+                      background: 'var(--ink)',
+                      borderColor: 'var(--line)',
+                      color: 'var(--parchment)'
+                    }}
+                  />
+                </div>
+              )}
+
+              <form onSubmit={sendMessage}>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Send a message..."
+                    placeholder={chatMode === 'private' && privateRecipient
+                      ? `Message ${privateRecipient.user_name}...`
+                      : 'Send a message...'}
                     className="flex-1 rounded-lg px-3 py-2 text-sm border"
                     style={{
                       background: 'var(--ink)',
@@ -468,22 +640,26 @@ export default function Live() {
                   />
                   <button
                     type="submit"
-                    disabled={!newMessage.trim()}
-                    className="w-10 h-10 rounded-lg flex items-center justify-center"
+                    disabled={!newMessage.trim() || (chatMode === 'private' && !privateRecipient)}
+                    className="w-10 h-10 rounded-lg flex items-center justify-center transition-colors"
                     style={{
-                      background: newMessage.trim() ? 'var(--gold)' : 'var(--line)',
-                      color: newMessage.trim() ? '#1b1208' : 'var(--dim)'
+                      background: newMessage.trim() && (chatMode !== 'private' || privateRecipient) ? 'var(--gold)' : 'var(--line)',
+                      color: newMessage.trim() && (chatMode !== 'private' || privateRecipient) ? '#1b1208' : 'var(--dim)'
                     }}
                   >
                     <Send size={16} />
                   </button>
                 </div>
               </form>
-            ) : (
-              <div className="p-4 border-t text-center text-sm" style={{ borderColor: 'var(--line)', color: 'var(--dim)' }}>
-                <Link to="/login" className="underline" style={{ color: 'var(--gold-soft)' }}>Sign in</Link> to chat
-              </div>
-            )}
+
+              {!user && (
+                <div className="mt-2 text-center text-[10px]" style={{ color: 'var(--dim)' }}>
+                  <Link to="/login" className="underline hover:opacity-80" style={{ color: 'var(--gold-soft)' }}>
+                    Sign in
+                  </Link> for private messaging
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
