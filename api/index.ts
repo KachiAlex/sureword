@@ -77,6 +77,10 @@ async function initDb() {
     id TEXT PRIMARY KEY, broadcast_id TEXT NOT NULL, chunk_index INTEGER NOT NULL,
     chunk_data TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`)
+  await dbQuery(`CREATE TABLE IF NOT EXISTS stream_listeners (
+    id TEXT PRIMARY KEY, broadcast_id TEXT NOT NULL, session_id TEXT NOT NULL,
+    last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`)
   // Add stream config columns if missing (safe for existing tables)
   try { await dbQuery(`ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS rtmp_url TEXT`) } catch {}
   try { await dbQuery(`ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS stream_key TEXT`) } catch {}
@@ -393,11 +397,46 @@ app.get('/stream/:id/info', async (req, res) => {
     const rows = await dbQuery(`SELECT chunk_index FROM stream_chunks WHERE broadcast_id=$1 ORDER BY chunk_index DESC LIMIT 1`,
       [req.params.id])
     const count = await dbGet(`SELECT COUNT(*) as count FROM stream_chunks WHERE broadcast_id=$1`, [req.params.id])
+    const listeners = await dbGet(`SELECT COUNT(*) as count FROM stream_listeners WHERE broadcast_id=$1`, [req.params.id])
     res.json({
       latestChunk: rows[0]?.chunk_index ?? -1,
       totalChunks: Number(count?.count || 0),
-      isLive: rows.length > 0
+      isLive: rows.length > 0,
+      listenerCount: Number(listeners?.count || 0)
     })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.post('/stream/:id/join', async (req, res) => {
+  try {
+    await initDb()
+    const { sessionId } = req.body
+    if (!sessionId) { res.status(400).json({ error: 'Missing sessionId' }); return }
+    await dbQuery(`INSERT INTO stream_listeners (id, broadcast_id, session_id, last_seen) VALUES ($1,$2,$3,NOW())`,
+      [uuidv4(), req.params.id, sessionId])
+    res.json({ success: true })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.post('/stream/:id/heartbeat', async (req, res) => {
+  try {
+    await initDb()
+    const { sessionId } = req.body
+    if (!sessionId) { res.status(400).json({ error: 'Missing sessionId' }); return }
+    await dbQuery(`UPDATE stream_listeners SET last_seen=NOW() WHERE broadcast_id=$1 AND session_id=$2`,
+      [req.params.id, sessionId])
+    res.json({ success: true })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.post('/stream/:id/leave', async (req, res) => {
+  try {
+    await initDb()
+    const { sessionId } = req.body
+    if (!sessionId) { res.status(400).json({ error: 'Missing sessionId' }); return }
+    await dbQuery(`DELETE FROM stream_listeners WHERE broadcast_id=$1 AND session_id=$2`,
+      [req.params.id, sessionId])
+    res.json({ success: true })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 

@@ -46,16 +46,19 @@ function StreamPlayer({ broadcastId }: { broadcastId: string }) {
   const [started, setStarted] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [bufferedCount, setBufferedCount] = useState(0)
+  const [listenerCount, setListenerCount] = useState(0)
   const [volume, setVolume] = useState(80)
   const [statusText, setStatusText] = useState('Waiting...')
-  const queueRef = useRef<Blob[]>([])
+
+  const decodedRef = useRef<AudioBuffer[]>([])
   const nextFetchRef = useRef(-1)
   const fetchIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const statsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const playingRef = useRef(false)
   const userPausedRef = useRef(false)
   const ctxRef = useRef<AudioContext | null>(null)
   const gainRef = useRef<GainNode | null>(null)
-  const nextStartRef = useRef(0)
+  const sessionIdRef = useRef('')
 
   async function fetchChunk(index: number): Promise<Blob | null> {
     try {
@@ -65,34 +68,68 @@ function StreamPlayer({ broadcastId }: { broadcastId: string }) {
     return null
   }
 
+  async function decodeAndQueue(blob: Blob) {
+    if (!ctxRef.current) return
+    try {
+      const ab = await blob.arrayBuffer()
+      const buf = await ctxRef.current.decodeAudioData(ab)
+      if (buf.duration > 0.05) {
+        decodedRef.current.push(buf)
+        setBufferedCount(c => c + 1)
+      }
+    } catch {}
+  }
+
   useEffect(() => {
     if (!started) return
+    // generate session id for listener tracking
+    sessionIdRef.current = Math.random().toString(36).slice(2) + Date.now().toString(36)
+    fetch(`/api/stream/${broadcastId}/join`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: sessionIdRef.current })
+    }).catch(() => {})
+
+    // heartbeat every 30s
+    const heartbeat = setInterval(() => {
+      fetch(`/api/stream/${broadcastId}/heartbeat`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: sessionIdRef.current })
+      }).catch(() => {})
+    }, 30000)
+
     fetchIntervalRef.current = setInterval(async () => {
       try {
         const infoRes = await fetch(`/api/stream/${broadcastId}/info`)
         if (!infoRes.ok) { setStatusText('Info error'); return }
         const info = await infoRes.json()
+        setListenerCount(info.listenerCount || 0)
         const latest = info.latestChunk ?? -1
         if (latest < 0) { setStatusText('No stream'); return }
         if (nextFetchRef.current < 0) {
           nextFetchRef.current = Math.max(0, latest - 1)
           setStatusText(`Joined at chunk ${nextFetchRef.current}`)
         }
-        let fetched = 0
         while (nextFetchRef.current <= latest) {
           const blob = await fetchChunk(nextFetchRef.current)
           if (!blob) break
-          if (blob.size > 0) { queueRef.current.push(blob); fetched++ }
+          if (blob.size > 0) await decodeAndQueue(blob)
           nextFetchRef.current++
         }
-        if (fetched > 0) {
-          setBufferedCount(c => c + fetched)
-          setStatusText(`Buffered ${queueRef.current.length} chunks`)
-          if (!playingRef.current && !userPausedRef.current) playNext()
+        setStatusText(`Buffered ${decodedRef.current.length} chunks`)
+        if (!playingRef.current && !userPausedRef.current && decodedRef.current.length >= 2) {
+          scheduleNext()
         }
       } catch {}
-    }, 2500)
-    return () => { if (fetchIntervalRef.current) clearInterval(fetchIntervalRef.current) }
+    }, 2000)
+
+    return () => {
+      if (fetchIntervalRef.current) clearInterval(fetchIntervalRef.current)
+      clearInterval(heartbeat)
+      fetch(`/api/stream/${broadcastId}/leave`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: sessionIdRef.current })
+      }).catch(() => {})
+    }
   }, [broadcastId, started])
 
   useEffect(() => {
@@ -103,33 +140,20 @@ function StreamPlayer({ broadcastId }: { broadcastId: string }) {
     return () => { if (ctxRef.current) { ctxRef.current.close().catch(() => {}); ctxRef.current = null } }
   }, [])
 
-  async function playNext() {
-    if (queueRef.current.length === 0) { playingRef.current = false; setIsPlaying(false); return }
+  function scheduleNext() {
+    if (decodedRef.current.length === 0) { playingRef.current = false; setIsPlaying(false); return }
     if (userPausedRef.current) { playingRef.current = false; setIsPlaying(false); return }
-    if (!ctxRef.current) {
-      const ctx = new AudioContext()
-      ctxRef.current = ctx
-      const g = ctx.createGain()
-      g.gain.value = volume / 100
-      g.connect(ctx.destination)
-      gainRef.current = g
-    }
+    if (!ctxRef.current) return
     const ctx = ctxRef.current
-    if (ctx.state === 'suspended') await ctx.resume()
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {})
     playingRef.current = true
     setIsPlaying(true)
-    const blob = queueRef.current.shift()!
-    const ab = await blob.arrayBuffer()
-    try {
-      const buf = await ctx.decodeAudioData(ab)
-      const src = ctx.createBufferSource()
-      src.buffer = buf
-      src.connect(gainRef.current!)
-      const when = Math.max(nextStartRef.current, ctx.currentTime + 0.02)
-      src.start(when)
-      nextStartRef.current = when + buf.duration
-      src.onended = () => { playNext() }
-    } catch { playNext() }
+    const buf = decodedRef.current.shift()!
+    const src = ctx.createBufferSource()
+    src.buffer = buf
+    src.connect(gainRef.current!)
+    src.start()
+    src.onended = () => { scheduleNext() }
   }
 
   function togglePlay() {
@@ -143,7 +167,7 @@ function StreamPlayer({ broadcastId }: { broadcastId: string }) {
     } else {
       userPausedRef.current = false
       ctx.resume().catch(() => {})
-      if (queueRef.current.length > 0) playNext()
+      if (decodedRef.current.length > 0) scheduleNext()
     }
   }
 
@@ -172,7 +196,12 @@ function StreamPlayer({ broadcastId }: { broadcastId: string }) {
           </span>
           <span className="text-sm font-medium tracking-wide">LIVE AUDIO</span>
         </div>
-        <span className="text-xs font-mono" style={{ color: 'var(--dim)' }}>{bufferedCount} chunks · {statusText}</span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-mono flex items-center gap-1" style={{ color: 'var(--dim)' }}>
+            <Users className="w-3 h-3" /> {listenerCount}
+          </span>
+          <span className="text-xs font-mono" style={{ color: 'var(--dim)' }}>{statusText}</span>
+        </div>
       </div>
 
       {/* Main Player */}
