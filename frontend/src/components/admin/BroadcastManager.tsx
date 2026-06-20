@@ -19,6 +19,8 @@ interface Broadcast {
   church_online_url?: string
   rtmp_url?: string
   stream_key?: string
+  thumbnail_url?: string
+  speaker?: string
 }
 
 type StudioView = 'list' | 'setup' | 'studio'
@@ -35,6 +37,9 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
   const [churchOnlineUrl, setChurchOnlineUrl] = useState('')
   const [rtmpUrl, setRtmpUrl] = useState('')
   const [streamKey, setStreamKey] = useState('')
+  const [speaker, setSpeaker] = useState('')
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
+  const [thumbnailPreview, setThumbnailPreview] = useState('')
   const [selectedDevice, setSelectedDevice] = useState('')
   const [setupError, setSetupError] = useState('')
 
@@ -70,11 +75,17 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     setSetupError('')
     setCreating(true)
     try {
+      let thumbnail_url = ''
+      if (thumbnailFile) {
+        thumbnail_url = await uploadThumbnail()
+      }
       const { data } = await axios.post('/api/broadcasts', {
         title, description, scripture_reference: scripture,
         church_online_url: churchOnlineUrl || undefined,
         rtmp_url: rtmpUrl || undefined,
         stream_key: streamKey || undefined,
+        thumbnail_url: thumbnail_url || undefined,
+        speaker: speaker || undefined,
       }, { headers: { Authorization: `Bearer ${token}` } })
       await axios.patch(`/api/broadcasts/${data.id}/start`, {}, { headers: { Authorization: `Bearer ${token}` } })
       setBroadcastId(data.id)
@@ -157,8 +168,30 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     setChurchOnlineUrl('')
     setRtmpUrl('')
     setStreamKey('')
+    setSpeaker('')
+    setThumbnailFile(null)
+    setThumbnailPreview('')
     setSetupError('')
     setView('setup')
+  }
+
+  function handleThumbnailChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setThumbnailFile(file)
+    const reader = new FileReader()
+    reader.onloadend = () => setThumbnailPreview(reader.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  async function uploadThumbnail(): Promise<string> {
+    if (!thumbnailFile) return ''
+    const formData = new FormData()
+    formData.append('image', thumbnailFile)
+    const { data } = await axios.post('/api/broadcasts/uploads/image', formData, {
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
+    })
+    return data.image_url || ''
   }
 
   function openStudio(b: Broadcast) {
@@ -221,11 +254,20 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
             <div className="divide-y divide-[rgba(243,238,228,0.04)]">
               {broadcasts.map(b => (
                 <div key={b.id} className="px-4 py-3 flex items-center justify-between hover:bg-[rgba(243,238,228,0.02)] transition-colors">
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium text-white truncate">{b.title}</p>
-                    <p className="text-[10px] text-[#9c958a] mt-0.5">
-                      {b.status === 'live' ? 'Live now' : b.started_at ? new Date(b.started_at).toLocaleString() : 'Scheduled'}
-                    </p>
+                  <div className="min-w-0 flex items-center gap-3">
+                    {b.thumbnail_url ? (
+                      <img src={b.thumbnail_url} alt="" className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-lg bg-[#1c1d24] flex items-center justify-center flex-shrink-0">
+                        <Radio className="w-4 h-4 text-[#c9a227]/40" />
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-xs font-medium text-white truncate">{b.title}</p>
+                      <p className="text-[10px] text-[#9c958a] mt-0.5">
+                        {b.speaker ? `${b.speaker} · ` : ''}{b.status === 'live' ? 'Live now' : b.started_at ? new Date(b.started_at).toLocaleString() : 'Scheduled'}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
@@ -306,6 +348,32 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
                   placeholder="e.g., Romans 8:1-17"
                   className="w-full rounded-lg px-3 py-2 text-xs bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors"
                 />
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                  <Mic className="w-3 h-3" /> Speaker / Guest Speaker
+                </label>
+                <input type="text" value={speaker} onChange={e => setSpeaker(e.target.value)}
+                  placeholder="e.g., Pastor Daniel Akins"
+                  className="w-full rounded-lg px-3 py-2 text-xs bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider mb-1.5">Broadcast Thumbnail</label>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] text-[#9c958a] text-xs cursor-pointer hover:border-[#c9a227]/40 transition-colors">
+                    <Plus className="w-3 h-3" /> Upload Image
+                    <input type="file" accept="image/*" onChange={handleThumbnailChange} className="hidden" />
+                  </label>
+                  {thumbnailPreview && (
+                    <div className="w-10 h-10 rounded-lg overflow-hidden border border-[rgba(243,238,228,0.08)]">
+                      <img src={thumbnailPreview} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

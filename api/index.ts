@@ -15,6 +15,15 @@ const upload = multer({
   }
 })
 
+const uploadImage = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    cb(null, allowed.includes(file.mimetype))
+  }
+})
+
 // ── Express setup ──────────────────────────────────────────────
 const app = express()
 app.use(cors({ origin: '*', credentials: true }))
@@ -84,6 +93,8 @@ async function initDb() {
   // Add stream config columns if missing (safe for existing tables)
   try { await dbQuery(`ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS rtmp_url TEXT`) } catch {}
   try { await dbQuery(`ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS stream_key TEXT`) } catch {}
+  try { await dbQuery(`ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS thumbnail_url TEXT`) } catch {}
+  try { await dbQuery(`ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS speaker TEXT`) } catch {}
 
   // Add sermon columns if missing
   try { await dbQuery(`ALTER TABLE sermons ADD COLUMN IF NOT EXISTS video_url TEXT`) } catch {}
@@ -265,11 +276,12 @@ app.get('/broadcasts/:id', async (req, res) => {
 app.post('/broadcasts', auth, requireRole('admin'), async (req: AuthReq, res) => {
   try {
     await initDb()
-    const { title, description, scripture_reference, rtmp_url, stream_key } = req.body
+    const { title, description, scripture_reference, rtmp_url, stream_key, thumbnail_url, speaker } = req.body
+    if (!title) { res.status(400).json({ error: 'Title is required' }); return }
     const id = uuidv4()
-    await dbQuery(`INSERT INTO broadcasts (id, title, description, scripture_reference, status, broadcaster_id, church_online_url, rtmp_url, stream_key) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-      [id, title, description || '', scripture_reference || '', 'scheduled', req.user.id, req.body.church_online_url || null, rtmp_url || null, stream_key || null])
-    res.status(201).json({ id, title, status: 'scheduled' })
+    await dbQuery(`INSERT INTO broadcasts (id, title, description, scripture_reference, status, broadcaster_id, church_online_url, rtmp_url, stream_key, thumbnail_url, speaker) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [id, title, description || '', scripture_reference || '', 'scheduled', req.user.id, req.body.church_online_url || null, rtmp_url || null, stream_key || null, thumbnail_url || null, speaker || null])
+    res.status(201).json({ id, title, status: 'scheduled', thumbnail_url, speaker })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
@@ -455,6 +467,15 @@ app.post('/music', auth, requireRole('admin'), upload.single('audio'), async (re
     await dbQuery(`INSERT INTO music (id, title, artist, album, genre, audio_url, cover_url, duration, lyrics, file_format, file_size) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [id, title, artist || '', album || '', genre || '', audio_url, cover_url || '', parseInt(duration) || 0, lyrics || '', file_format, file_size])
     res.status(201).json({ id, title })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.post('/uploads/image', auth, requireRole('admin'), uploadImage.single('image'), async (req: AuthReq, res) => {
+  try {
+    if (!req.file) { res.status(400).json({ error: 'Image file required' }); return }
+    const base64 = req.file.buffer.toString('base64')
+    const image_url = `data:${req.file.mimetype};base64,${base64}`
+    res.json({ image_url })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
