@@ -34,6 +34,8 @@ interface Sermon {
   title: string
   speaker: string
   audio_url: string
+  video_url: string
+  thumbnail_url: string
   date: string
 }
 

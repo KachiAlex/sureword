@@ -31,16 +31,17 @@ router.get('/', async (req, res) => {
 router.post('/', authenticateToken, requireRole('admin'), upload.single('audio'), async (req, res) => {
     try {
         await initDb();
-        const { title, description, scripture_reference, speaker, series, date, duration } = req.body;
+        const { title, description, scripture_reference, speaker, series, date, duration, video_url, thumbnail_url } = req.body;
         if (!title || !date) {
             res.status(400).json({ error: 'Title and date are required' });
             return;
         }
         const id = uuidv4();
-        const audioUrl = req.file ? `/uploads/${req.file.filename}` : '';
-        await db.run(`INSERT INTO sermons (id, title, description, scripture_reference, speaker, series, audio_url, date, duration)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`, [id, title, description || null, scripture_reference || null, speaker || null, series || null, audioUrl, date, duration ? parseInt(duration, 10) : null]);
-        res.json({ sermon: { id, title, description, scripture_reference, speaker, series, audio_url: audioUrl, date, duration } });
+        const audioUrl = req.file ? `/uploads/${req.file.filename}` : (req.body.audio_url || '');
+        await db.run(`INSERT INTO sermons (id, title, description, scripture_reference, speaker, series, audio_url, video_url, thumbnail_url, date, duration)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`, [id, title, description || null, scripture_reference || null, speaker || null, series || null,
+            audioUrl || null, video_url || null, thumbnail_url || null, date, duration ? parseInt(duration, 10) : null]);
+        res.json({ sermon: { id, title, description, scripture_reference, speaker, series, audio_url: audioUrl, video_url, thumbnail_url, date, duration } });
     }
     catch (err) {
         console.error('[SERMONS] create error:', err.message);

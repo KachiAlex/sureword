@@ -70,7 +70,7 @@ const SCHEMA_QUERIES = [
   )`,
     `CREATE TABLE IF NOT EXISTS sermons (
     id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, scripture_reference TEXT,
-    speaker TEXT, series TEXT, audio_url TEXT NOT NULL, date TEXT NOT NULL, duration INTEGER,
+    speaker TEXT, series TEXT, audio_url TEXT, video_url TEXT, thumbnail_url TEXT, date TEXT NOT NULL, duration INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`,
     `CREATE TABLE IF NOT EXISTS chat_messages (
@@ -132,6 +132,17 @@ async function _initDbInternal() {
         await db.query(SCHEMA_QUERIES[i]);
     }
     console.log('[DB] schema OK');
+    // Migration: add video_url and thumbnail_url to sermons if missing
+    try {
+        await db.query(`ALTER TABLE sermons ADD COLUMN video_url TEXT`);
+        console.log('[DB] migration: added video_url to sermons');
+    }
+    catch { /* already exists */ }
+    try {
+        await db.query(`ALTER TABLE sermons ADD COLUMN thumbnail_url TEXT`);
+        console.log('[DB] migration: added thumbnail_url to sermons');
+    }
+    catch { /* already exists */ }
     const existingSchedule = await db.get('SELECT * FROM schedule LIMIT 1');
     if (!existingSchedule) {
         await db.run(`

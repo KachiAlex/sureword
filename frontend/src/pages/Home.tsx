@@ -12,7 +12,7 @@ import {
 interface Broadcast { id: string; title: string; description?: string; scripture_reference?: string; status: string; started_at?: string; broadcaster_id: string }
 interface ScheduleItem { id: string; title: string; day_of_week: number; time: string; type: string; days_until: number }
 interface ChatMessage { id: string; user_name?: string; guest_name?: string; message: string; created_at: string }
-interface Sermon { id: string; title: string; scripture_reference?: string; speaker?: string; series?: string; duration?: number; date: string }
+interface Sermon { id: string; title: string; scripture_reference?: string; speaker?: string; series?: string; duration?: number; date: string; audio_url?: string; video_url?: string; thumbnail_url?: string }
 interface GuestSpeaker { id: string; name: string; bio: string; photo_url: string; topic: string; date: string; is_active: boolean }
 const SCHEDULE = [
   { time:"09:00 AM", title:"Worship Experience", live:true },
@@ -42,11 +42,17 @@ function SermonCard({ s }:{ s:Sermon }) {
   return (
     <Link to={`/archive/${s.id}`} className="group block">
       <div className="relative rounded-xl overflow-hidden aspect-[4/3] mb-2.5 bg-[#1c1d24]">
+        {s.thumbnail_url ? (
+          <img src={s.thumbnail_url} alt="" className="w-full h-full object-cover" />
+        ) : null}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
         <div className="absolute bottom-2 left-2 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5">
           <Play className="w-3 h-3 text-white fill-white" />
           <span className="text-[10px] text-white">{s.duration ? Math.round(s.duration/60)+" min" : "45 min"}</span>
         </div>
+        {s.video_url && (
+          <div className="absolute top-2 right-2 bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">VIDEO</div>
+        )}
       </div>
       <h4 className="text-sm font-medium text-white group-hover:text-[#c9a227] transition-colors leading-snug">{s.title}</h4>
       <p className="text-xs text-[#9c958a] mt-0.5">{s.speaker || "Pastor"}</p>
