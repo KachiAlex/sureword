@@ -14,6 +14,7 @@ interface Sermon { id: string; title: string; scripture_reference?: string; spea
 interface Prayer { id: string; name: string | null; request: string; is_anonymous: boolean; prayers_count: number; created_at: string }
 interface Testimony { id: string; name: string; content: string; created_at: string }
 interface GuestSpeaker { id: string; name: string; topic: string; date: string; photo_url: string }
+interface ChatMessage { id: string; user_id?: string; user_name?: string; message: string; created_at: string; is_private?: boolean }
 
 const sidebarNav = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -29,7 +30,7 @@ const sidebarNav = [
   { label: 'Giving & Donations', path: '/donate', icon: DollarSign },
 ]
 const bottomNav = [
-  { label: 'Notifications', path: '/notifications', icon: Bell, badge: 6 },
+  { label: 'Notifications', path: '/notifications', icon: Bell },
   { label: 'Saved Items', path: '/saved', icon: Bookmark },
   { label: 'Listening History', path: '/history', icon: History },
   { label: 'My Profile', path: '/profile', icon: User },
@@ -71,12 +72,7 @@ function Sidebar({ activePath }: { activePath: string }) {
             return (
               <Link key={item.label} to={item.path}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-colors ${active ? 'bg-[#c9a227]/10 text-[#c9a227]' : 'text-[#9c958a] hover:text-white hover:bg-[rgba(243,238,228,0.04)]'}`}>
-                <div className="relative">
-                  <Icon className="w-4 h-4" />
-                  {'badge' in item && item.badge ? (
-                    <span className="absolute -top-1.5 -right-2 w-4 h-4 rounded-full bg-[#8a3326] text-[9px] text-white flex items-center justify-center">{item.badge}</span>
-                  ) : null}
-                </div>
+                <Icon className="w-4 h-4" />
                 {item.label}
               </Link>
             )
@@ -111,7 +107,6 @@ function AudioBars({ active }: { active: boolean }) {
 
 function LivePlayerHero({ broadcast, isPlaying, setIsPlaying, isMuted, setIsMuted }: any) {
   const isLive = broadcast?.status==='live'
-  const listeners = 1248
   return (
     <div className="rounded-2xl border border-[rgba(243,238,228,0.08)] bg-gradient-to-br from-[#1c1d24] to-[#14141a] overflow-hidden mb-5">
       <div className="relative">
@@ -124,13 +119,15 @@ function LivePlayerHero({ broadcast, isPlaying, setIsPlaying, isMuted, setIsMute
             </div>
             <div className="text-center md:text-left flex-1">
               <div className="flex items-center justify-center md:justify-start gap-2 mb-1.5">
-                <span className="inline-flex items-center gap-1 bg-[#8a3326] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> LIVE ON AIR
-                </span>
+                {isLive && (
+                  <span className="inline-flex items-center gap-1 bg-[#8a3326] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> LIVE ON AIR
+                  </span>
+                )}
                 <span className="text-[10px] text-[#9c958a] uppercase tracking-wider">ZioniteFM Live Radio</span>
               </div>
-              <h2 className="font-serif text-lg md:text-xl font-medium text-white">{broadcast?.title || 'Morning Worship Experience'}</h2>
-              <p className="text-xs text-[#9c958a] mt-0.5">with Pastor Daniel Akins</p>
+              <h2 className="font-serif text-lg md:text-xl font-medium text-white">{broadcast?.title || 'No broadcast currently live'}</h2>
+              {broadcast?.description && <p className="text-xs text-[#9c958a] mt-0.5">{broadcast.description}</p>}
             </div>
             <div className="flex items-center gap-3 shrink-0">
               <button onClick={()=>setIsPlaying(!isPlaying)} className="w-12 h-12 rounded-full bg-[#c9a227] hover:bg-[#e0bd5a] flex items-center justify-center transition-colors">
@@ -148,8 +145,8 @@ function LivePlayerHero({ broadcast, isPlaying, setIsPlaying, isMuted, setIsMute
         <div className="flex items-center justify-between mt-3">
           <div className="flex items-center gap-4">
             <div>
-              <p className="text-[10px] text-[#9c958a] uppercase tracking-wider">Listeners Online</p>
-              <p className="text-lg font-semibold text-white">{listeners.toLocaleString()} <span className="text-[#4ade80] text-xs font-normal">● LIVE</span></p>
+              <p className="text-[10px] text-[#9c958a] uppercase tracking-wider">Status</p>
+              <p className="text-lg font-semibold text-white">{isLive ? <span className="text-[#4ade80] text-xs font-normal">● LIVE</span> : <span className="text-xs font-normal text-[#9c958a]">OFFLINE</span>}</p>
             </div>
             <div className="h-8 w-px bg-[rgba(243,238,228,0.08)]" />
             <div>
@@ -215,6 +212,7 @@ export default function MemberDashboard() {
   const [prayers, setPrayers] = useState<Prayer[]>([])
   const [testimonies, setTestimonies] = useState<Testimony[]>([])
   const [guestSpeaker, setGuestSpeaker] = useState<GuestSpeaker|null>(null)
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
 
@@ -239,6 +237,10 @@ export default function MemberDashboard() {
       setPrayers(pr.data.prayers||[])
       setTestimonies(tr.data.testimonies||[])
       setGuestSpeaker((gs.data.speakers||[])[0]||null)
+      if (br.data.broadcast?.id) {
+        const chat = await axios.get(`/api/chat/${br.data.broadcast.id}`).catch(()=>({data:{messages:[]}}))
+        setChatMessages(chat.data.messages?.slice(-10)||[])
+      }
     } catch {}
   }
 
@@ -282,7 +284,7 @@ export default function MemberDashboard() {
                   <div className="flex items-center gap-2 pl-2 border-l border-[rgba(243,238,228,0.08)]">
                     <div className="text-right hidden sm:block">
                       <p className="text-xs text-white font-medium">{user.name}</p>
-                      <p className="text-[10px] text-[#9c958a]">Premium Listener</p>
+                      <p className="text-[10px] text-[#9c958a] capitalize">{user.role}</p>
                     </div>
                     <div className="w-9 h-9 rounded-full bg-[#c9a227] flex items-center justify-center text-[#1b1208] text-xs font-bold">
                       {user.name?.[0]?.toUpperCase()||'L'}
@@ -335,9 +337,8 @@ export default function MemberDashboard() {
                       <p className="text-[11px] text-[#c9a227] mt-2">— {testimonies[0].name}</p>
                     </div>
                   ) : (
-                    <div className="p-4 rounded-xl bg-[#14141a] mb-4">
-                      <p className="text-xs text-[#9c958a] leading-relaxed">&ldquo;After months of waiting and trusting God, I got the job! He showed up in a mighty way. Glory to Jesus!&rdquo;</p>
-                      <p className="text-[11px] text-[#c9a227] mt-2">— Daniel B.</p>
+                    <div className="p-4 rounded-xl bg-[#14141a] mb-4 text-center">
+                      <p className="text-xs text-[#9c958a]">No testimonies yet. Be the first to share!</p>
                     </div>
                   )}
                   <button className="w-full py-2.5 rounded-lg bg-[#c9a227] hover:bg-[#e0bd5a] text-[#1b1208] text-xs font-medium transition-colors">Share Your Testimony</button>
@@ -347,25 +348,29 @@ export default function MemberDashboard() {
                 <div className="rounded-2xl border border-[rgba(243,238,228,0.08)] bg-[#1c1d24] p-5 flex flex-col h-full">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2"><Users className="w-4 h-4 text-[#c9a227]" /><h3 className="text-sm font-medium text-white">Community Chat</h3></div>
-                    <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-[#4ade80]" /><span className="text-[11px] text-[#9c958a]">1,248 online</span></div>
+                    <Link to={broadcast?`/live/${broadcast.id}`:'/live'} className="text-[11px] text-[#c9a227]">Join chat</Link>
                   </div>
                   <div className="flex-1 space-y-3 mb-4 min-h-[120px]">
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#c9a227]/20 to-[#8a3326]/20 flex items-center justify-center shrink-0"><span className="text-[10px] font-bold text-[#c9a227]">EW</span></div>
-                      <div className="flex-1"><div className="flex items-center gap-2"><span className="text-[11px] font-medium text-white">Esther W.</span><span className="text-[10px] text-[#9c958a]">10:24 AM</span></div><p className="text-[11px] text-[#9c958a] mt-0.5">This word is so powerful!</p></div>
-                    </div>
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#4ade80]/20 to-[#2563eb]/20 flex items-center justify-center shrink-0"><span className="text-[10px] font-bold text-[#4ade80]">JK</span></div>
-                      <div className="flex-1"><div className="flex items-center gap-2"><span className="text-[11px] font-medium text-white">James K.</span><span className="text-[10px] text-[#9c958a]">10:24 AM</span></div><p className="text-[11px] text-[#9c958a] mt-0.5">Faith over fear! Hallelujah 🔥</p></div>
-                    </div>
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#f472b6]/20 to-[#a855f7]/20 flex items-center justify-center shrink-0"><span className="text-[10px] font-bold text-[#f472b6]">BJ</span></div>
-                      <div className="flex-1"><div className="flex items-center gap-2"><span className="text-[11px] font-medium text-white">Blessed O.</span><span className="text-[10px] text-[#9c958a]">10:25 AM</span></div><p className="text-[11px] text-[#9c958a] mt-0.5">Thank you Jesus for this day 🙏</p></div>
-                    </div>
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#60a5fa]/20 to-[#3b82f6]/20 flex items-center justify-center shrink-0"><span className="text-[10px] font-bold text-[#60a5fa]">VM</span></div>
-                      <div className="flex-1"><div className="flex items-center gap-2"><span className="text-[11px] font-medium text-white">Victoria M.</span><span className="text-[10px] text-[#9c958a]">10:25 AM</span></div><p className="text-[11px] text-[#9c958a] mt-0.5">Glory to God!</p></div>
-                    </div>
+                    {chatMessages.map(msg => {
+                      const initials = (msg.user_name || 'Guest').split(' ').map((n:string)=>n[0]).join('').slice(0,2).toUpperCase()
+                      const colors = ['#c9a227','#4ade80','#f472b6','#60a5fa','#a855f7']
+                      const color = colors[(msg.user_name || 'G').charCodeAt(0) % colors.length]
+                      return (
+                        <div key={msg.id} className="flex items-start gap-2.5">
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{background:`${color}20`}}>
+                            <span className="text-[10px] font-bold" style={{color}}>{initials}</span>
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-medium text-white">{msg.user_name || 'Guest'}</span>
+                              <span className="text-[10px] text-[#9c958a]">{new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>
+                            </div>
+                            <p className="text-[11px] text-[#9c958a] mt-0.5">{msg.message}</p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                    {chatMessages.length===0 && <p className="text-xs text-[#9c958a] text-center py-4">No messages yet. Join the live stream to chat!</p>}
                   </div>
                   <div className="flex items-center gap-2">
                     <input type="text" placeholder="Type your message..." className="flex-1 bg-[#14141a] border border-[rgba(243,238,228,0.08)] rounded-lg px-3 py-2 text-xs text-white placeholder-[#9c958a] outline-none focus:border-[#c9a227]/30" />
@@ -382,13 +387,7 @@ export default function MemberDashboard() {
                   </div>
                   <div className="space-y-1">
                     {sermons.slice(0,3).map(s=> <SermonRow key={s.id} s={s} />)}
-                    {sermons.length===0 && (
-                      <>
-                        <SermonRow s={{id:'1',title:'Faith That Moves Mountains',speaker:'Pastor Daniel Akins',date:'2025-05-15',duration:2775}} />
-                        <SermonRow s={{id:'2',title:'Walking in Purpose',speaker:'Pastor Sarah Johnson',date:'2025-05-10',duration:2280}} />
-                        <SermonRow s={{id:'3',title:'The Power of Prayer',speaker:'Pastor Daniel Akins',date:'2025-05-13',duration:2530}} />
-                      </>
-                    )}
+                    {sermons.length===0 && <p className="text-xs text-[#9c958a] text-center py-4">No listening history yet.</p>}
                   </div>
                 </div>
                 <div className="rounded-2xl border border-[rgba(243,238,228,0.08)] bg-[#1c1d24] p-5">
@@ -398,13 +397,7 @@ export default function MemberDashboard() {
                   </div>
                   <div className="space-y-1">
                     {sermons.slice(0,3).map(s=> <SermonRow key={s.id} s={s} />)}
-                    {sermons.length===0 && (
-                      <>
-                        <SermonRow s={{id:'4',title:'Breaking Strongholds',speaker:'Pastor Daniel Akins',date:'2025-05-01',duration:2837}} />
-                        <SermonRow s={{id:'5',title:'Renewing Your Mind',speaker:'Pastor Sarah Johnson',date:'2025-05-09',duration:2370}} />
-                        <SermonRow s={{id:'6',title:'The Blood of Jesus',speaker:'Pastor Daniel Akins',date:'2025-05-08',duration:2642}} />
-                      </>
-                    )}
+                    {sermons.length===0 && <p className="text-xs text-[#9c958a] text-center py-4">No saved sermons yet.</p>}
                   </div>
                 </div>
               </div>
@@ -417,26 +410,7 @@ export default function MemberDashboard() {
                   <span className="text-[11px] text-[#c9a227]">View all</span>
                 </div>
                 <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full bg-[#8a3326]/20 flex items-center justify-center shrink-0"><span className="text-[10px] font-bold text-[#8a3326]">LIVE</span></div>
-                    <div className="flex-1 min-w-0"><p className="text-xs text-white">Live Now: Morning Worship</p><p className="text-[10px] text-[#9c958a]">Started 5 mins ago</p></div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full bg-[#c9a227]/10 flex items-center justify-center shrink-0"><BookOpen className="w-3.5 h-3.5 text-[#c9a227]" /></div>
-                    <div className="flex-1 min-w-0"><p className="text-xs text-white">New Sermon Uploaded</p><p className="text-[10px] text-[#9c958a]">Faith Over Fear by Pst. Daniel · 1 hour ago</p></div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full bg-[#4ade80]/10 flex items-center justify-center shrink-0"><Heart className="w-3.5 h-3.5 text-[#4ade80]" /></div>
-                    <div className="flex-1 min-w-0"><p className="text-xs text-white">Prayer Request Update</p><p className="text-[10px] text-[#9c958a]">Your prayer request is being prayed for · 2 hours ago</p></div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full bg-[#60a5fa]/10 flex items-center justify-center shrink-0"><Calendar className="w-3.5 h-3.5 text-[#60a5fa]" /></div>
-                    <div className="flex-1 min-w-0"><p className="text-xs text-white">Upcoming Live Service</p><p className="text-[10px] text-[#9c958a]">Evening Encounter starts at 6:00 PM · 3 hours ago</p></div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full bg-[#f472b6]/10 flex items-center justify-center shrink-0"><Headphones className="w-3.5 h-3.5 text-[#f472b6]" /></div>
-                    <div className="flex-1 min-w-0"><p className="text-xs text-white">New Podcast Episode</p><p className="text-[10px] text-[#9c958a]">Kingdom Mindset - Episode 12 · 5 hours ago</p></div>
-                  </div>
+                  <p className="text-xs text-[#9c958a] text-center py-4">No new notifications.</p>
                 </div>
               </div>
 
@@ -457,9 +431,9 @@ export default function MemberDashboard() {
                     )}
                   </div>
                   <div className="p-4">
-                    <p className="text-sm font-medium text-white">{guestSpeaker?.name || 'Pastor John Okafor'}</p>
-                    <p className="text-[11px] text-[#9c958a] mt-0.5">{guestSpeaker?.topic || 'Kingdom Conference'}</p>
-                    <p className="text-[10px] text-[#9c958a] mt-1">{guestSpeaker?.date || 'May 25, 2025'} · 6:00 PM</p>
+                    <p className="text-sm font-medium text-white">{guestSpeaker?.name || 'No upcoming guest speaker'}</p>
+                    <p className="text-[11px] text-[#9c958a] mt-0.5">{guestSpeaker?.topic || 'Check back soon for updates.'}</p>
+                    {guestSpeaker?.date && <p className="text-[10px] text-[#9c958a] mt-1">{new Date(guestSpeaker.date).toLocaleDateString()} · 6:00 PM</p>}
                     <button className="mt-3 w-full py-2 rounded-lg bg-[#c9a227] hover:bg-[#e0bd5a] text-[#1b1208] text-xs font-medium transition-colors">Set Reminder</button>
                   </div>
                 </div>
