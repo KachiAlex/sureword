@@ -9,6 +9,10 @@ import AdminDashboard from './pages/AdminDashboard'
 import Status from './pages/Status'
 import Live from './pages/Live'
 import Music from './pages/Music'
+import Podcasts from './pages/Podcasts'
+import PrayerWall from './pages/PrayerWall'
+import Events from './pages/Events'
+import AboutUs from './pages/AboutUs'
 
 function App() {
   return (
@@ -25,6 +29,10 @@ function App() {
             <Route path="/live" element={<Live />} />
             <Route path="/live/:broadcastId" element={<Live />} />
             <Route path="/music" element={<Music />} />
+            <Route path="/podcasts" element={<Podcasts />} />
+            <Route path="/prayer" element={<PrayerWall />} />
+            <Route path="/events" element={<Events />} />
+            <Route path="/about" element={<AboutUs />} />
           </Routes>
         </Layout>
       </BrowserRouter>

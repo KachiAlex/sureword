@@ -6,7 +6,7 @@ import {
   Play, Pause, Volume2, Maximize2, MessageSquare, Search, Heart,
   Users, BookOpen, Headphones, ChevronRight,
   Download, Facebook, Instagram, Youtube, Twitter,
-  Mic2, Cross, MapPin, Mail, Radio
+  Mic2, Cross, MapPin, Mail, Radio, Calendar
 } from "lucide-react"
 
 interface Broadcast { id: string; title: string; description?: string; scripture_reference?: string; status: string; started_at?: string; broadcaster_id: string }
@@ -14,6 +14,7 @@ interface ScheduleItem { id: string; title: string; day_of_week: number; time: s
 interface ChatMessage { id: string; user_name?: string; guest_name?: string; message: string; created_at: string }
 interface Sermon { id: string; title: string; scripture_reference?: string; speaker?: string; series?: string; duration?: number; date: string; audio_url?: string; video_url?: string; thumbnail_url?: string }
 interface GuestSpeaker { id: string; name: string; bio: string; photo_url: string; topic: string; date: string; is_active: boolean }
+interface EventItem { id: string; title: string; description: string; date: string; time: string; location: string; image_url: string }
 const SCHEDULE = [
   { time:"09:00 AM", title:"Worship Experience", live:true },
   { time:"12:00 PM", title:"Midday Prayer", live:false },
@@ -65,6 +66,7 @@ export default function Home() {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([])
   const [sermons, setSermons] = useState<Sermon[]>([])
   const [guestSpeakers, setGuestSpeakers] = useState<GuestSpeaker[]>([])
+  const [events, setEvents] = useState<EventItem[]>([])
   const [isPlaying, setIsPlaying] = useState(false)
   const [volume, setVolume] = useState(70)
   const [searchQ, setSearchQ] = useState("")
@@ -78,16 +80,18 @@ export default function Home() {
 
   async function fetchData(){
     try {
-      const [br, sc, sr, sp] = await Promise.all([
+      const [br, sc, sr, sp, ev] = await Promise.all([
         axios.get("/api/broadcasts/active").catch(()=>({data:{broadcast:null}})),
         axios.get("/api/schedule").catch(()=>({data:{schedule:[]}})),
         axios.get("/api/sermons?limit=4").catch(()=>({data:{sermons:[]}})),
         axios.get("/api/guest-speakers").catch(()=>({data:{speakers:[]}})),
+        axios.get("/api/events").catch(()=>({data:{events:[]}})),
       ])
       setBroadcast(br.data.broadcast)
       setSchedule(sc.data.schedule||[])
       setSermons(sr.data.sermons||[])
       setGuestSpeakers(sp.data.speakers||[])
+      setEvents(ev.data.events||[])
     } catch {}
   }
 
@@ -373,6 +377,36 @@ export default function Home() {
                   )
                 })}
               </div>
+            </section>
+
+            {/* Upcoming Events */}
+            <section className="rounded-2xl border border-[rgba(243,238,228,0.08)] bg-[#1c1d24] p-5">
+              <SectionHeader title="Upcoming Events" action="View All" to="/events" />
+              {events.length > 0 ? (
+                <div className="space-y-3">
+                  {events.slice(0, 3).map(evt => (
+                    <div key={evt.id} className="flex items-start gap-3">
+                      {evt.image_url ? (
+                        <img src={evt.image_url} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-[#21222c] flex items-center justify-center flex-shrink-0">
+                          <Calendar className="w-5 h-5 text-[#c9a227]/60" />
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-medium text-white">{evt.title}</p>
+                        <p className="text-[10px] text-[#9c958a]">{evt.date}{evt.time ? ` · ${evt.time}` : ''}{evt.location ? ` · ${evt.location}` : ''}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <Calendar className="w-8 h-8 mx-auto mb-2 text-[#9c958a]/40" />
+                  <p className="text-xs text-[#9c958a]">No upcoming events</p>
+                </div>
+              )}
+              <Link to="/events" className="btn-gold w-full text-xs mt-3">View All Events</Link>
             </section>
 
           </div>
