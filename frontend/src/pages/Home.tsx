@@ -11,7 +11,6 @@ import {
 
 interface Broadcast { id: string; title: string; description?: string; scripture_reference?: string; status: string; started_at?: string; broadcaster_id: string }
 interface ScheduleItem { id: string; title: string; day_of_week: number; time: string; type: string; days_until: number }
-interface ChatMessage { id: string; user_name?: string; guest_name?: string; message: string; created_at: string }
 interface Sermon { id: string; title: string; scripture_reference?: string; speaker?: string; series?: string; duration?: number; date: string; audio_url?: string; video_url?: string; thumbnail_url?: string }
 interface GuestSpeaker { id: string; name: string; bio: string; photo_url: string; topic: string; date: string; is_active: boolean }
 interface EventItem { id: string; title: string; description: string; date: string; time: string; location: string; image_url: string }
@@ -63,13 +62,10 @@ function SermonCard({ s }:{ s:Sermon }) {
 
 export default function Home() {
   const [broadcast, setBroadcast] = useState<Broadcast|null>(null)
-  const [schedule, setSchedule] = useState<ScheduleItem[]>([])
   const [sermons, setSermons] = useState<Sermon[]>([])
   const [guestSpeakers, setGuestSpeakers] = useState<GuestSpeaker[]>([])
   const [events, setEvents] = useState<EventItem[]>([])
   const [isPlaying, setIsPlaying] = useState(false)
-  const [volume, setVolume] = useState(70)
-  const [searchQ, setSearchQ] = useState("")
   const { user } = useAuth()
 
   useEffect(()=>{
@@ -80,15 +76,13 @@ export default function Home() {
 
   async function fetchData(){
     try {
-      const [br, sc, sr, sp, ev] = await Promise.all([
+      const [br, sr, sp, ev] = await Promise.all([
         axios.get("/api/broadcasts/active").catch(()=>({data:{broadcast:null}})),
-        axios.get("/api/schedule").catch(()=>({data:{schedule:[]}})),
         axios.get("/api/sermons?limit=4").catch(()=>({data:{sermons:[]}})),
         axios.get("/api/guest-speakers").catch(()=>({data:{speakers:[]}})),
         axios.get("/api/events").catch(()=>({data:{events:[]}})),
       ])
       setBroadcast(br.data.broadcast)
-      setSchedule(sc.data.schedule||[])
       setSermons(sr.data.sermons||[])
       setGuestSpeakers(sp.data.speakers||[])
       setEvents(ev.data.events||[])
@@ -100,53 +94,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen" style={{background:"var(--ink)",color:"var(--parchment)"}}>
-      {/* ====== NAVBAR ====== */}
-      <nav className="sticky top-0 z-50 border-b border-[rgba(243,238,228,0.08)] bg-[#14141a]/95 backdrop-blur-md">
-        <div className="max-w-[1440px] mx-auto px-4 md:px-6 h-14 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-full border border-[#c9a227]/40 flex items-center justify-center">
-              <Mic2 className="w-4 h-4 text-[#c9a227]" />
-            </div>
-            <div className="leading-tight">
-              <div className="text-sm font-medium text-white tracking-wide">ZIONITEFM</div>
-              <div className="text-[9px] text-[#9c958a] tracking-widest uppercase">The Voice of Redemption</div>
-            </div>
-          </Link>
-
-          <div className="hidden md:flex items-center gap-6">
-            {["Home","Live Radio","Sermons","Podcasts","Prayer Wall","Events","About Us"].map((item,i)=>{
-              const path = ["/", isLive?"/live":"/live", "/archive", "/podcasts", "/prayer", "/events", "/about"][i]
-              const active = i===0
-              return (
-                <Link key={item} to={path} className={`text-xs font-medium transition-colors ${active?"text-[#c9a227]":"text-[#9c958a] hover:text-white"}`}>
-                  {item}
-                </Link>
-              )
-            })}
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="hidden md:flex items-center bg-[#1c1d24] rounded-full px-3 py-1.5 border border-[rgba(243,238,228,0.08)]">
-              <Search className="w-3.5 h-3.5 text-[#9c958a] mr-2" />
-              <input type="text" placeholder="Search sermons, topics, speakers..." value={searchQ} onChange={e=>setSearchQ(e.target.value)}
-                className="bg-transparent text-xs text-white placeholder-[#9c958a] outline-none w-44" />
-            </div>
-            {user ? (
-              <Link to="/admin" className="w-8 h-8 rounded-full bg-[#c9a227] flex items-center justify-center text-[#1b1208] text-xs font-bold">
-                {user.name?.[0]?.toUpperCase()||"A"}
-              </Link>
-            ) : (
-              <Link to="/login" className="flex items-center gap-1 text-[#c9a227] hover:text-[#e0bd5a] transition-colors">
-                <Users className="w-4 h-4" />
-              </Link>
-            )}
-            <button className="hidden md:flex items-center gap-1.5 bg-[#c9a227] hover:bg-[#e0bd5a] text-[#1b1208] text-xs font-medium px-4 py-1.5 rounded-full transition-colors">
-              <Heart className="w-3.5 h-3.5" /> Donate
-            </button>
-          </div>
-        </div>
-      </nav>
-
       {/* ====== HERO + LIVE PLAYER ====== */}
       <div className="relative">
         {/* Background image */}
