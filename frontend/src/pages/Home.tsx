@@ -5,7 +5,7 @@ import { useAuth } from "../contexts/AuthContext"
 import {
   Play, Pause, Volume2, Maximize2, MessageSquare, Search, Heart,
   Users, BookOpen, Headphones, ChevronRight,
-  Download, Smartphone, Facebook, Instagram, Youtube, Twitter,
+  Download, Facebook, Instagram, Youtube, Twitter,
   Mic2, Cross, MapPin, Mail, Radio
 } from "lucide-react"
 
@@ -13,11 +13,6 @@ interface Broadcast { id: string; title: string; description?: string; scripture
 interface ScheduleItem { id: string; title: string; day_of_week: number; time: string; type: string; days_until: number }
 interface ChatMessage { id: string; user_name?: string; guest_name?: string; message: string; created_at: string }
 interface Sermon { id: string; title: string; scripture_reference?: string; speaker?: string; series?: string; duration?: number; date: string }
-const PODCASTS = [
-  { id:"1", title:"Kingdom Principles", speaker:"Pastor Samuel Adeyemi", duration:"42:15" },
-  { id:"2", title:"The Power of Worship", speaker:"Pastor Michael O.", duration:"38:20" },
-  { id:"3", title:"Faith for Everyday Living", speaker:"Pastor Grace IE", duration:"45:10" },
-]
 const SCHEDULE = [
   { time:"09:00 AM", title:"Worship Experience", live:true },
   { time:"12:00 PM", title:"Midday Prayer", live:false },
@@ -61,7 +56,6 @@ function SermonCard({ s }:{ s:Sermon }) {
 export default function Home() {
   const [broadcast, setBroadcast] = useState<Broadcast|null>(null)
   const [schedule, setSchedule] = useState<ScheduleItem[]>([])
-  const [chat] = useState<ChatMessage[]>([])
   const [sermons, setSermons] = useState<Sermon[]>([])
   const [isPlaying, setIsPlaying] = useState(false)
   const [volume, setVolume] = useState(70)
@@ -140,8 +134,19 @@ export default function Home() {
       </nav>
 
       {/* ====== HERO + LIVE PLAYER ====== */}
-      <div className="max-w-[1440px] mx-auto px-4 md:px-6 py-8 md:py-12">
-        <div className="grid lg:grid-cols-2 gap-8 items-start">
+      <div className="relative">
+        {/* Background image */}
+        <div className="absolute inset-0">
+          <img
+            src="https://images.unsplash.com/photo-1507692049790-de58290a4334?auto=format&fit=crop&w=2000&q=80"
+            alt=""
+            className="w-full h-full object-cover"
+          />
+          {/* Dark gradient overlay for readability */}
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0c0c12]/85 via-[#0c0c12]/70 to-[#0c0c12]" />
+        </div>
+        <div className="relative max-w-[1440px] mx-auto px-4 md:px-6 py-12 md:py-20">
+          <div className="grid lg:grid-cols-2 gap-8 items-start">
           {/* Left: Welcome */}
           <div>
             <p className="font-cursive text-2xl md:text-3xl text-[#c9a227] mb-1">Welcome to</p>
@@ -233,6 +238,7 @@ export default function Home() {
           </div>
         </div>
       </div>
+    </div>
 
       {/* ====== MAIN DASHBOARD GRID ====== */}
       <div className="max-w-[1440px] mx-auto px-4 md:px-6 pb-5">

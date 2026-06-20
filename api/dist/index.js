@@ -6,6 +6,10 @@ import sermonRoutes from './routes/sermons.js';
 import scheduleRoutes from './routes/schedule.js';
 import chatRoutes from './routes/chat.js';
 import statusRoutes from './routes/status.js';
+import guestSpeakerRoutes from './routes/guest-speakers.js';
+import podcastRoutes from './routes/podcasts.js';
+import prayerRoutes from './routes/prayer.js';
+import eventRoutes from './routes/events.js';
 const app = express();
 app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
@@ -40,6 +44,10 @@ app.use('/sermons', sermonRoutes);
 app.use('/schedule', scheduleRoutes);
 app.use('/chat', chatRoutes);
 app.use('/status', statusRoutes);
+app.use('/guest-speakers', guestSpeakerRoutes);
+app.use('/podcasts', podcastRoutes);
+app.use('/prayer', prayerRoutes);
+app.use('/events', eventRoutes);
 // 404
 app.use((_req, res) => {
     res.status(404).json({ error: 'Not found' });

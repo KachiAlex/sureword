@@ -50,4 +50,75 @@ router.post('/', authenticateToken, requireRole('admin'), upload.single('audio')
   }
 })
 
+// Featured sermons
+router.get('/featured', async (req, res) => {
+  try {
+    await initDb()
+    const rows = await db.all(
+      `SELECT s.* FROM sermons s
+       JOIN featured_sermons fs ON s.id = fs.sermon_id
+       ORDER BY fs.display_order ASC, fs.created_at DESC`
+    )
+    res.json({ sermons: rows })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+router.post('/featured', authenticateToken, requireRole('admin'), async (req, res) => {
+  try {
+    await initDb()
+    const { sermon_id, display_order } = req.body
+    if (!sermon_id) return res.status(400).json({ error: 'sermon_id required' })
+    const id = uuidv4()
+    await db.run(
+      `INSERT INTO featured_sermons (id, sermon_id, display_order) VALUES ($1, $2, $3)
+       ON CONFLICT (sermon_id) DO UPDATE SET display_order = EXCLUDED.display_order`,
+      [id, sermon_id, display_order || 0]
+    )
+    res.json({ ok: true })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+router.delete('/featured/:sermon_id', authenticateToken, requireRole('admin'), async (req, res) => {
+  try {
+    await initDb()
+    await db.run('DELETE FROM featured_sermons WHERE sermon_id = $1', [req.params.sermon_id])
+    res.json({ ok: true })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Transcripts
+router.get('/:id/transcript', async (req, res) => {
+  try {
+    await initDb()
+    const row = await db.get('SELECT * FROM transcripts WHERE sermon_id = $1', [req.params.id])
+    res.json({ transcript: row || null })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+router.post('/:id/transcript', authenticateToken, requireRole('admin'), async (req, res) => {
+  try {
+    await initDb()
+    const { content } = req.body
+    if (!content) return res.status(400).json({ error: 'Content required' })
+    const id = uuidv4()
+    await db.run(
+      `INSERT INTO transcripts (id, sermon_id, content) VALUES ($1, $2, $3)
+       ON CONFLICT (sermon_id) DO UPDATE SET content = EXCLUDED.content`,
+      [id, req.params.id, content]
+    )
+    const row = await db.get('SELECT * FROM transcripts WHERE sermon_id = $1', [req.params.id])
+    res.json({ transcript: row })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 export default router

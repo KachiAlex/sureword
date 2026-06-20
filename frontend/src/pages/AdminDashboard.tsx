@@ -2,12 +2,16 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { useAuth } from '../contexts/AuthContext'
-import { Users, Radio, Headphones, LayoutDashboard, Signal, MessageSquare, Settings, Music } from 'lucide-react'
+import { Users, Radio, Headphones, LayoutDashboard, Signal, MessageSquare, Settings, Music, Mic2, Podcast, Heart, Calendar } from 'lucide-react'
 import BroadcastManager from '../components/admin/BroadcastManager'
 import SermonManager from '../components/admin/SermonManager'
 import ChatSupervisor from '../components/admin/ChatSupervisor'
 import AdminSettings from '../components/admin/AdminSettings'
 import MusicManager from '../components/admin/MusicManager'
+import GuestSpeakerManager from '../components/admin/GuestSpeakerManager'
+import PodcastManager from '../components/admin/PodcastManager'
+import PrayerManager from '../components/admin/PrayerManager'
+import EventManager from '../components/admin/EventManager'
 
 interface Broadcast {
   id: string
@@ -62,7 +66,7 @@ interface Stats {
   ended: number
 }
 
-type Tab = 'broadcasts' | 'users' | 'sermons' | 'chat' | 'settings' | 'music'
+type Tab = 'broadcasts' | 'users' | 'sermons' | 'chat' | 'settings' | 'music' | 'speakers' | 'podcasts' | 'prayer' | 'events'
 
 export default function AdminDashboard() {
   const { user } = useAuth()
@@ -203,6 +207,10 @@ export default function AdminDashboard() {
             { key: 'broadcasts' as Tab, label: 'Broadcasts', icon: Radio },
             { key: 'users' as Tab, label: 'Users', icon: Users },
             { key: 'sermons' as Tab, label: 'Sermons', icon: Headphones },
+            { key: 'speakers' as Tab, label: 'Speakers', icon: Mic2 },
+            { key: 'podcasts' as Tab, label: 'Podcasts', icon: Podcast },
+            { key: 'events' as Tab, label: 'Events', icon: Calendar },
+            { key: 'prayer' as Tab, label: 'Prayer', icon: Heart },
             { key: 'music' as Tab, label: 'Music', icon: Music },
             { key: 'chat' as Tab, label: 'Chat', icon: MessageSquare },
             { key: 'settings' as Tab, label: 'Settings', icon: Settings },
@@ -285,6 +293,42 @@ export default function AdminDashboard() {
 
         {activeTab === 'music' && (
           <MusicManager music={musicTracks} onRefresh={fetchData} />
+        )}
+
+        {activeTab === 'speakers' && (
+          <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
+            <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--line)', background: 'rgba(243,238,228,0.03)' }}>
+              <h2 className="font-semibold">Guest Speaker Spotlight</h2>
+            </div>
+            <div className="p-4"><GuestSpeakerManager /></div>
+          </div>
+        )}
+
+        {activeTab === 'podcasts' && (
+          <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
+            <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--line)', background: 'rgba(243,238,228,0.03)' }}>
+              <h2 className="font-semibold">Podcast Management</h2>
+            </div>
+            <div className="p-4"><PodcastManager /></div>
+          </div>
+        )}
+
+        {activeTab === 'prayer' && (
+          <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
+            <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--line)', background: 'rgba(243,238,228,0.03)' }}>
+              <h2 className="font-semibold">Prayer Wall Management</h2>
+            </div>
+            <div className="p-4"><PrayerManager /></div>
+          </div>
+        )}
+
+        {activeTab === 'events' && (
+          <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
+            <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--line)', background: 'rgba(243,238,228,0.03)' }}>
+              <h2 className="font-semibold">Event Management</h2>
+            </div>
+            <div className="p-4"><EventManager /></div>
+          </div>
         )}
       </div>
     </div>
