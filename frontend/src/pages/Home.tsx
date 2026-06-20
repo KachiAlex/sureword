@@ -98,18 +98,18 @@ export default function Home() {
                 <BookOpen className="w-4 h-4" /> Browse Sermons
               </Link>
             </div>
-            <div className="flex items-center justify-center gap-3 mt-8">
+            <Link to="/register" className="flex items-center justify-center gap-3 mt-8 group">
               <div className="flex -space-x-2">
                 {["SJ","DM","BK","AO","GO"].map((init,i)=>{
                   const bg = ["c9a227","8a3326","21222c","1c1d24","48433a"][i]
-                  return <img key={i} src={`https://ui-avatars.com/api/?name=${init}&background=${bg}&color=f3eee4&size=32`} className="w-8 h-8 rounded-full border-2 border-[#14141a]" alt="" />
+                  return <img key={i} src={`https://ui-avatars.com/api/?name=${init}&background=${bg}&color=f3eee4&size=32`} className="w-8 h-8 rounded-full border-2 border-[#14141a] group-hover:scale-105 transition-transform duration-300" alt="" />
                 })}
               </div>
               <div className="text-left">
-                <p className="text-xs font-semibold text-white">Join the Community</p>
+                <p className="text-xs font-semibold text-white group-hover:text-[#c9a227] transition-colors">Join the Community</p>
                 <p className="text-[10px] text-[#9c958a]">Thousands of listeners online</p>
               </div>
-            </div>
+            </Link>
           </div>
         </div>
       </div>
