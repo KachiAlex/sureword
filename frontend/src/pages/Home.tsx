@@ -3,10 +3,10 @@ import { Link } from "react-router-dom"
 import axios from "axios"
 import { useAuth } from "../contexts/AuthContext"
 import {
-  Play, Pause, Volume2, Maximize2, MessageSquare, Search, Heart,
+  Play, Search, Heart,
   Users, BookOpen, Headphones, ChevronRight,
   Download, Facebook, Instagram, Youtube, Twitter,
-  Mic2, Cross, MapPin, Mail, Radio, Calendar
+  Mic2, MapPin, Mail, Radio, Calendar
 } from "lucide-react"
 
 interface Broadcast { id: string; title: string; description?: string; scripture_reference?: string; status: string; started_at?: string; broadcaster_id: string }
@@ -26,8 +26,6 @@ const FEATURED = [
   { title:"Jesus: The Way, The Truth & The Life", speaker:"Pastor Michael O.", duration:"52:17" },
   { title:"Overcoming Life's Challenges", speaker:"Pastor Sarah O.", duration:"43:02" },
 ]
-
-function LiveDot() { return <span className="inline-block w-[7px] h-[7px] rounded-full bg-[#ef4444] animate-pulse mr-1.5" /> }
 
 function SectionHeader({ title, action, to }:{ title:string; action:string; to:string }) {
   return (
@@ -65,8 +63,6 @@ export default function Home() {
   const [sermons, setSermons] = useState<Sermon[]>([])
   const [guestSpeakers, setGuestSpeakers] = useState<GuestSpeaker[]>([])
   const [events, setEvents] = useState<EventItem[]>([])
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [volume] = useState(70)
   const { user } = useAuth()
 
   useEffect(()=>{
@@ -95,22 +91,14 @@ export default function Home() {
 
   return (
     <div className="min-h-screen" style={{background:"var(--ink)",color:"var(--parchment)"}}>
-      {/* ====== HERO + LIVE PLAYER ====== */}
+      {/* ====== HERO ====== */}
       <div className="relative">
-        {/* Background image */}
         <div className="absolute inset-0">
-          <img
-            src="https://images.unsplash.com/photo-1507692049790-de58290a4334?auto=format&fit=crop&w=2000&q=80"
-            alt=""
-            className="w-full h-full object-cover"
-          />
-          {/* Dark gradient overlay for readability */}
+          <img src="https://images.unsplash.com/photo-1507692049790-de58290a4334?auto=format&fit=crop&w=2000&q=80" alt="" className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-b from-[#0c0c12]/85 via-[#0c0c12]/70 to-[#0c0c12]" />
         </div>
         <div className="relative max-w-[1440px] mx-auto px-4 md:px-6 py-12 md:py-20">
-          <div className="grid lg:grid-cols-2 gap-8 items-start">
-          {/* Left: Welcome */}
-          <div>
+          <div className="max-w-xl">
             <p className="font-cursive text-2xl md:text-3xl text-[#c9a227] mb-1">Welcome to</p>
             <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-medium text-white leading-tight mb-4">
               ZioniteFM –<br />The Voice of Redemption
@@ -122,8 +110,10 @@ export default function Home() {
               <Link to={isLive?`/live/${broadcast.id}`:"/live"} className="btn-gold text-sm">
                 <Headphones className="w-4 h-4" /> Listen Live
               </Link>
+              <Link to="/archive" className="flex items-center gap-2 text-xs text-[#9c958a] hover:text-white transition-colors">
+                <BookOpen className="w-4 h-4" /> Browse Sermons
+              </Link>
             </div>
-
             <div className="flex items-center gap-3 mt-8">
               <div className="flex -space-x-2">
                 {["SJ","DM","BK","AO","GO"].map((init,i)=>{
@@ -137,70 +127,8 @@ export default function Home() {
               </div>
             </div>
           </div>
-
-          {/* Right: Live Player */}
-          <div className="rounded-2xl border border-[rgba(243,238,228,0.08)] bg-[#1c1d24] overflow-hidden">
-            {isLive && (
-              <div className="relative">
-                <div className="aspect-square bg-gradient-to-br from-[#2a2518] to-[#14141a] flex items-center justify-center">
-                  <div className="w-48 h-48 rounded-xl bg-gradient-to-br from-[#3a3218] to-[#1a1810] flex items-center justify-center border border-[#c9a227]/20">
-                    <Cross className="w-16 h-16 text-[#c9a227]/40" />
-                  </div>
-                </div>
-                <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/60 backdrop-blur-sm rounded-full px-3 py-1">
-                  <LiveDot /> <span className="text-[10px] font-medium text-white uppercase tracking-wider">Live</span>
-                </div>
-              </div>
-            )}
-            <div className="p-5">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <span className="text-[10px] font-medium text-[#c9a227] uppercase tracking-wider block mb-1">Now Streaming Live</span>
-                  <h3 className="font-serif text-lg font-medium text-white">{broadcast?.title||"Faith That Moves Mountains"}</h3>
-                  <p className="text-xs text-[#9c958a] mt-0.5">Pastor Samuel Adeyemi · The Redemption Project</p>
-                </div>
-                <span className="text-[10px] text-[#9c958a]">32:45</span>
-              </div>
-
-              <div className="flex items-center gap-[2px] h-8 justify-center my-3">
-                {[20,45,70,35,85,50,65,40,75,30,60,45,80,55,35,70,40,85,50,60,30,55,75,45,65].map((h,i)=>{
-                  const active = isLive && i%3===0
-                  return (
-                    <span key={i} className="w-[3px] rounded-full bg-[#c9a227]/60" style={{
-                      height: active?`${h}%`:"40%",
-                      animation: active?"pulse 1.2s ease-in-out infinite":undefined,
-                      animationDelay: active?`${i*0.05}s`:undefined
-                    }} />
-                  )
-                })}
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <button onClick={()=>setIsPlaying(!isPlaying)} className="w-10 h-10 rounded-full bg-[#c9a227] hover:bg-[#e0bd5a] flex items-center justify-center transition-colors">
-                    {isPlaying ? <Pause className="w-4 h-4 text-[#1b1208] fill-current" /> : <Play className="w-4 h-4 text-[#1b1208] fill-current ml-0.5" />}
-                  </button>
-                  <div className="flex items-center gap-1.5">
-                    <Volume2 className="w-4 h-4 text-[#9c958a]" />
-                    <div className="w-20 h-1 bg-[rgba(243,238,228,0.1)] rounded-full overflow-hidden">
-                      <div className="h-full bg-[#c9a227] rounded-full" style={{width:volume+"%"}} />
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Link to={isLive?`/live/${broadcast?.id||""}`:"/live"} className="flex items-center gap-1.5 text-xs text-[#c9a227] hover:text-[#e0bd5a] transition-colors">
-                    <MessageSquare className="w-3.5 h-3.5" /> Join Live Chat
-                  </Link>
-                  <button className="text-[#9c958a] hover:text-white transition-colors">
-                    <Maximize2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
-    </div>
 
       {/* ====== MAIN DASHBOARD GRID ====== */}
       <div className="max-w-[1440px] mx-auto px-4 md:px-6 pb-5">
