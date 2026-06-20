@@ -66,6 +66,7 @@ export default function Home() {
   const [guestSpeakers, setGuestSpeakers] = useState<GuestSpeaker[]>([])
   const [events, setEvents] = useState<EventItem[]>([])
   const [isPlaying, setIsPlaying] = useState(false)
+  const [volume] = useState(70)
   const { user } = useAuth()
 
   useEffect(()=>{
