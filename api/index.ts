@@ -190,7 +190,8 @@ app.post('/auth/register', async (req, res) => {
     const id = uuidv4()
     await dbQuery(`INSERT INTO users (id, email, password_hash, name, role) VALUES ($1,$2,$3,$4,$5)`,
       [id, email, hash, name, 'listener'])
-    res.json({ id, email, name, role: 'listener' })
+    const token = jwt.sign({ id, email, name, role: 'listener' }, process.env.JWT_SECRET || 'dev', { expiresIn: '7d' })
+    res.json({ token, user: { id, email, name, role: 'listener' } })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
