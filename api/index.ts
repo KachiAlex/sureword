@@ -57,7 +57,7 @@ async function initDb() {
   )`)
   await dbQuery(`CREATE TABLE IF NOT EXISTS sermons (
     id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, scripture_reference TEXT,
-    speaker TEXT, series TEXT, audio_url TEXT NOT NULL, date TEXT NOT NULL, duration INTEGER,
+    speaker TEXT, series TEXT, audio_url TEXT, video_url TEXT, thumbnail_url TEXT, date TEXT NOT NULL, duration INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`)
   await dbQuery(`CREATE TABLE IF NOT EXISTS chat_messages (
@@ -84,6 +84,44 @@ async function initDb() {
   // Add stream config columns if missing (safe for existing tables)
   try { await dbQuery(`ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS rtmp_url TEXT`) } catch {}
   try { await dbQuery(`ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS stream_key TEXT`) } catch {}
+
+  // Add sermon columns if missing
+  try { await dbQuery(`ALTER TABLE sermons ADD COLUMN IF NOT EXISTS video_url TEXT`) } catch {}
+  try { await dbQuery(`ALTER TABLE sermons ADD COLUMN IF NOT EXISTS thumbnail_url TEXT`) } catch {}
+
+  // New tables
+  await dbQuery(`CREATE TABLE IF NOT EXISTS featured_sermons (
+    id TEXT PRIMARY KEY, sermon_id TEXT NOT NULL, order_index INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`)
+  await dbQuery(`CREATE TABLE IF NOT EXISTS transcripts (
+    id TEXT PRIMARY KEY, sermon_id TEXT NOT NULL, content TEXT NOT NULL,
+    language TEXT DEFAULT 'en', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`)
+  await dbQuery(`CREATE TABLE IF NOT EXISTS guest_speakers (
+    id TEXT PRIMARY KEY, name TEXT NOT NULL, bio TEXT, photo_url TEXT,
+    topic TEXT, date TEXT, is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`)
+  await dbQuery(`CREATE TABLE IF NOT EXISTS donations (
+    id TEXT PRIMARY KEY, name TEXT, email TEXT, amount NUMERIC NOT NULL,
+    message TEXT, is_anonymous BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`)
+  await dbQuery(`CREATE TABLE IF NOT EXISTS podcasts (
+    id TEXT PRIMARY KEY, title TEXT NOT NULL, speaker TEXT, duration TEXT,
+    audio_url TEXT, description TEXT, date TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`)
+  await dbQuery(`CREATE TABLE IF NOT EXISTS prayer_requests (
+    id TEXT PRIMARY KEY, name TEXT, request TEXT NOT NULL, is_anonymous BOOLEAN DEFAULT FALSE,
+    prayers_count INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`)
+  await dbQuery(`CREATE TABLE IF NOT EXISTS events (
+    id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, date TEXT, time TEXT,
+    location TEXT, image_url TEXT, is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`)
 
   const sched = await dbGet('SELECT * FROM schedule LIMIT 1')
   if (!sched) {
@@ -275,12 +313,13 @@ app.get('/sermons', async (req, res) => {
 app.post('/sermons', auth, requireRole('admin'), async (req: AuthReq, res) => {
   try {
     await initDb()
-    const { title, description, scripture_reference, speaker, series, audio_url, date, duration } = req.body
-    if (!title || !audio_url || !date) { res.status(400).json({ error: 'Missing fields' }); return }
+    const { title, description, scripture_reference, speaker, series, audio_url, video_url, thumbnail_url, date, duration } = req.body
+    if (!title || !date) { res.status(400).json({ error: 'Title and date are required' }); return }
     const id = uuidv4()
-    await dbQuery(`INSERT INTO sermons (id, title, description, scripture_reference, speaker, series, audio_url, date, duration) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-      [id, title, description || '', scripture_reference || '', speaker || '', series || '', audio_url, date, duration || 0])
-    res.status(201).json({ id, title })
+    await dbQuery(`INSERT INTO sermons (id, title, description, scripture_reference, speaker, series, audio_url, video_url, thumbnail_url, date, duration) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [id, title, description || null, scripture_reference || null, speaker || null, series || null,
+       audio_url || null, video_url || null, thumbnail_url || null, date, duration || 0])
+    res.status(201).json({ sermon: { id, title, description, scripture_reference, speaker, series, audio_url, video_url, thumbnail_url, date, duration } })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
@@ -519,6 +558,152 @@ app.get('/status', async (_req, res) => {
     const dbStatus = sql ? 'connected' : 'not configured'
     res.json({ database: dbStatus, streaming: false, timestamp: new Date().toISOString() })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+// ── Guest Speakers ─────────────────────────────────────────────
+app.get('/guest-speakers', async (_req, res) => {
+  try {
+    await initDb()
+    const rows = await dbQuery('SELECT * FROM guest_speakers WHERE is_active = TRUE ORDER BY date DESC, created_at DESC')
+    res.json({ speakers: rows })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.post('/guest-speakers', auth, requireRole('admin'), async (req: AuthReq, res) => {
+  try {
+    await initDb()
+    const { name, bio, photo_url, topic, date, is_active } = req.body
+    if (!name) { res.status(400).json({ error: 'Name is required' }); return }
+    const id = uuidv4()
+    await dbQuery(`INSERT INTO guest_speakers (id, name, bio, photo_url, topic, date, is_active) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [id, name, bio || '', photo_url || '', topic || '', date || '', is_active !== false])
+    res.status(201).json({ speaker: { id, name, bio, photo_url, topic, date, is_active: is_active !== false } })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.patch('/guest-speakers/:id', auth, requireRole('admin'), async (req, res) => {
+  try {
+    await initDb()
+    const existing = await dbGet('SELECT * FROM guest_speakers WHERE id=$1', [req.params.id])
+    if (!existing) { res.status(404).json({ error: 'Not found' }); return }
+    const { is_active } = req.body
+    await dbQuery('UPDATE guest_speakers SET is_active=$1 WHERE id=$2', [is_active ?? existing.is_active, req.params.id])
+    res.json({ ok: true })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.delete('/guest-speakers/:id', auth, requireRole('admin'), async (req, res) => {
+  try { await initDb(); await dbQuery('DELETE FROM guest_speakers WHERE id=$1', [req.params.id]); res.json({ ok: true }) }
+  catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+// ── Events ─────────────────────────────────────────────────────
+app.get('/events', async (_req, res) => {
+  try {
+    await initDb()
+    const rows = await dbQuery('SELECT * FROM events WHERE is_active = TRUE ORDER BY date ASC, time ASC')
+    res.json({ events: rows })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.get('/events/:id', async (req, res) => {
+  try {
+    await initDb()
+    const row = await dbGet('SELECT * FROM events WHERE id=$1', [req.params.id])
+    if (!row) { res.status(404).json({ error: 'Not found' }); return }
+    res.json({ event: row })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.post('/events', auth, requireRole('admin'), async (req: AuthReq, res) => {
+  try {
+    await initDb()
+    const { title, description, date, time, location, image_url, is_active } = req.body
+    if (!title) { res.status(400).json({ error: 'Title is required' }); return }
+    const id = uuidv4()
+    await dbQuery(`INSERT INTO events (id, title, description, date, time, location, image_url, is_active) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [id, title, description || '', date || '', time || '', location || '', image_url || '', is_active !== false])
+    res.status(201).json({ event: { id, title, description, date, time, location, image_url, is_active: is_active !== false } })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.patch('/events/:id', auth, requireRole('admin'), async (req, res) => {
+  try {
+    await initDb()
+    const existing = await dbGet('SELECT * FROM events WHERE id=$1', [req.params.id])
+    if (!existing) { res.status(404).json({ error: 'Not found' }); return }
+    const { title, description, date, time, location, image_url, is_active } = req.body
+    await dbQuery(`UPDATE events SET title=$1, description=$2, date=$3, time=$4, location=$5, image_url=$6, is_active=$7 WHERE id=$8`,
+      [title ?? existing.title, description ?? existing.description, date ?? existing.date,
+       time ?? existing.time, location ?? existing.location, image_url ?? existing.image_url,
+       is_active ?? existing.is_active, req.params.id])
+    res.json({ ok: true })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.delete('/events/:id', auth, requireRole('admin'), async (req, res) => {
+  try { await initDb(); await dbQuery('DELETE FROM events WHERE id=$1', [req.params.id]); res.json({ ok: true }) }
+  catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+// ── Podcasts ───────────────────────────────────────────────────
+app.get('/podcasts', async (_req, res) => {
+  try {
+    await initDb()
+    const rows = await dbQuery('SELECT * FROM podcasts ORDER BY created_at DESC')
+    res.json({ podcasts: rows })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.post('/podcasts', auth, requireRole('admin'), async (req: AuthReq, res) => {
+  try {
+    await initDb()
+    const { title, speaker, duration, audio_url, description, date } = req.body
+    if (!title) { res.status(400).json({ error: 'Title is required' }); return }
+    const id = uuidv4()
+    await dbQuery(`INSERT INTO podcasts (id, title, speaker, duration, audio_url, description, date) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [id, title, speaker || '', duration || '', audio_url || '', description || '', date || ''])
+    res.status(201).json({ podcast: { id, title, speaker, duration, audio_url, description, date } })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.delete('/podcasts/:id', auth, requireRole('admin'), async (req, res) => {
+  try { await initDb(); await dbQuery('DELETE FROM podcasts WHERE id=$1', [req.params.id]); res.json({ ok: true }) }
+  catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+// ── Prayer Wall ────────────────────────────────────────────────
+app.get('/prayer', async (_req, res) => {
+  try {
+    await initDb()
+    const rows = await dbQuery('SELECT * FROM prayer_requests ORDER BY created_at DESC')
+    res.json({ prayers: rows })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.post('/prayer', async (req, res) => {
+  try {
+    await initDb()
+    const { name, request, is_anonymous } = req.body
+    if (!request?.trim()) { res.status(400).json({ error: 'Request is required' }); return }
+    const id = uuidv4()
+    await dbQuery(`INSERT INTO prayer_requests (id, name, request, is_anonymous) VALUES ($1,$2,$3,$4)`,
+      [id, name || 'Anonymous', request.trim(), is_anonymous || false])
+    res.status(201).json({ prayer: { id, name: name || 'Anonymous', request, is_anonymous: is_anonymous || false, prayers_count: 0 } })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.post('/prayer/:id/pray', async (req, res) => {
+  try {
+    await initDb()
+    await dbQuery('UPDATE prayer_requests SET prayers_count = prayers_count + 1 WHERE id=$1', [req.params.id])
+    res.json({ ok: true })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.delete('/prayer/:id', auth, requireRole('admin'), async (req, res) => {
+  try { await initDb(); await dbQuery('DELETE FROM prayer_requests WHERE id=$1', [req.params.id]); res.json({ ok: true }) }
+  catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
 // ── 404 & Error handlers ─────────────────────────────────────
