@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import axios from 'axios'
-import { Headphones, Plus, Loader2, Image } from 'lucide-react'
+import { Headphones, Plus, Loader2, Image, Upload, Cloud, CheckCircle } from 'lucide-react'
 
 interface Sermon {
   id: string
@@ -18,42 +18,72 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
   const [thumbnailPreview, setThumbnailPreview] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [uploadStep, setUploadStep] = useState('')
   const token = localStorage.getItem('token')
+
+  function errMsg(err: any): string {
+    if (typeof err === 'string') return err
+    if (err?.response?.data?.error) return err.response.data.error
+    if (err?.message) return err.message
+    return 'Failed to add sermon'
+  }
+
+  async function uploadToCloudinary(file: File, folder: string): Promise<string> {
+    const { data: sig } = await axios.get(`/api/music/signature?folder=${folder}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('api_key', sig.apiKey)
+    fd.append('timestamp', sig.timestamp)
+    fd.append('signature', sig.signature)
+    fd.append('folder', sig.folder)
+    const res = await fetch(sig.uploadUrl, { method: 'POST', body: fd })
+    const up = await res.json()
+    if (!res.ok) throw new Error(up.error?.message || 'Cloudinary upload failed')
+    return up.secure_url
+  }
 
   async function addSermon(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.title.trim()) {
-      alert('Title is required')
-      return
-    }
-    if (!audioFile) {
-      alert('Audio file is required')
-      return
-    }
+    if (!form.title.trim()) { alert('Title is required'); return }
+    if (!audioFile) { alert('Audio file is required'); return }
     setSubmitting(true)
     try {
-      const data = new FormData()
-      data.append('title', form.title)
-      data.append('speaker', form.speaker)
-      data.append('scripture_reference', form.scripture_reference)
-      data.append('series', form.series)
-      data.append('description', form.description)
-      data.append('duration', form.duration)
-      data.append('video_url', form.video_url)
-      data.append('audio', audioFile)
-      if (thumbnailFile) data.append('thumbnail', thumbnailFile)
-      await axios.post('/api/sermons', data, {
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
-      })
+      let audioUrl = ''
+      let thumbnailUrl = ''
+
+      setUploadStep('Uploading audio to Cloudinary...')
+      audioUrl = await uploadToCloudinary(audioFile, 'zionite/sermons/audio')
+
+      if (thumbnailFile) {
+        setUploadStep('Uploading thumbnail to Cloudinary...')
+        thumbnailUrl = await uploadToCloudinary(thumbnailFile, 'zionite/sermons/thumbnails')
+      }
+
+      setUploadStep('Saving sermon...')
+      await axios.post('/api/sermons', {
+        title: form.title,
+        speaker: form.speaker,
+        scripture_reference: form.scripture_reference,
+        series: form.series,
+        description: form.description,
+        duration: form.duration,
+        video_url: form.video_url,
+        audio_url: audioUrl,
+        thumbnail_url: thumbnailUrl
+      }, { headers: { Authorization: `Bearer ${token}` } })
+
       setForm({ title: '', speaker: '', video_url: '', scripture_reference: '', series: '', description: '', duration: '' })
       setAudioFile(null)
       setThumbnailFile(null)
       setThumbnailPreview('')
       onRefresh()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to add sermon')
+      alert(errMsg(err))
     } finally {
       setSubmitting(false)
+      setUploadStep('')
     }
   }
 
@@ -103,7 +133,12 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
               className="w-full rounded-xl px-4 py-2 text-sm"
               style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--parchment)' }}
             />
-            {audioFile && <span className="text-[10px] mt-1 block" style={{ color: 'var(--dim)' }}>{audioFile.name}</span>}
+            {audioFile && (
+              <div className="flex items-center gap-2 mt-1">
+                <Cloud className="w-3 h-3" style={{ color: 'var(--dim)' }} />
+                <span className="text-[10px]" style={{ color: 'var(--dim)' }}>{audioFile.name} ({(audioFile.size / (1024 * 1024)).toFixed(1)} MB)</span>
+              </div>
+            )}
           </div>
 
           {/* Thumbnail file picker */}
@@ -163,8 +198,8 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
           />
           <div className="sm:col-span-2">
             <button type="submit" disabled={submitting || !form.title.trim() || !audioFile} className="btn-gold disabled:opacity-50">
-              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              Add Sermon
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              {submitting ? uploadStep || 'Uploading...' : 'Upload Sermon'}
             </button>
           </div>
         </form>

@@ -401,12 +401,13 @@ app.post('/sermons', auth, requireRole('admin'), async (req: AuthReq, res) => {
   try {
     await initDb()
     const { title, description, scripture_reference, speaker, series, audio_url, video_url, thumbnail_url, date, duration } = req.body
-    if (!title || !date) { res.status(400).json({ error: 'Title and date are required' }); return }
+    if (!title) { res.status(400).json({ error: 'Title is required' }); return }
     const id = uuidv4()
+    const sermonDate = date || new Date().toISOString().split('T')[0]
     await dbQuery(`INSERT INTO sermons (id, title, description, scripture_reference, speaker, series, audio_url, video_url, thumbnail_url, date, duration) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [id, title, description || null, scripture_reference || null, speaker || null, series || null,
-       audio_url || null, video_url || null, thumbnail_url || null, date, duration || 0])
-    res.status(201).json({ sermon: { id, title, description, scripture_reference, speaker, series, audio_url, video_url, thumbnail_url, date, duration } })
+       audio_url || null, video_url || null, thumbnail_url || null, sermonDate, duration || 0])
+    res.status(201).json({ sermon: { id, title, description, scripture_reference, speaker, series, audio_url, video_url, thumbnail_url, date: sermonDate, duration } })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
