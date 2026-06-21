@@ -6,7 +6,7 @@ import { useAudioPlayer } from '../contexts/AudioPlayerContext'
 import { useFavorites } from '../contexts/FavoritesContext'
 import {
   Headphones, Play, Pause, Calendar, BookOpen, User, Clock, ArrowLeft,
-  AlertCircle, Video, AudioLines, Share2, Download, Heart
+  AlertCircle, Video, AudioLines, Share2, Download, Heart, BarChart3
 } from 'lucide-react'
 
 interface Sermon {
@@ -21,6 +21,7 @@ interface Sermon {
   thumbnail_url?: string
   date: string
   duration?: number
+  play_count?: number
 }
 
 export default function SermonDetail() {
@@ -81,7 +82,8 @@ export default function SermonDetail() {
       title: sermon.title,
       speaker: sermon.speaker || 'Unknown speaker',
       audioUrl: sermon.audio_url,
-      thumbnail: sermon.thumbnail_url
+      thumbnail: sermon.thumbnail_url,
+      trackType: 'sermon'
     })
   }
 
@@ -180,6 +182,7 @@ export default function SermonDetail() {
                 {sermon.date && <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" />{new Date(sermon.date).toLocaleDateString()}</span>}
                 {sermon.duration && <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" />{Math.floor(sermon.duration / 60)} min</span>}
                 {sermon.series && <span className="px-2 py-0.5 rounded-md" style={{ background: 'var(--ink)', border: '1px solid var(--line)' }}>{sermon.series}</span>}
+                <span className="flex items-center gap-1.5"><BarChart3 className="w-3.5 h-3.5" />{(sermon.play_count || 0).toLocaleString()} plays</span>
               </div>
               {sermon.scripture_reference && (
                 <div className="flex items-center gap-1.5 text-xs mb-3 px-2 py-1 rounded-md inline-flex" style={{ background: 'rgba(201,162,39,0.08)', color: 'var(--gold)' }}>

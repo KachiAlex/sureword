@@ -127,6 +127,12 @@ async function _doInitDb() {
   // Add sermon columns if missing
   try { await dbQuery(`ALTER TABLE sermons ADD COLUMN IF NOT EXISTS video_url TEXT`) } catch {}
   try { await dbQuery(`ALTER TABLE sermons ADD COLUMN IF NOT EXISTS thumbnail_url TEXT`) } catch {}
+  try { await dbQuery(`ALTER TABLE sermons ADD COLUMN IF NOT EXISTS play_count INTEGER DEFAULT 0`) } catch {}
+  try { await dbQuery(`UPDATE sermons SET play_count = 0 WHERE play_count IS NULL`) } catch {}
+
+  // Add music columns if missing
+  try { await dbQuery(`ALTER TABLE music ADD COLUMN IF NOT EXISTS play_count INTEGER DEFAULT 0`) } catch {}
+  try { await dbQuery(`UPDATE music SET play_count = 0 WHERE play_count IS NULL`) } catch {}
 
   // New tables
   await dbQuery(`CREATE TABLE IF NOT EXISTS featured_sermons (
@@ -406,6 +412,14 @@ app.get('/sermons/:id', async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
+app.post('/sermons/:id/play', async (req, res) => {
+  try {
+    await initDb()
+    await dbQuery('UPDATE sermons SET play_count = COALESCE(play_count, 0) + 1 WHERE id=$1', [req.params.id])
+    res.json({ success: true })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
 app.post('/sermons', auth, requireRole('admin'), async (req: AuthReq, res) => {
   try {
     await initDb()
@@ -511,8 +525,16 @@ app.delete('/chat/:id', auth, requireRole('admin'), async (req, res) => {
 app.get('/music', async (_req, res) => {
   try {
     await initDb()
-    const rows = await dbQuery('SELECT id, title, artist, album, genre, audio_url, cover_url, duration, lyrics, file_format, file_size, created_at FROM music ORDER BY created_at DESC')
+    const rows = await dbQuery('SELECT id, title, artist, album, genre, audio_url, cover_url, duration, lyrics, file_format, file_size, play_count, created_at FROM music ORDER BY created_at DESC')
     res.json({ music: rows })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.post('/music/:id/play', async (req, res) => {
+  try {
+    await initDb()
+    await dbQuery('UPDATE music SET play_count = COALESCE(play_count, 0) + 1 WHERE id=$1', [req.params.id])
+    res.json({ success: true })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 

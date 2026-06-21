@@ -6,6 +6,7 @@ export interface Track {
   speaker: string
   audioUrl: string
   thumbnail?: string
+  trackType?: 'music' | 'sermon'
 }
 
 type RepeatMode = 'off' | 'all' | 'one'
@@ -60,13 +61,20 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     ? queue[shuffleOn ? shuffleIndices[shufflePos] : originalIndex]
     : null
 
+  const trackPlay = useCallback((track: Track) => {
+    if (!track.trackType) return
+    const endpoint = track.trackType === 'music' ? `/api/music/${track.id}/play` : `/api/sermons/${track.id}/play`
+    fetch(endpoint, { method: 'POST' }).catch(() => {})
+  }, [])
+
   const loadAndPlay = useCallback((track: Track) => {
     if (audioRef.current) {
       audioRef.current.src = track.audioUrl
       audioRef.current.play().catch(() => setIsPlaying(false))
       setIsPlaying(true)
+      trackPlay(track)
     }
-  }, [])
+  }, [trackPlay])
 
   const playTrack = useCallback((track: Track) => {
     setQueue([track])

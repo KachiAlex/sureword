@@ -6,7 +6,7 @@ import { useAudioPlayer } from '../contexts/AudioPlayerContext'
 import { useFavorites } from '../contexts/FavoritesContext'
 import {
   Play, Pause, Calendar, BookOpen, Headphones, User, Search, AlertCircle,
-  Video, AudioLines, ArrowRight, Shuffle, Heart, ListMusic
+  Video, AudioLines, ArrowRight, Shuffle, Heart, ListMusic, BarChart3
 } from 'lucide-react'
 
 interface Sermon {
@@ -21,6 +21,7 @@ interface Sermon {
   thumbnail_url?: string
   date: string
   duration?: number
+  play_count?: number
 }
 
 export default function Archive() {
@@ -68,7 +69,8 @@ export default function Archive() {
       title: s.title,
       speaker: s.speaker || 'Unknown speaker',
       audioUrl: s.audio_url!,
-      thumbnail: s.thumbnail_url
+      thumbnail: s.thumbnail_url,
+      trackType: 'sermon' as const
     }
   }
 
@@ -260,7 +262,12 @@ export default function Archive() {
                     )}
                     {s.description && <p className="text-xs mt-2 line-clamp-2" style={{ color: 'var(--dim)' }}>{s.description}</p>}
 
-                    <div className="flex items-center gap-2 mt-3 text-[11px] font-medium" style={{ color: 'var(--gold)' }}>
+                    <div className="flex items-center gap-2 mt-2 text-[11px]" style={{ color: 'var(--dim)' }}>
+                      <BarChart3 className="w-3 h-3" />
+                      {(s.play_count || 0).toLocaleString()} plays
+                    </div>
+
+                    <div className="flex items-center gap-2 mt-2 text-[11px] font-medium" style={{ color: 'var(--gold)' }}>
                       <span className="flex items-center gap-1">
                         {isVideo ? <Video className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
                         {isVideo ? 'Watch' : playing ? 'Now Playing' : 'Listen'}

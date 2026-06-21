@@ -5,7 +5,7 @@ import { useAudioPlayer } from '../contexts/AudioPlayerContext'
 import { useFavorites } from '../contexts/FavoritesContext'
 import {
   Music, Play, Pause, Loader2, Disc3, Search, Share2, Download,
-  Shuffle, Heart, ListMusic
+  Shuffle, Heart, ListMusic, Headphones
 } from 'lucide-react'
 
 interface Track {
@@ -18,6 +18,7 @@ interface Track {
   cover_url: string
   duration: number
   lyrics: string
+  play_count?: number
 }
 
 export default function MusicPage() {
@@ -62,7 +63,8 @@ export default function MusicPage() {
       title: t.title,
       speaker: t.artist || 'Unknown artist',
       audioUrl: t.audio_url,
-      thumbnail: t.cover_url
+      thumbnail: t.cover_url,
+      trackType: 'music' as const
     }
   }
 
@@ -224,6 +226,10 @@ export default function MusicPage() {
                 <p className="text-sm truncate mt-0.5" style={{ color: 'var(--dim)' }}>
                   {track.artist || 'Unknown artist'}{track.album && ` | ${track.album}`}
                 </p>
+                <div className="flex items-center gap-2 mt-1.5 text-[11px]" style={{ color: 'var(--dim)' }}>
+                  <Headphones className="w-3 h-3" />
+                  {(track.play_count || 0).toLocaleString()} plays
+                </div>
                 <div className="flex items-center gap-2 mt-3">
                   <button
                     onClick={e => { e.stopPropagation(); handleShare(track) }}
