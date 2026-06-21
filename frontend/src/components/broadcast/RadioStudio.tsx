@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import {
   Radio, Pause, Play, Square, Mic, MicOff, Volume2, Volume1, VolumeX,
-  Copy, CheckCircle, Activity, Share2, Headphones, Wifi, Zap, HardDrive
+  Copy, CheckCircle, Activity, Share2, Headphones, Wifi, Zap, HardDrive,
+  Disc
 } from 'lucide-react'
+import { getRecordingConfig } from '../../lib/recording'
 import AudioWaveVisualizer from './AudioWaveVisualizer'
 import VUMeter from './VUMeter'
 
@@ -75,6 +77,7 @@ interface Props {
   onResume: () => void
   onEnd: () => void
   actionLoading: boolean
+  recordEnabled?: boolean
 }
 
 /* ── MonitorPlayer (real-time local monitor via Web Audio API) ─────────── */
@@ -137,7 +140,8 @@ function MonitorPlayer({ stream, enabled, volume }: { stream: MediaStream | null
 export default function RadioStudio({
   broadcastId, title, description, scripture,
   churchOnlineUrl: _churchOnlineUrl, status, startTime, selectedDevice,
-  onPause, onResume, onEnd, actionLoading
+  onPause, onResume, onEnd, actionLoading,
+  recordEnabled
 }: Props) {
   const [micMuted, setMicMuted] = useState(false)
   const [micGain, setMicGain] = useState(80)
@@ -148,6 +152,8 @@ export default function RadioStudio({
   const [micStream, setMicStream] = useState<MediaStream | null>(null)
   const [monitorEnabled, setMonitorEnabled] = useState(false)
   const [monitorVolume, setMonitorVolume] = useState(60)
+  const [recordingStatus, setRecordingStatus] = useState('')
+  const [recordDirHandle, setRecordDirHandle] = useState<FileSystemDirectoryHandle | null>(null)
 
   const isLive = status === 'live'
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -157,6 +163,15 @@ export default function RadioStudio({
   const chunkTimesRef = useRef<number[]>([])
   const chunkTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const shouldRecordRef = useRef(false)
+  const localRecorderRef = useRef<MediaRecorder | null>(null)
+  const fileWritableRef = useRef<FileSystemWritableFileStream | null>(null)
+
+  useEffect(() => {
+    if (!recordEnabled) return
+    getRecordingConfig().then(config => {
+      if (config?.directoryHandle) setRecordDirHandle(config.directoryHandle)
+    })
+  }, [recordEnabled])
 
   useEffect(() => {
     shouldRecordRef.current = isLive
@@ -172,6 +187,29 @@ export default function RadioStudio({
       streamRef.current = stream
       setMicStream(stream)
       recordNextChunk()
+
+      // Start local recording alongside server streaming
+      if (recordEnabled && recordDirHandle) {
+        try {
+          const safeTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'broadcast'
+          const filename = `${safeTitle}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.webm`
+          const fileHandle = await recordDirHandle.getFileHandle(filename, { create: true })
+          fileWritableRef.current = await fileHandle.createWritable()
+          const localMime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+            ? 'audio/webm;codecs=opus' : 'audio/webm'
+          const localRecorder = new MediaRecorder(stream, { mimeType: localMime, audioBitsPerSecond: 128000 })
+          localRecorder.ondataavailable = async (e) => {
+            if (e.data.size > 0 && fileWritableRef.current) {
+              await fileWritableRef.current.write(e.data)
+            }
+          }
+          localRecorder.start(5000)
+          localRecorderRef.current = localRecorder
+          setRecordingStatus(`Recording: ${filename}`)
+        } catch (err: any) {
+          setRecordingStatus(`Recording failed: ${err.message || err}`)
+        }
+      }
 
       statsIntervalRef.current = setInterval(async () => {
         try {
@@ -240,6 +278,15 @@ export default function RadioStudio({
     if (statsIntervalRef.current) { clearInterval(statsIntervalRef.current); statsIntervalRef.current = null }
     mediaRecorderRef.current = null
     chunkTimesRef.current = []
+    if (localRecorderRef.current && localRecorderRef.current.state !== 'inactive') {
+      localRecorderRef.current.stop()
+    }
+    if (fileWritableRef.current) {
+      fileWritableRef.current.close().catch(() => {})
+      fileWritableRef.current = null
+    }
+    localRecorderRef.current = null
+    setRecordingStatus('')
   }
 
   useEffect(() => {
@@ -354,6 +401,15 @@ export default function RadioStudio({
           <StatCard icon={Headphones} label="Listeners" value={listenerCount} />
           <StatCard icon={Wifi} label="Status" value={isLive ? 'Streaming' : 'Paused'} color={isLive ? '#4ade80' : '#f59e0b'} />
         </div>
+
+        {/* Recording Status */}
+        {recordingStatus && (
+          <div className="flex items-center gap-2 text-xs px-4 py-2 rounded-lg"
+            style={{ background: recordingStatus.startsWith('Recording:') ? 'rgba(34,197,94,0.1)' : 'rgba(220,38,38,0.1)', color: recordingStatus.startsWith('Recording:') ? '#4ade80' : '#fca5a5', border: `1px solid ${recordingStatus.startsWith('Recording:') ? 'rgba(34,197,94,0.2)' : 'rgba(220,38,38,0.2)'}` }}>
+            <Disc className="w-3.5 h-3.5" />
+            {recordingStatus}
+          </div>
+        )}
 
         {/* Feedback Monitor */}
         <div className="rounded-xl p-4" style={{ background: 'var(--ink)', border: '1px solid var(--line)' }}>

@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import {
   Radio, Play, Square, Plus, Loader2, ArrowLeft,
-  Mic, BookOpen, ExternalLink, AlertCircle, Monitor, ChevronDown, ChevronUp
+  Mic, BookOpen, ExternalLink, AlertCircle, Monitor, ChevronDown, ChevronUp,
+  HardDrive, Folder
 } from 'lucide-react'
+import { getRecordingConfig, setRecordingConfig } from '../../lib/recording'
 import RadioStudio from '../broadcast/RadioStudio'
 
 interface Broadcast {
@@ -40,6 +42,8 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
   const [selectedDevice] = useState('')
   const [setupError, setSetupError] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [recordEnabled, setRecordEnabled] = useState(false)
+  const [recordDirName, setRecordDirName] = useState('')
 
   /* ── Studio state ── */
   const [broadcastId, setBroadcastId] = useState('')
@@ -47,6 +51,18 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
   const [startTime, setStartTime] = useState<Date | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [creating, setCreating] = useState(false)
+
+  /* ── Load recording config on mount ── */
+  useEffect(() => {
+    getRecordingConfig().then(config => {
+      if (config) {
+        setRecordEnabled(config.enabled)
+        if (config.directoryHandle) {
+          setRecordDirName(config.directoryHandle.name)
+        }
+      }
+    })
+  }, [])
 
   /* ── Auto-detect existing live broadcast on mount ── */
   useEffect(() => {
@@ -169,6 +185,28 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     setThumbnailPreview('')
     setSetupError('')
     setView('setup')
+  }
+
+  async function pickRecordDirectory() {
+    if (!('showDirectoryPicker' in window)) {
+      setSetupError('Your browser does not support directory selection. Please use Chrome or Edge.')
+      return
+    }
+    try {
+      const handle = await (window as any).showDirectoryPicker()
+      setRecordDirName(handle.name)
+      await setRecordingConfig({ enabled: recordEnabled, directoryHandle: handle, lastUsed: new Date().toISOString() })
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        setSetupError('Could not access directory: ' + (err.message || err))
+      }
+    }
+  }
+
+  async function toggleRecordEnabled(val: boolean) {
+    setRecordEnabled(val)
+    const config = await getRecordingConfig() || {}
+    await setRecordingConfig({ ...config, enabled: val })
   }
 
   function handleThumbnailChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -414,6 +452,29 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
                     className="w-full rounded-lg px-3 py-2 text-xs bg-[#14141a] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors"
                   />
                 </div>
+                <div className="border-t border-[rgba(243,238,228,0.06)] pt-3 mt-1 md:col-span-2">
+                  <h4 className="text-[11px] font-semibold text-white flex items-center gap-1.5 mb-2">
+                    <HardDrive className="w-3.5 h-3.5 text-[#c9a227]" /> Local Recording
+                  </h4>
+                  <label className="flex items-center gap-2 mb-2 cursor-pointer">
+                    <input type="checkbox" checked={recordEnabled} onChange={e => toggleRecordEnabled(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded border-[rgba(243,238,228,0.2)] bg-[#14141a] text-[#c9a227] focus:ring-[#c9a227]" />
+                    <span className="text-[11px] text-[#9c958a]">Auto-record broadcasts to local folder</span>
+                  </label>
+                  {recordEnabled && (
+                    <div className="flex items-center gap-2">
+                      {recordDirName ? (
+                        <span className="text-[11px] text-[#9c958a]">Folder: <span className="text-white">{recordDirName}</span></span>
+                      ) : (
+                        <span className="text-[11px] text-[#fca5a5]">No folder selected</span>
+                      )}
+                      <button type="button" onClick={pickRecordDirectory}
+                        className="text-[11px] text-[#c9a227] hover:text-[#e0bd5a] transition-colors flex items-center gap-1">
+                        <Folder className="w-3 h-3" /> {recordDirName ? 'Change' : 'Choose Folder'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -462,6 +523,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
         onResume={resumeBroadcast}
         onEnd={stopBroadcast}
         actionLoading={actionLoading}
+        recordEnabled={recordEnabled}
       />
     </div>
   )
