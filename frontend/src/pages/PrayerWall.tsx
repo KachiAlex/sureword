@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { usePageTitle } from '../hooks/usePageTitle'
+import { useAuth } from '../contexts/AuthContext'
 import { prayerRequestSchema } from '../lib/validation'
-import { Heart, Send, AlertCircle, User } from 'lucide-react'
+import { Heart, Send, AlertCircle, User, Check } from 'lucide-react'
 
 interface Prayer {
   id: string
@@ -10,11 +11,13 @@ interface Prayer {
   request: string
   is_anonymous: boolean
   prayers_count: number
+  has_prayed?: boolean
   created_at: string
 }
 
 export default function PrayerWall() {
   usePageTitle('Prayer Wall')
+  const { user } = useAuth()
   const [prayers, setPrayers] = useState<Prayer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -62,11 +65,17 @@ export default function PrayerWall() {
   }
 
   async function handlePray(id: string) {
+    if (!user) return
     try {
       await axios.post(`/api/prayer/${id}/pray`)
-      setPrayers(prayers.map(p => p.id === id ? { ...p, prayers_count: p.prayers_count + 1 } : p))
+      setPrayers(prayers.map(p => p.id === id ? { ...p, prayers_count: (p.prayers_count || 0) + 1, has_prayed: true } : p))
     } catch (err: any) {
-      console.error('Pray failed:', err)
+      if (err.response?.status === 409) {
+        alert('You have already prayed for this request.')
+      } else {
+        console.error('Pray failed:', err)
+        alert(err.response?.data?.error || 'Failed to record prayer.')
+      }
     }
   }
 
@@ -135,10 +144,23 @@ export default function PrayerWall() {
                   </div>
                 </div>
                 <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--parchment)' }}>{p.request}</p>
-                <button onClick={() => handlePray(p.id)} className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors hover:border-[#c9a227]"
-                  style={{ borderColor: 'var(--line)', color: 'var(--dim)' }}>
-                  <Heart className="w-3.5 h-3.5" /> {p.prayers_count} Praying
-                </button>
+                {user ? (
+                  p.has_prayed ? (
+                    <button disabled className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors"
+                      style={{ borderColor: 'var(--gold)', color: 'var(--gold)', background: 'rgba(201,162,39,0.08)' }}>
+                      <Check className="w-3.5 h-3.5" /> {p.prayers_count || 0} Prayed
+                    </button>
+                  ) : (
+                    <button onClick={() => handlePray(p.id)} className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors hover:border-[#c9a227]"
+                      style={{ borderColor: 'var(--line)', color: 'var(--dim)' }}>
+                      <Heart className="w-3.5 h-3.5" /> {p.prayers_count || 0} Pray
+                    </button>
+                  )
+                ) : (
+                  <p className="text-xs" style={{ color: 'var(--dim)' }}>
+                    <Heart className="w-3.5 h-3.5 inline mr-1" />{p.prayers_count || 0} praying — <a href="/login" className="underline" style={{ color: 'var(--gold)' }}>Log in</a> to pray
+                  </p>
+                )}
               </div>
             ))}
           </div>

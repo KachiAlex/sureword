@@ -156,6 +156,11 @@ async function _doInitDb() {
     id TEXT PRIMARY KEY, name TEXT, request TEXT NOT NULL, is_anonymous BOOLEAN DEFAULT FALSE,
     prayers_count INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`)
+  await dbQuery(`CREATE TABLE IF NOT EXISTS prayer_interactions (
+    id TEXT PRIMARY KEY, prayer_id TEXT NOT NULL, user_id TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(prayer_id, user_id)
+  )`)
   await dbQuery(`CREATE TABLE IF NOT EXISTS events (
     id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, date TEXT, time TEXT,
     location TEXT, image_url TEXT, is_active BOOLEAN DEFAULT TRUE,
@@ -784,11 +789,23 @@ app.delete('/podcasts/:id', auth, requireRole('admin'), async (req, res) => {
 })
 
 // ── Prayer Wall ────────────────────────────────────────────────
-app.get('/prayer', async (_req, res) => {
+app.get('/prayer', optionalAuth, async (req: AuthReq, res) => {
   try {
     await initDb()
-    const rows = await dbQuery('SELECT * FROM prayer_requests ORDER BY created_at DESC')
-    res.json({ prayers: rows })
+    const rows = await dbQuery(`
+      SELECT p.id, p.name, p.request, p.is_anonymous, p.created_at,
+        (SELECT COUNT(*) FROM prayer_interactions WHERE prayer_id = p.id) as prayers_count
+      FROM prayer_requests p
+      ORDER BY p.created_at DESC
+    `)
+    let prayers = rows
+    if (req.user?.id) {
+      const userId = req.user.id
+      const interactions = await dbQuery('SELECT prayer_id FROM prayer_interactions WHERE user_id=$1', [userId])
+      const prayedIds = new Set(interactions.map((i: any) => i.prayer_id))
+      prayers = rows.map((r: any) => ({ ...r, has_prayed: prayedIds.has(r.id) }))
+    }
+    res.json({ prayers })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
@@ -804,10 +821,17 @@ app.post('/prayer', async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
-app.post('/prayer/:id/pray', async (req, res) => {
+app.post('/prayer/:id/pray', auth, async (req: AuthReq, res) => {
   try {
     await initDb()
-    await dbQuery('UPDATE prayer_requests SET prayers_count = prayers_count + 1 WHERE id=$1', [req.params.id])
+    if (!req.user?.id) { res.status(401).json({ error: 'Unauthorized' }); return }
+    const userId = req.user.id
+    const prayerId = req.params.id
+    const existing = await dbGet('SELECT id FROM prayer_interactions WHERE prayer_id=$1 AND user_id=$2', [prayerId, userId])
+    if (existing) { res.status(409).json({ error: 'You have already prayed for this request' }); return }
+    await dbQuery(`INSERT INTO prayer_interactions (id, prayer_id, user_id) VALUES ($1,$2,$3)`,
+      [uuidv4(), prayerId, userId])
+    await dbQuery('UPDATE prayer_requests SET prayers_count = prayers_count + 1 WHERE id=$1', [prayerId])
     res.json({ ok: true })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
@@ -815,6 +839,19 @@ app.post('/prayer/:id/pray', async (req, res) => {
 app.delete('/prayer/:id', auth, requireRole('admin'), async (req, res) => {
   try { await initDb(); await dbQuery('DELETE FROM prayer_requests WHERE id=$1', [req.params.id]); res.json({ ok: true }) }
   catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.get('/prayer/admin/all', auth, requireRole('admin'), async (_req, res) => {
+  try {
+    await initDb()
+    const rows = await dbQuery(`
+      SELECT p.id, p.name, p.request, p.is_anonymous, p.created_at,
+        (SELECT COUNT(*) FROM prayer_interactions WHERE prayer_id = p.id) as prayers_count
+      FROM prayer_requests p
+      ORDER BY p.created_at DESC
+    `)
+    res.json({ prayers: rows })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
 // ── Donations ────────────────────────────────────────────────

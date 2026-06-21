@@ -19,11 +19,12 @@ const MusicManager = lazy(() => import('../components/admin/MusicManager'))
 const GuestSpeakerManager = lazy(() => import('../components/admin/GuestSpeakerManager'))
 const PodcastManager = lazy(() => import('../components/admin/PodcastManager'))
 const PrayerManager = lazy(() => import('../components/admin/PrayerManager'))
+const TestimonyManager = lazy(() => import('../components/admin/TestimonyManager'))
 const EventManager = lazy(() => import('../components/admin/EventManager'))
 
 interface ChatMessage { id: string; broadcast_id?: string; user_name: string; message: string; created_at: string }
 
-type Tab = 'dashboard' | 'broadcasts' | 'users' | 'sermons' | 'chat' | 'settings' | 'music' | 'speakers' | 'podcasts' | 'prayer' | 'events'
+type Tab = 'dashboard' | 'broadcasts' | 'users' | 'sermons' | 'chat' | 'settings' | 'music' | 'speakers' | 'podcasts' | 'prayer' | 'testimonies' | 'events'
 
 export default function AdminDashboard() {
   const { user } = useAuth()
@@ -106,6 +107,7 @@ export default function AdminDashboard() {
       <SB label="Speakers" tab="speakers" icon={Mic2}/>
       <SB label="Events" tab="events" icon={Calendar}/>
       <SB label="Prayer Requests" tab="prayer" icon={Heart} badge={prayers.length}/>
+      <SB label="Testimonies" tab="testimonies" icon={Sparkles}/>
       <SL t="Broadcast Management"/>
       <SB label="Live Broadcast" tab="broadcasts" icon={Radio}/>
       <SB label="Auto DJ" tab="music" icon={Music}/>
@@ -290,7 +292,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
                 <div className="p-4 rounded-xl bg-[#14141a] border border-[rgba(243,238,228,0.06)]">
-                  <div className="flex items-center justify-between mb-3"><h3 className="text-xs font-semibold text-white tracking-wide">TESTIMONY APPROVALS</h3><button className="text-[9px] text-[#c9a227] hover:underline">View All</button></div>
+                  <div className="flex items-center justify-between mb-3"><h3 className="text-xs font-semibold text-white tracking-wide">TESTIMONY APPROVALS</h3><button onClick={()=>setActiveTab('testimonies')} className="text-[9px] text-[#c9a227] hover:underline">View All</button></div>
                   <div className="space-y-2.5">
                     {(pendingTestimonies.length?pendingTestimonies:[]).slice(0,5).map((t:any)=>{
                       const initials=(t.name||'A').split(' ').map((n:string)=>n[0]).join('').slice(0,2).toUpperCase()
@@ -415,6 +417,13 @@ export default function AdminDashboard() {
             <div className="p-4 rounded-xl bg-[#14141a] border border-[rgba(243,238,228,0.06)]">
               <div className="px-4 py-3 rounded-lg bg-[rgba(243,238,228,0.03)] mb-4 border border-[rgba(243,238,228,0.06)]"><h2 className="text-sm font-semibold text-white">Prayer Wall Management</h2></div>
               <PrayerManager/>
+            </div>
+          ):activeTab==='testimonies'?(
+            <div className="p-4 rounded-xl bg-[#14141a] border border-[rgba(243,238,228,0.06)]">
+              <div className="px-4 py-3 rounded-lg bg-[rgba(243,238,228,0.03)] mb-4 border border-[rgba(243,238,228,0.06)]"><h2 className="text-sm font-semibold text-white">Testimony Management</h2></div>
+              <Suspense fallback={<div className="p-8 text-center text-sm text-[#9c958a]">Loading...</div>}>
+                <TestimonyManager/>
+              </Suspense>
             </div>
           ):activeTab==='events'?(
             <div className="p-4 rounded-xl bg-[#14141a] border border-[rgba(243,238,228,0.06)]">

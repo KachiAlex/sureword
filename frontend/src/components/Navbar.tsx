@@ -29,6 +29,7 @@ export default function Navbar() {
     { label: 'Music', path: '/music' },
     { label: 'Podcasts', path: '/podcasts' },
     { label: 'Prayer Wall', path: '/prayer' },
+    { label: 'Testimonies', path: '/testimonies' },
     { label: 'Events', path: '/events' },
     { label: 'About Us', path: '/about' },
   ]
