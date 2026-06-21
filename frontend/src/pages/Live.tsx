@@ -399,29 +399,37 @@ export default function Live() {
       <div className="flex-1 flex overflow-hidden">
         <div className={`flex-1 flex flex-col overflow-y-auto ${showChat ? 'hidden md:block' : ''}`}>
           {getChurchOnlineUrl() ? (
-            <div className="flex-1 relative min-h-[300px] md:min-h-0">
-              <iframe ref={iframeRef} src={getChurchOnlineUrl()!} className="absolute inset-0 w-full h-full" style={{ border: 'none' }} allow="autoplay; fullscreen" allowFullScreen title="Live Broadcast" />
-            </div>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-[#14141a] min-h-[280px]">
-              <div className="w-16 h-16 rounded-full border border-[#c9a227]/20 flex items-center justify-center mb-5">
-                <Radio className="w-7 h-7 text-[#c9a227]" />
+            <>
+              <div className="flex-1 relative min-h-[300px] md:min-h-0">
+                <iframe ref={iframeRef} src={getChurchOnlineUrl()!} className="absolute inset-0 w-full h-full" style={{ border: 'none' }} allow="autoplay; fullscreen" allowFullScreen title="Live Broadcast" />
               </div>
-              <h2 className="text-base font-medium text-white mb-1.5">{broadcast.title}</h2>
-              {broadcast.description && <p className="text-xs text-[#9c958a] mb-1 max-w-sm">{broadcast.description}</p>}
+              {broadcast.status === 'live' && <StreamPlayer broadcastId={broadcast.id} />}
               {broadcast.scripture_reference && (
-                <p className="text-[11px] text-[#c9a227] mt-1 flex items-center gap-1"><BookOpen className="w-3 h-3" />{broadcast.scripture_reference}</p>
+                <div className="mx-4 mb-4 rounded-xl p-4 text-center bg-[#14141a] border border-[rgba(243,238,228,0.06)]">
+                  <div className="text-[10px] font-mono font-medium tracking-widest text-[#c9a227] mb-1.5">NOW READING</div>
+                  <div className="text-sm font-medium text-white">{broadcast.scripture_reference}</div>
+                </div>
               )}
-              <div className="mt-5 inline-flex items-center gap-2 text-[10px] font-medium text-[#9c958a] px-3 py-1.5 rounded-full border border-[rgba(243,238,228,0.06)] bg-[#0f1016]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#ef4444] animate-pulse" />Listening via audio stream
+            </>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center p-6">
+              <div className="w-full max-w-md space-y-5">
+                {/* Broadcast info card */}
+                <div className="text-center space-y-3">
+                  <div className="w-16 h-16 rounded-full border border-[#c9a227]/20 flex items-center justify-center mx-auto">
+                    <Radio className="w-7 h-7 text-[#c9a227]" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-white">{broadcast.title}</h2>
+                    {broadcast.description && <p className="text-xs text-[#9c958a] mt-1 max-w-sm mx-auto">{broadcast.description}</p>}
+                    {broadcast.scripture_reference && (
+                      <p className="text-[11px] text-[#c9a227] mt-2 flex items-center justify-center gap-1"><BookOpen className="w-3 h-3" />{broadcast.scripture_reference}</p>
+                    )}
+                  </div>
+                </div>
+                {/* Player */}
+                {broadcast.status === 'live' && <StreamPlayer broadcastId={broadcast.id} />}
               </div>
-            </div>
-          )}
-          {broadcast.status === 'live' && <StreamPlayer broadcastId={broadcast.id} />}
-          {broadcast.scripture_reference && (
-            <div className="mx-4 mb-4 rounded-xl p-4 text-center bg-[#14141a] border border-[rgba(243,238,228,0.06)]">
-              <div className="text-[10px] font-mono font-medium tracking-widest text-[#c9a227] mb-1.5">NOW READING</div>
-              <div className="text-sm font-medium text-white">{broadcast.scripture_reference}</div>
             </div>
           )}
         </div>
