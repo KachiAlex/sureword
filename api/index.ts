@@ -6,6 +6,7 @@ import jwt from 'jsonwebtoken'
 import { v4 as uuidv4 } from 'uuid'
 import multer from 'multer'
 import { v2 as cloudinary } from 'cloudinary'
+import crypto from 'crypto'
 
 // Cloudinary auto-configures from CLOUDINARY_URL env var
 // Parse URL so we can expose cloud_name + api_key to clients for signed uploads
@@ -47,7 +48,7 @@ function uploadToCloudinary(buffer: Buffer, folder: string, resourceType: 'auto'
 function generateCloudinarySignature(folder: string, timestamp: number) {
   if (!cloudConfig) return null
   const paramsToSign = `folder=${folder}&timestamp=${timestamp}${cloudConfig.apiSecret}`
-  return require('crypto').createHash('sha1').update(paramsToSign).digest('hex')
+  return crypto.createHash('sha1').update(paramsToSign).digest('hex')
 }
 
 // ── Express setup ──────────────────────────────────────────────
