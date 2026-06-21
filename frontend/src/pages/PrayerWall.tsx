@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { usePageTitle } from '../hooks/usePageTitle'
+import { prayerRequestSchema } from '../lib/validation'
 import { Heart, Send, AlertCircle, User } from 'lucide-react'
 
 interface Prayer {
@@ -21,6 +22,7 @@ export default function PrayerWall() {
   const [request, setRequest] = useState('')
   const [isAnonymous, setIsAnonymous] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [validationError, setValidationError] = useState('')
 
   useEffect(() => { fetchPrayers() }, [])
 
@@ -39,7 +41,12 @@ export default function PrayerWall() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!request.trim()) return
+    setValidationError('')
+    const result = prayerRequestSchema.safeParse({ name, request, isAnonymous })
+    if (!result.success) {
+      setValidationError(result.error.errors[0]?.message || 'Invalid input')
+      return
+    }
     setSubmitting(true)
     try {
       await axios.post('/api/prayer', { name: name.trim() || 'Anonymous', request: request.trim(), is_anonymous: isAnonymous })
@@ -48,7 +55,7 @@ export default function PrayerWall() {
       setIsAnonymous(false)
       fetchPrayers()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to submit prayer request.')
+      setValidationError(err.response?.data?.error || 'Failed to submit prayer request.')
     } finally {
       setSubmitting(false)
     }

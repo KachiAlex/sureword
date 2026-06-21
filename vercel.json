@@ -13,6 +13,38 @@
       "destination": "/api/index"
     },
     {
+      "source": "/sw.js",
+      "destination": "/sw.js"
+    },
+    {
+      "source": "/manifest.json",
+      "destination": "/manifest.json"
+    },
+    {
+      "source": "/robots.txt",
+      "destination": "/robots.txt"
+    },
+    {
+      "source": "/sitemap.xml",
+      "destination": "/sitemap.xml"
+    },
+    {
+      "source": "/favicon.svg",
+      "destination": "/favicon.svg"
+    },
+    {
+      "source": "/icon-192.svg",
+      "destination": "/icon-192.svg"
+    },
+    {
+      "source": "/icon-512.svg",
+      "destination": "/icon-512.svg"
+    },
+    {
+      "source": "/icons/(.*)",
+      "destination": "/icons/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
