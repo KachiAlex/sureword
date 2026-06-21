@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { usePageTitle } from '../hooks/usePageTitle'
 import { useAudioPlayer } from '../contexts/AudioPlayerContext'
-import { Music, Play, Pause, Loader2, Disc3, Search, Share2, Download } from 'lucide-react'
+import { useFavorites } from '../contexts/FavoritesContext'
+import {
+  Music, Play, Pause, Loader2, Disc3, Search, Share2, Download,
+  Shuffle, Heart, ListMusic
+} from 'lucide-react'
 
 interface Track {
   id: string
@@ -18,17 +22,23 @@ interface Track {
 
 export default function MusicPage() {
   usePageTitle('Music Library')
-  const { currentTrack, isPlaying, playTrack: globalPlayTrack, togglePlay } = useAudioPlayer()
+  const { currentTrack, isPlaying, playTrack: globalPlayTrack, togglePlay, playQueue, shuffle, toggleShuffle } = useAudioPlayer()
+  const { isFavorite, toggleFavorite } = useFavorites()
   const [tracks, setTracks] = useState<Track[]>([])
   const [loading, setLoading] = useState(true)
   const [showLyrics, setShowLyrics] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const [filter, setFilter] = useState<'all' | 'favorites'>('all')
+
+  const favoriteIds = new Set(tracks.filter(t => isFavorite(t.id, 'music')).map(t => t.id))
 
   const filtered = tracks.filter(t => {
     const q = query.toLowerCase()
-    return t.title.toLowerCase().includes(q) ||
+    const matches = t.title.toLowerCase().includes(q) ||
            t.artist.toLowerCase().includes(q) ||
            t.album.toLowerCase().includes(q)
+    if (filter === 'favorites') return matches && favoriteIds.has(t.id)
+    return matches
   })
 
   useEffect(() => {
@@ -46,18 +56,33 @@ export default function MusicPage() {
     }
   }
 
+  function toPlayerTrack(t: Track) {
+    return {
+      id: t.id,
+      title: t.title,
+      speaker: t.artist || 'Unknown artist',
+      audioUrl: t.audio_url,
+      thumbnail: t.cover_url
+    }
+  }
+
   function handlePlay(track: Track) {
     if (currentTrack?.id === track.id) {
       togglePlay()
       return
     }
-    globalPlayTrack({
-      id: track.id,
-      title: track.title,
-      speaker: track.artist || 'Unknown artist',
-      audioUrl: track.audio_url,
-      thumbnail: track.cover_url
-    })
+    globalPlayTrack(toPlayerTrack(track))
+  }
+
+  function handlePlayAll() {
+    if (filtered.length === 0) return
+    playQueue(filtered.map(toPlayerTrack), 0)
+  }
+
+  function handleShuffleAll() {
+    if (filtered.length === 0) return
+    playQueue(filtered.map(toPlayerTrack), 0)
+    if (!shuffle) toggleShuffle()
   }
 
   function handleDownload(track: Track) {
@@ -105,18 +130,44 @@ export default function MusicPage() {
           </p>
         </div>
 
-        {/* Search */}
-        <div className="relative mb-8 max-w-md mx-auto">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--dim)' }} />
-          <input
-            type="text"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Search by song, artist, or album..."
-            className="w-full rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none transition-colors"
-            style={{ background: 'var(--ink-2)', border: '1px solid var(--line)', color: 'var(--parchment)' }}
-          />
+        {/* Search + filters */}
+        <div className="flex flex-col sm:flex-row items-center gap-3 mb-6 max-w-2xl mx-auto">
+          <div className="relative flex-1 w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--dim)' }} />
+            <input
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Search by song, artist, or album..."
+              className="w-full rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none transition-colors"
+              style={{ background: 'var(--ink-2)', border: '1px solid var(--line)', color: 'var(--parchment)' }}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setFilter('all')} className="px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+              style={{ background: filter === 'all' ? 'var(--gold)' : 'var(--ink-2)', color: filter === 'all' ? '#1b1208' : 'var(--parchment)', border: '1px solid var(--line)' }}>
+              <ListMusic className="w-3.5 h-3.5 inline mr-1" />All
+            </button>
+            <button onClick={() => setFilter('favorites')} className="px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+              style={{ background: filter === 'favorites' ? 'var(--gold)' : 'var(--ink-2)', color: filter === 'favorites' ? '#1b1208' : 'var(--parchment)', border: '1px solid var(--line)' }}>
+              <Heart className="w-3.5 h-3.5 inline mr-1" />Favorites
+            </button>
+          </div>
         </div>
+
+        {/* Play controls */}
+        {!loading && filtered.length > 0 && (
+          <div className="flex items-center justify-center gap-3 mb-8">
+            <button onClick={handlePlayAll} className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-colors"
+              style={{ background: 'var(--gold)', color: '#1b1208' }}>
+              <Play className="w-3.5 h-3.5 fill-current" /> Play All
+            </button>
+            <button onClick={handleShuffleAll} className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-colors"
+              style={{ background: 'var(--ink-2)', color: 'var(--parchment)', border: '1px solid var(--line)' }}>
+              <Shuffle className="w-3.5 h-3.5" /> Shuffle All
+            </button>
+          </div>
+        )}
 
         {/* Tracks grid */}
         {loading ? (
@@ -160,6 +211,14 @@ export default function MusicPage() {
                       <Play className="w-10 h-10" style={{ color: 'var(--parchment)' }} />
                     )}
                   </div>
+                  <button
+                    onClick={e => { e.stopPropagation(); toggleFavorite(track.id, 'music') }}
+                    className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-colors"
+                    style={{ background: 'rgba(0,0,0,0.5)', color: isFavorite(track.id, 'music') ? '#ef4444' : '#fff' }}
+                    title="Favorite"
+                  >
+                    <Heart className={`w-3.5 h-3.5 ${isFavorite(track.id, 'music') ? 'fill-current' : ''}`} />
+                  </button>
                 </div>
                 <h3 className="font-medium truncate">{track.title}</h3>
                 <p className="text-sm truncate mt-0.5" style={{ color: 'var(--dim)' }}>

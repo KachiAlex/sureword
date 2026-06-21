@@ -1,8 +1,18 @@
 import { useAudioPlayer } from '../contexts/AudioPlayerContext'
-import { Play, Pause, X, Volume2, SkipBack, SkipForward } from 'lucide-react'
+import { useFavorites } from '../contexts/FavoritesContext'
+import {
+  Play, Pause, X, Volume2, SkipBack, SkipForward,
+  Shuffle, Repeat, Repeat1, Heart
+} from 'lucide-react'
 
 export default function MiniPlayer() {
-  const { currentTrack, isPlaying, progress, duration, volume, togglePlay, stop, setVolume, seek } = useAudioPlayer()
+  const {
+    currentTrack, isPlaying, progress, duration,
+    shuffle, repeat, togglePlay, stop, next, prev,
+    seek, toggleShuffle, cycleRepeat
+  } = useAudioPlayer()
+  const { isFavorite, toggleFavorite } = useFavorites()
+
   if (!currentTrack) return null
 
   const formatTime = (s: number) => {
@@ -12,6 +22,7 @@ export default function MiniPlayer() {
   }
 
   const pct = duration ? (progress / duration) * 100 : 0
+  const favorited = isFavorite(currentTrack.id, 'music') || isFavorite(currentTrack.id, 'sermon')
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-[rgba(243,238,228,0.08)] bg-[#111118]/95 backdrop-blur-md animate-slide-up">
@@ -40,12 +51,38 @@ export default function MiniPlayer() {
             <span className="text-[9px] text-[#9c958a] font-mono">{formatTime(duration)}</span>
           </div>
         </div>
+
+        {/* Transport controls */}
+        <div className="hidden sm:flex items-center gap-1.5">
+          <button onClick={toggleShuffle} className="w-7 h-7 rounded-full flex items-center justify-center transition-colors"
+            style={{ color: shuffle ? 'var(--gold)' : '#9c958a', background: shuffle ? 'rgba(201,162,39,0.12)' : 'transparent' }} title="Shuffle">
+            <Shuffle className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={prev} className="w-7 h-7 rounded-full flex items-center justify-center text-[#9c958a] hover:text-white transition-colors">
+            <SkipBack className="w-4 h-4 fill-current" />
+          </button>
+        </div>
+
         <div className="flex items-center gap-2">
           <button onClick={togglePlay} className="w-9 h-9 rounded-full bg-[#c9a227] flex items-center justify-center text-[#1b1208] transition-transform active:scale-95">
             {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
           </button>
+          <button onClick={() => toggleFavorite(currentTrack.id, 'music')} className="w-8 h-8 rounded-full bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] flex items-center justify-center transition-colors"
+            style={{ color: favorited ? '#ef4444' : '#9c958a' }} title="Favorite">
+            <Heart className={`w-4 h-4 ${favorited ? 'fill-current' : ''}`} />
+          </button>
           <button onClick={stop} className="w-8 h-8 rounded-full bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] flex items-center justify-center text-[#9c958a] hover:text-white transition-colors">
             <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="hidden sm:flex items-center gap-1.5">
+          <button onClick={next} className="w-7 h-7 rounded-full flex items-center justify-center text-[#9c958a] hover:text-white transition-colors">
+            <SkipForward className="w-4 h-4 fill-current" />
+          </button>
+          <button onClick={cycleRepeat} className="w-7 h-7 rounded-full flex items-center justify-center transition-colors"
+            style={{ color: repeat !== 'off' ? 'var(--gold)' : '#9c958a', background: repeat !== 'off' ? 'rgba(201,162,39,0.12)' : 'transparent' }} title={`Repeat: ${repeat}`}>
+            {repeat === 'one' ? <Repeat1 className="w-3.5 h-3.5" /> : <Repeat className="w-3.5 h-3.5" />}
           </button>
         </div>
       </div>

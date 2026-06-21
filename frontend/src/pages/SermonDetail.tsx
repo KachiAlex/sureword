@@ -3,9 +3,10 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { usePageTitle } from '../hooks/usePageTitle'
 import { useAudioPlayer } from '../contexts/AudioPlayerContext'
+import { useFavorites } from '../contexts/FavoritesContext'
 import {
   Headphones, Play, Pause, Calendar, BookOpen, User, Clock, ArrowLeft,
-  AlertCircle, Video, AudioLines, Share2, Download
+  AlertCircle, Video, AudioLines, Share2, Download, Heart
 } from 'lucide-react'
 
 interface Sermon {
@@ -26,6 +27,7 @@ export default function SermonDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { currentTrack, isPlaying, playTrack, togglePlay } = useAudioPlayer()
+  const { isFavorite, toggleFavorite } = useFavorites()
   const [sermon, setSermon] = useState<Sermon | null>(null)
   const [related, setRelated] = useState<Sermon[]>([])
   const [loading, setLoading] = useState(true)
@@ -201,6 +203,10 @@ export default function SermonDetail() {
                   <p className="text-xs" style={{ color: 'var(--dim)' }}>{sermon.title}</p>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button onClick={() => toggleFavorite(sermon.id, 'sermon')} className="p-2 rounded-lg transition-colors"
+                    style={{ background: 'var(--ink-2)', border: '1px solid var(--line)', color: isFavorite(sermon.id, 'sermon') ? '#ef4444' : 'var(--dim)' }} title="Favorite">
+                    <Heart className={`w-4 h-4 ${isFavorite(sermon.id, 'sermon') ? 'fill-current' : ''}`} />
+                  </button>
                   <button onClick={handleShare} className="p-2 rounded-lg transition-colors" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }} title="Share">
                     <Share2 className="w-4 h-4" style={{ color: 'var(--dim)' }} />
                   </button>

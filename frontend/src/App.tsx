@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { AudioPlayerProvider } from './contexts/AudioPlayerContext'
+import { FavoritesProvider } from './contexts/FavoritesContext'
 import Layout from './components/Layout'
 import ErrorBoundary from './components/ErrorBoundary'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -84,15 +85,17 @@ function App() {
   return (
     <AuthProvider>
       <AudioPlayerProvider>
-        <BrowserRouter>
-          <ErrorBoundary>
-            <Layout>
-              <Suspense fallback={<PageLoader />}>
-                <AnimatedRoutes />
-              </Suspense>
-            </Layout>
-          </ErrorBoundary>
-        </BrowserRouter>
+        <FavoritesProvider>
+          <BrowserRouter>
+            <ErrorBoundary>
+              <Layout>
+                <Suspense fallback={<PageLoader />}>
+                  <AnimatedRoutes />
+                </Suspense>
+              </Layout>
+            </ErrorBoundary>
+          </BrowserRouter>
+        </FavoritesProvider>
       </AudioPlayerProvider>
     </AuthProvider>
   )
