@@ -179,6 +179,9 @@ async function _doInitDb() {
   // Migrations for existing tables
   try { await dbQuery(`ALTER TABLE stream_listeners ADD COLUMN IF NOT EXISTS platform TEXT DEFAULT 'web'`) } catch {}
   try { await dbQuery(`ALTER TABLE donations ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'completed'`) } catch {}
+  try { await dbQuery(`ALTER TABLE prayer_requests ADD COLUMN IF NOT EXISTS name TEXT`) } catch {}
+  try { await dbQuery(`ALTER TABLE prayer_requests ADD COLUMN IF NOT EXISTS request TEXT`) } catch {}
+  try { await dbQuery(`ALTER TABLE prayer_requests ADD COLUMN IF NOT EXISTS is_anonymous BOOLEAN DEFAULT FALSE`) } catch {}
   try { await dbQuery(`ALTER TABLE prayer_requests ADD COLUMN IF NOT EXISTS prayers_count INTEGER DEFAULT 0`) } catch {}
 
   const sched = await dbGet('SELECT * FROM schedule LIMIT 1')
