@@ -54,10 +54,11 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
     if (mode === 'file' && !file && !form.audio_url) { alert('Audio file or URL required'); return }
     if (mode === 'url' && !form.audio_url.trim()) { alert('Audio URL is required'); return }
 
-    // Client-side guard: Vercel serverless has ~4.5MB body limit
+    // Client-side guard: Vercel serverless has ~4.5MB body limit.
+    // Multipart encoding adds ~20% overhead, so keep total under 2MB.
     const totalRaw = (file?.size || 0) + (coverFile?.size || 0)
-    if (totalRaw > 3 * 1024 * 1024) {
-      alert('Files too large. Please use files under 3MB total, or paste an external URL instead.')
+    if (totalRaw > 2 * 1024 * 1024) {
+      alert('Files too large. Please use files under 2MB total, or paste an external audio URL instead.')
       return
     }
 
@@ -172,7 +173,7 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
           {mode === 'file' ? (
             <div>
               <label className="block text-xs mb-1.5" style={{ color: 'var(--dim)' }}>
-                Audio File <span style={{ color: 'var(--dim)' }}>(MP3, WAV, AAC, OGG, FLAC, M4A, WEBM — max 3MB)</span>
+                Audio File <span style={{ color: 'var(--dim)' }}>(MP3, WAV, AAC, OGG, FLAC, M4A, WEBM — max 2MB)</span>
               </label>
               <input
                 ref={fileInputRef}
@@ -255,7 +256,7 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
           </div>
           <div>
             <label className="block text-xs mb-1.5" style={{ color: 'var(--dim)' }}>
-              Cover image <span style={{ color: 'var(--dim)' }}>(JPG, PNG, WEBP — max 3MB)</span>
+              Cover image <span style={{ color: 'var(--dim)' }}>(JPG, PNG, WEBP — max 2MB)</span>
             </label>
             <input
               ref={coverInputRef}
