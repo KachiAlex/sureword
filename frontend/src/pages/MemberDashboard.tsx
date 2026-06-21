@@ -233,6 +233,7 @@ export default function MemberDashboard() {
   const [testimonies, setTestimonies] = useState<Testimony[]>([])
   const [guestSpeaker, setGuestSpeaker] = useState<GuestSpeaker|null>(null)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [chatInput, setChatInput] = useState('')
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
 
@@ -242,6 +243,32 @@ export default function MemberDashboard() {
     const iv = setInterval(fetchData, 30000)
     return ()=>clearInterval(iv)
   }, [user, navigate])
+
+  /* ── Chat polling ── */
+  useEffect(() => {
+    if (!broadcast?.id) return
+    const id = setInterval(() => fetchChatMessages(broadcast.id), 5000)
+    return () => clearInterval(id)
+  }, [broadcast?.id])
+
+  async function fetchChatMessages(bid?: string) {
+    if (!bid) return
+    try {
+      const { data } = await axios.get(`/api/chat/broadcast/${bid}`)
+      setChatMessages(data.messages?.slice(-20) || [])
+    } catch {}
+  }
+
+  async function sendChatMessage(e: React.FormEvent) {
+    e.preventDefault()
+    const text = chatInput.trim()
+    if (!text || !broadcast?.id) return
+    try {
+      await axios.post(`/api/chat/broadcast/${broadcast.id}`, { message: text })
+      setChatInput('')
+      fetchChatMessages(broadcast.id)
+    } catch {}
+  }
 
   async function fetchData() {
     try {
@@ -258,7 +285,7 @@ export default function MemberDashboard() {
       setTestimonies(tr.data.testimonies||[])
       setGuestSpeaker((gs.data.speakers||[])[0]||null)
       if (br.data.broadcast?.id) {
-        const chat = await axios.get(`/api/chat/${br.data.broadcast.id}`).catch(()=>({data:{messages:[]}}))
+        const chat = await axios.get(`/api/chat/broadcast/${br.data.broadcast.id}`).catch(()=>({data:{messages:[]}}))
         setChatMessages(chat.data.messages?.slice(-10)||[])
       }
     } catch {}
@@ -410,10 +437,10 @@ export default function MemberDashboard() {
                     })}
                     {chatMessages.length===0 && <p className="text-xs text-[#9c958a] text-center py-4">No messages yet. Join the live stream to chat!</p>}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <input type="text" placeholder="Type your message..." className="flex-1 bg-[#14141a] border border-[rgba(243,238,228,0.08)] rounded-lg px-3 py-2 text-xs text-white placeholder-[#9c958a] outline-none focus:border-[#c9a227]/30" />
-                    <button className="w-8 h-8 rounded-lg bg-[#c9a227] hover:bg-[#e0bd5a] flex items-center justify-center transition-colors"><Send className="w-3.5 h-3.5 text-[#1b1208]" /></button>
-                  </div>
+                  <form onSubmit={sendChatMessage} className="flex items-center gap-2">
+                    <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Type your message..." className="flex-1 bg-[#14141a] border border-[rgba(243,238,228,0.08)] rounded-lg px-3 py-2 text-xs text-white placeholder-[#9c958a] outline-none focus:border-[#c9a227]/30" />
+                    <button type="submit" disabled={!chatInput.trim() || !broadcast} className="w-8 h-8 rounded-lg bg-[#c9a227] hover:bg-[#e0bd5a] flex items-center justify-center transition-colors disabled:opacity-40"><Send className="w-3.5 h-3.5 text-[#1b1208]" /></button>
+                  </form>
                 </div>
               </div>
               {/* Listening History + Saved Sermons */}

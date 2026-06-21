@@ -96,4 +96,36 @@ router.get('/broadcast/:broadcastId/users', async (req, res) => {
   }
 })
 
+/* ── General community chat (all broadcasts) ── */
+router.get('/general', async (req, res) => {
+  try {
+    await initDb()
+    const messages = await db.all(
+      `SELECT * FROM chat_messages
+       WHERE is_private = FALSE
+       ORDER BY created_at DESC LIMIT 200`,
+      [])
+    res.json({ messages: messages.reverse() })
+  } catch (err: any) {
+    console.error('[CHAT] general error:', err.message)
+    res.status(500).json({ error: 'Failed to fetch general chat' })
+  }
+})
+
+/* ── Admin: delete any message ── */
+router.delete('/:id', authenticateToken, async (req: AuthenticatedRequest, res) => {
+  try {
+    await initDb()
+    if (req.user!.role !== 'admin') {
+      res.status(403).json({ error: 'Admin access required' })
+      return
+    }
+    await db.run(`DELETE FROM chat_messages WHERE id = $1`, [req.params.id])
+    res.json({ ok: true })
+  } catch (err: any) {
+    console.error('[CHAT] delete error:', err.message)
+    res.status(500).json({ error: 'Failed to delete message' })
+  }
+})
+
 export default router

@@ -6,8 +6,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { useBroadcasts, useSermons, useUsers, usePrayers, useMusic, useDashboardAnalytics } from '../lib/api'
 import {
   Users, Radio, Headphones, LayoutDashboard, MessageSquare, Settings, Music, Mic2, Podcast, Heart, Calendar,
-  Search, Bell, ChevronDown, BookOpen, DollarSign, Mic, Pause, StopCircle, BarChart3, Shield, Sparkles,
-  Menu, X
+  Search, Bell, ChevronDown, BookOpen, DollarSign, Mic, Pause, Play, StopCircle, BarChart3, Shield, Sparkles,
+  Menu, X, Loader2
 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 
@@ -26,6 +26,31 @@ interface ChatMessage { id: string; broadcast_id?: string; user_name: string; me
 
 type Tab = 'dashboard' | 'broadcasts' | 'users' | 'sermons' | 'chat' | 'settings' | 'music' | 'speakers' | 'podcasts' | 'prayer' | 'testimonies' | 'events'
 
+function formatDuration(totalSeconds: number) {
+  const h = Math.floor(totalSeconds / 3600)
+  const m = Math.floor((totalSeconds % 3600) / 60)
+  const s = totalSeconds % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
+function LiveWaveform({ active }: { active: boolean }) {
+  const [bars, setBars] = useState<number[]>(Array.from({ length: 40 }, () => 15))
+  useEffect(() => {
+    if (!active) { setBars(Array.from({ length: 40 }, () => 15)); return }
+    const id = setInterval(() => {
+      setBars(Array.from({ length: 40 }, () => Math.max(10, Math.min(100, Math.random() * 90 + 10))))
+    }, 200)
+    return () => clearInterval(id)
+  }, [active])
+  return (
+    <div className="flex items-end gap-[2px] h-8 my-2">
+      {bars.map((h, i) => (
+        <div key={i} className={`w-[3px] rounded-full transition-all duration-200 ${active ? 'bg-[#c9a227]' : 'bg-[#c9a227]/30'}`} style={{ height: `${h}%` }} />
+      ))}
+    </div>
+  )
+}
+
 export default function AdminDashboard() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -39,6 +64,18 @@ export default function AdminDashboard() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const [bcActionLoading, setBcActionLoading] = useState(false)
+  const [liveElapsed, setLiveElapsed] = useState(0)
+
+  /* ── Live broadcast duration timer ── */
+  useEffect(() => {
+    const live = broadcasts.find(b => b.status === 'live')
+    if (!live?.started_at) { setLiveElapsed(0); return }
+    const start = new Date(live.started_at).getTime()
+    setLiveElapsed(Math.floor((Date.now() - start) / 1000))
+    const id = setInterval(() => setLiveElapsed(Math.floor((Date.now() - start) / 1000)), 1000)
+    return () => clearInterval(id)
+  }, [broadcasts])
 
   const dashboard = analytics?.stats ?? null
   const platformData = analytics?.platformBreakdown ?? []
@@ -68,14 +105,16 @@ export default function AdminDashboard() {
       const bcs = res.data.broadcasts as any[]
       const allMessages: ChatMessage[] = []
       for (const b of bcs.slice(0, 5)) {
-        try { const msgRes = await axios.get(`/api/chat/${b.id}`); allMessages.push(...msgRes.data.messages) } catch {}
+        try { const msgRes = await axios.get(`/api/chat/broadcast/${b.id}`); allMessages.push(...msgRes.data.messages) } catch {}
       }
       try { const general = await axios.get('/api/chat/general'); allMessages.push(...general.data.messages) } catch {}
       setChatMessages(allMessages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()))
     } catch (err) { console.error('Failed to fetch chat:', err) }
   }
 
-  useEffect(() => { if (activeTab === 'chat') fetchChat() }, [activeTab])
+  useEffect(() => {
+    if (activeTab === 'chat') { fetchChat(); const iv = setInterval(fetchChat, 5000); return () => clearInterval(iv) }
+  }, [activeTab])
 
   async function updateUserRole(userId: string, newRole: string) {
     const token = localStorage.getItem('token')
@@ -83,6 +122,36 @@ export default function AdminDashboard() {
       await axios.patch(`/api/auth/users/${userId}/role`, { role: newRole }, { headers: { Authorization: `Bearer ${token}` } })
       queryClient.setQueryData(['users'], (old: any) => old?.map((u: any) => u.id === userId ? { ...u, role: newRole } : u))
     } catch (err: any) { alert(err.response?.data?.error || 'Failed to update role') }
+  }
+
+  /* ── Broadcast control helpers ── */
+  async function endLiveBroadcast() {
+    const live = broadcasts.find(b => b.status === 'live')
+    if (!live) return
+    setBcActionLoading(true)
+    try {
+      await axios.post(`/api/stream/${live.id}/stop`)
+      queryClient.invalidateQueries({ queryKey: ['broadcasts'] })
+      queryClient.invalidateQueries({ queryKey: ['analytics'] })
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to end broadcast')
+    } finally {
+      setBcActionLoading(false)
+    }
+  }
+
+  async function pauseLiveBroadcast() {
+    const live = broadcasts.find(b => b.status === 'live')
+    if (!live) return
+    setBcActionLoading(true)
+    try {
+      await axios.post(`/api/stream/${live.id}/pause`)
+      queryClient.invalidateQueries({ queryKey: ['broadcasts'] })
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to pause broadcast')
+    } finally {
+      setBcActionLoading(false)
+    }
   }
 
   if (!user || user.role !== 'admin') return null
@@ -193,25 +262,43 @@ export default function AdminDashboard() {
                     <span className={`flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full ${live?'text-[#ef4444] bg-[#ef4444]/10':'text-[#9c958a] bg-[rgba(243,238,228,0.06)]'}`}>{live?<><span className="w-1.5 h-1.5 bg-[#ef4444] rounded-full animate-pulse"/>LIVE</>:'OFFLINE'}</span>
                   </div>
                   <div className="flex gap-3">
-                    <div className="w-28 h-28 rounded-lg bg-gradient-to-br from-[#2a1f3d] to-[#1a1025] flex items-center justify-center flex-shrink-0">
-                      <div className="text-center leading-tight"><div className="text-sm font-bold text-[#c9a227]">THE POWER</div><div className="text-sm font-bold text-[#c9a227]">OF</div><div className="text-sm font-bold text-[#c9a227]">REDEMPTION</div></div>
+                    <div className="w-28 h-28 rounded-lg bg-gradient-to-br from-[#2a1f3d] to-[#1a1025] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {live?.thumbnail_url ? (
+                        <img src={live.thumbnail_url} alt={live.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="text-center leading-tight px-2"><div className="text-sm font-bold text-[#c9a227]">ZIONITE</div><div className="text-sm font-bold text-[#c9a227]">FM</div><div className="text-[10px] text-[#9c958a] mt-1">Live</div></div>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="mb-2"><span className={`text-[9px] font-bold uppercase ${live?'text-[#ef4444]':'text-[#9c958a]'}`}>{live?'On Air Now':'No Active Broadcast'}</span><h4 className="text-xs font-bold text-white mt-0.5 truncate">{live?.title||'Start a broadcast'}</h4><p className="text-[11px] text-[#9c958a]">{live?'Live Session':'No stream data'}</p></div>
-                      <div className="flex items-end gap-[2px] h-8 my-2">
-                        {[40,65,30,80,55,90,45,70,35,85,50,75,60,40,95,55,70,45,80,35,65,50,85,40,75,60,90,45,70,55,80,35,65,50,75,40,85,60,45,70].map((h,i)=>(
-                          <div key={i} className="w-[3px] rounded-full bg-[#c9a227]/50" style={{height:`${h}%`}}/>
-                        ))}
-                      </div>
+                      <div className="mb-1"><span className={`text-[9px] font-bold uppercase ${live?'text-[#ef4444]':'text-[#9c958a]'}`}>{live?'On Air Now':'No Active Broadcast'}</span><h4 className="text-xs font-bold text-white mt-0.5 truncate">{live?.title||'Start a broadcast'}</h4><p className="text-[11px] text-[#9c958a]">{live?.speaker ? `${live.speaker} • ` : ''}{live?'Live Session':'No stream data'}</p></div>
+                      <LiveWaveform active={!!live} />
                       <div className="grid grid-cols-3 gap-1 mt-2">
-                        <div className="text-center"><p className="text-[9px] text-[#9c958a]">Listeners</p><p className="text-xs font-bold text-white">{dashboard?.listenersOnline||0}</p></div>
-                        <div className="text-center"><p className="text-[9px] text-[#9c958a]">Quality</p><p className="text-xs font-bold text-[#4ade80]">Excellent</p></div>
-                        <div className="text-center"><p className="text-[9px] text-[#9c958a]">Duration</p><p className="text-xs font-bold text-white">{live&&live.started_at?(()=>{const m=Math.floor((Date.now()-new Date(live.started_at!).getTime())/60000);const h=Math.floor(m/60);return `${String(h).padStart(2,'0')}:${String(m%60).padStart(2,'0')}:00`;})():'00:00:00'}</p></div>
+                        <div className="text-center"><p className="text-[9px] text-[#9c958a]">Listeners</p><p className="text-xs font-bold text-white">{dashboard?.listenersOnline ?? 0}</p></div>
+                        <div className="text-center"><p className="text-[9px] text-[#9c958a]">Quality</p><p className="text-xs font-bold text-[#4ade80]">{live ? 'Good' : '—'}</p></div>
+                        <div className="text-center"><p className="text-[9px] text-[#9c958a]">Duration</p><p className="text-xs font-bold text-white">{live ? formatDuration(liveElapsed) : '00:00:00'}</p></div>
                       </div>
                       <div className="flex gap-1.5 mt-3">
-                        <button className="flex-1 flex items-center justify-center gap-1 bg-[#ef4444]/10 hover:bg-[#ef4444]/20 text-[#ef4444] text-[10px] font-medium py-1.5 rounded-md border border-[#ef4444]/20"><StopCircle className="w-3 h-3"/>Stop</button>
-                        <button className="flex-1 flex items-center justify-center gap-1 bg-[rgba(243,238,228,0.06)] hover:bg-[rgba(243,238,228,0.1)] text-white text-[10px] font-medium py-1.5 rounded-md border border-[rgba(243,238,228,0.08)]"><Pause className="w-3 h-3"/>Pause</button>
-                        <button className="flex-1 flex items-center justify-center gap-1 bg-[rgba(243,238,228,0.06)] hover:bg-[rgba(243,238,228,0.1)] text-white text-[10px] font-medium py-1.5 rounded-md border border-[rgba(243,238,228,0.08)]"><Settings className="w-3 h-3"/>Settings</button>
+                        {live ? (
+                          <>
+                            <button onClick={endLiveBroadcast} disabled={bcActionLoading}
+                              className="flex-1 flex items-center justify-center gap-1 bg-[#ef4444]/10 hover:bg-[#ef4444]/20 text-[#ef4444] text-[10px] font-medium py-1.5 rounded-md border border-[#ef4444]/20 disabled:opacity-50">
+                              {bcActionLoading ? <Loader2 className="w-3 h-3 animate-spin"/> : <StopCircle className="w-3 h-3"/>} Stop
+                            </button>
+                            <button onClick={pauseLiveBroadcast} disabled={bcActionLoading}
+                              className="flex-1 flex items-center justify-center gap-1 bg-[rgba(243,238,228,0.06)] hover:bg-[rgba(243,238,228,0.1)] text-white text-[10px] font-medium py-1.5 rounded-md border border-[rgba(243,238,228,0.08)] disabled:opacity-50">
+                              {bcActionLoading ? <Loader2 className="w-3 h-3 animate-spin"/> : <Pause className="w-3 h-3"/>} Pause
+                            </button>
+                          </>
+                        ) : (
+                          <button onClick={() => setActiveTab('broadcasts')}
+                            className="flex-1 flex items-center justify-center gap-1 bg-[#4ade80]/10 hover:bg-[#4ade80]/20 text-[#4ade80] text-[10px] font-medium py-1.5 rounded-md border border-[#4ade80]/20">
+                            <Radio className="w-3 h-3"/> Go Live
+                          </button>
+                        )}
+                        <button onClick={() => setActiveTab('broadcasts')}
+                          className="flex-1 flex items-center justify-center gap-1 bg-[rgba(243,238,228,0.06)] hover:bg-[rgba(243,238,228,0.1)] text-white text-[10px] font-medium py-1.5 rounded-md border border-[rgba(243,238,228,0.08)]">
+                          <Settings className="w-3 h-3"/> Studio
+                        </button>
                       </div>
                     </div>
                   </div>

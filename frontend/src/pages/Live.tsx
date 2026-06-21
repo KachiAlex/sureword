@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import axios from 'axios'
 import { io, Socket } from 'socket.io-client'
 import { useAuth } from '../contexts/AuthContext'
@@ -240,8 +240,6 @@ function StreamPlayer({ broadcastId }: { broadcastId: string }) {
 export default function Live() {
   usePageTitle('Live Broadcast')
   const { broadcastId } = useParams()
-  const [searchParams] = useSearchParams()
-  const showChat = searchParams.get('chat') === '1'
   const { user } = useAuth()
 
   const [broadcast, setBroadcast] = useState<Broadcast | null>(null)
@@ -254,6 +252,10 @@ export default function Live() {
   const [showRecipientPicker, setShowRecipientPicker] = useState(false)
   const [onlineCount, setOnlineCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [chatOpen, setChatOpen] = useState(() => {
+    if (typeof window === 'undefined') return true
+    return window.innerWidth >= 768
+  })
 
   const chatEndRef = useRef<HTMLDivElement>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
@@ -295,14 +297,14 @@ export default function Live() {
   async function fetchChatMessages() {
     const bid = broadcastId || broadcast?.id
     if (!bid) return
-    try { const { data } = await axios.get(`/api/chat/${bid}`); setChatMessages(data.messages || []) } catch {}
+    try { const { data } = await axios.get(`/api/chat/broadcast/${bid}`); setChatMessages(data.messages || []) } catch {}
   }
 
   async function fetchChatUsers() {
     const bid = broadcastId || broadcast?.id
     if (!bid) return
     try {
-      const { data } = await axios.get(`/api/chat/${bid}/users`)
+      const { data } = await axios.get(`/api/chat/broadcast/${bid}/users`)
       setChatUsers((data.users || []).filter((u: any) => u.user_id !== user?.id))
       setOnlineCount(data.users?.length || 0)
     } catch {}
@@ -325,9 +327,9 @@ export default function Live() {
         if (user) {
           const payload: any = { message: text }
           if (chatMode === 'private' && privateRecipient) payload.recipientId = privateRecipient.user_id
-          await axios.post(`/api/chat/${bid}`, payload)
+          await axios.post(`/api/chat/broadcast/${bid}`, payload)
         } else {
-          await axios.post(`/api/chat/${bid}/guest`, { message: text, guestName: guestName.trim() || 'Guest' })
+          await axios.post(`/api/chat/broadcast/${bid}/guest`, { message: text, guestName: guestName.trim() || 'Guest' })
         }
         fetchChatMessages()
       }
@@ -391,13 +393,20 @@ export default function Live() {
             </div>
             <div className="text-xs font-medium text-white max-w-[200px] sm:max-w-xs truncate">{broadcast.title}</div>
           </div>
-          <div className="text-[11px] font-mono flex items-center gap-1 text-[#9c958a]"><Users className="w-3.5 h-3.5" /> {onlineCount}</div>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setChatOpen(o => !o)} className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-md bg-[rgba(243,238,228,0.06)] hover:bg-[rgba(243,238,228,0.1)] text-white transition-colors">
+              <MessageSquare className="w-3.5 h-3.5 text-[#c9a227]" />
+              <span className="hidden sm:inline">{chatOpen ? 'Hide Chat' : 'Open Chat'}</span>
+              <span className="sm:hidden">Chat</span>
+            </button>
+            <span className="text-[11px] font-mono flex items-center gap-1 text-[#9c958a]"><Users className="w-3.5 h-3.5" /> {onlineCount}</span>
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        <div className={`flex-1 flex flex-col overflow-y-auto ${showChat ? 'hidden md:block' : ''}`}>
+        <div className={`flex-1 flex flex-col overflow-y-auto ${chatOpen ? 'hidden md:block' : ''}`}>
           {getChurchOnlineUrl() ? (
             <>
               <div className="flex-1 relative min-h-[300px] md:min-h-0">
@@ -435,7 +444,7 @@ export default function Live() {
         </div>
 
         {/* Chat Section */}
-        {showChat && (
+        {chatOpen && (
           <div className="w-full md:w-80 border-l border-[rgba(243,238,228,0.06)] flex flex-col bg-[#14141a]">
             {/* Chat Header */}
             <div className="p-4 border-b border-[rgba(243,238,228,0.06)]">
@@ -445,7 +454,7 @@ export default function Live() {
                 </h3>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-mono text-[#9c958a]">{onlineCount} active</span>
-                  <Link to={`/live/${broadcast?.id || ''}`} className="md:hidden text-[#9c958a] p-0.5"><X className="w-4 h-4" /></Link>
+                  <button onClick={() => setChatOpen(false)} className="md:hidden text-[#9c958a] p-0.5"><X className="w-4 h-4" /></button>
                 </div>
               </div>
               {user && (
@@ -552,11 +561,11 @@ export default function Live() {
       </div>
 
       {/* Mobile Chat Toggle */}
-      {!showChat && (
-        <Link to={`/live/${broadcast.id}?chat=1`}
-          className="md:hidden fixed bottom-4 right-4 w-12 h-12 rounded-full flex items-center justify-center bg-[#c9a227] text-[#1b1208] shadow-lg">
-          <Users className="w-5 h-5" />
-        </Link>
+      {!chatOpen && (
+        <button onClick={() => setChatOpen(true)}
+          className="md:hidden fixed bottom-4 right-4 w-12 h-12 rounded-full flex items-center justify-center bg-[#c9a227] text-[#1b1208] shadow-lg z-50">
+          <MessageSquare className="w-5 h-5" />
+        </button>
       )}
     </div>
   )

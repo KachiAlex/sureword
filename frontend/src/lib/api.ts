@@ -113,7 +113,8 @@ export function useUsers() {
 
 export function useChatMessages(broadcastId?: string) {
   return useQuery({ queryKey: ['chat', broadcastId], queryFn: async () => {
-    const { data } = await api.get(`/chat${broadcastId ? `?broadcast_id=${broadcastId}` : ''}`)
+    const path = broadcastId ? `/chat/broadcast/${broadcastId}` : '/chat/general'
+    const { data } = await api.get(path)
     return data.messages
   }, refetchInterval: 5000, enabled: true })
 }
