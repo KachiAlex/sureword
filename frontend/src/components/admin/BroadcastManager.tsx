@@ -39,6 +39,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
   const [thumbnailPreview, setThumbnailPreview] = useState('')
   const [selectedDevice] = useState('')
   const [setupError, setSetupError] = useState('')
+  const [showAdvanced, setShowAdvanced] = useState(false)
 
   /* ── Studio state ── */
   const [broadcastId, setBroadcastId] = useState('')
@@ -304,7 +305,6 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
 
   /* ─── SETUP VIEW ─── */
   if (view === 'setup') {
-    const [showAdvanced, setShowAdvanced] = useState(false)
     return (
       <div className="space-y-5">
         <button onClick={() => setView('list')}
