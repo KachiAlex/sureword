@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
 import { db, initDb } from '../db.js';
 import { authenticateToken, JWT_SECRET } from '../middleware/auth.js';
+import { getIO } from '../websocket.js';
 const router = Router();
 router.get('/broadcast/:broadcastId', async (req, res) => {
     try {
@@ -44,6 +45,10 @@ router.post('/broadcast/:broadcastId', authenticateToken, async (req, res) => {
         const id = uuidv4();
         const isPrivate = !!recipientId;
         await db.run(`INSERT INTO chat_messages (id, broadcast_id, user_id, user_name, recipient_id, message, is_private) VALUES ($1, $2, $3, $4, $5, $6, $7)`, [id, req.params.broadcastId, req.user.id, req.user.name, recipientId || null, message.trim(), isPrivate]);
+        const msg = { id, broadcast_id: req.params.broadcastId, user_id: req.user.id, user_name: req.user.name, recipient_id: recipientId || null, message: message.trim(), is_private: isPrivate, created_at: new Date().toISOString() };
+        const io = getIO();
+        if (io)
+            io.to(`broadcast_${req.params.broadcastId}`).emit('new_message', msg);
         res.status(201).json({ id, message: message.trim(), isPrivate });
     }
     catch (err) {
@@ -65,6 +70,10 @@ router.post('/broadcast/:broadcastId/guest', async (req, res) => {
         }
         const id = uuidv4();
         await db.run(`INSERT INTO chat_messages (id, broadcast_id, guest_name, message, is_private) VALUES ($1, $2, $3, $4, $5)`, [id, req.params.broadcastId, guestName.trim(), message.trim(), false]);
+        const msg = { id, broadcast_id: req.params.broadcastId, guest_name: guestName.trim(), message: message.trim(), is_private: false, created_at: new Date().toISOString() };
+        const io = getIO();
+        if (io)
+            io.to(`broadcast_${req.params.broadcastId}`).emit('new_message', msg);
         res.status(201).json({ id, message: message.trim() });
     }
     catch (err) {

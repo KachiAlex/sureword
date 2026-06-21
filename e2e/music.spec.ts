@@ -129,7 +129,7 @@ test.describe('Add Music Flow', () => {
     await page.getByPlaceholder('Title *').fill('Test Song')
     await page.getByPlaceholder('Artist').fill('Test Artist')
     await page.getByPlaceholder('Album').fill('Test Album')
-    await page.getByPlaceholder('Genre').fill('Gospel')
+    await page.locator('select').selectOption('Gospel')
     await page.getByPlaceholder('Duration (seconds)').fill('180')
 
     // Upload cover image via file picker
@@ -333,7 +333,7 @@ test.describe('Add Music Flow', () => {
     await page.getByPlaceholder('Title *').fill('Track With Cover')
     await page.getByPlaceholder('Artist').fill('Cover Artist')
     await page.getByPlaceholder('Album').fill('Cover Album')
-    await page.getByPlaceholder('Genre').fill('Gospel')
+    await page.locator('select').selectOption('Gospel')
     await page.getByPlaceholder('Duration (seconds)').fill('200')
 
     await page.getByRole('button', { name: /add track/i }).click()

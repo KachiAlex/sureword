@@ -5,10 +5,13 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { v4 as uuidv4 } from 'uuid'
 import multer from 'multer'
+import { v2 as cloudinary } from 'cloudinary'
+
+// Cloudinary auto-configures from CLOUDINARY_URL env var
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const allowed = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/ogg', 'audio/aac', 'audio/mp4', 'audio/x-m4a', 'audio/flac', 'audio/webm']
     cb(null, allowed.includes(file.mimetype))
@@ -17,12 +20,21 @@ const upload = multer({
 
 const uploadImage = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
     cb(null, allowed.includes(file.mimetype))
   }
 })
+
+function uploadToCloudinary(buffer: Buffer, folder: string, resourceType: 'auto' | 'image' | 'video' = 'auto'): Promise<string> {
+  return new Promise((resolve, reject) => {
+    cloudinary.uploader.upload_stream({ folder, resource_type: resourceType }, (err, result) => {
+      if (err || !result) reject(err || new Error('Cloudinary upload failed'))
+      else resolve(result.secure_url)
+    }).end(buffer)
+  })
+}
 
 // ── Express setup ──────────────────────────────────────────────
 const app = express()

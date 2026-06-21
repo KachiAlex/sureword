@@ -54,6 +54,13 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
     if (mode === 'file' && !file && !form.audio_url) { alert('Audio file or URL required'); return }
     if (mode === 'url' && !form.audio_url.trim()) { alert('Audio URL is required'); return }
 
+    // Client-side size check: Vercel has ~4.5MB body limit; base64 adds ~33%
+    const totalRaw = (file?.size || 0) + (coverFile?.size || 0)
+    if (totalRaw > 3 * 1024 * 1024) {
+      alert('Total file size exceeds 3MB limit. Please use a smaller audio file or compress your cover image.')
+      return
+    }
+
     setSubmitting(true)
     try {
       let payload: FormData | object
@@ -102,7 +109,11 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
       if (coverInputRef.current) coverInputRef.current.value = ''
       onRefresh()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to upload music')
+      const msg = err?.response?.data?.error
+        || (typeof err?.response?.data === 'string' ? err.response.data : null)
+        || err?.message
+        || 'Failed to upload music'
+      alert(msg)
     } finally {
       setSubmitting(false)
     }
@@ -203,13 +214,28 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <input
-              placeholder="Genre"
+            <select
               value={form.genre}
               onChange={e => setForm({ ...form, genre: e.target.value })}
-              className="w-full rounded-xl px-4 py-2.5 text-sm"
+              className="w-full rounded-xl px-4 py-2.5 text-sm appearance-none"
               style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--parchment)' }}
-            />
+            >
+              <option value="">Select genre</option>
+              <option value="Gospel">Gospel</option>
+              <option value="Contemporary Christian">Contemporary Christian</option>
+              <option value="Worship">Worship</option>
+              <option value="Praise & Worship">Praise & Worship</option>
+              <option value="Hymns">Hymns</option>
+              <option value="Afrobeat Gospel">Afrobeat Gospel</option>
+              <option value="Hip Hop Gospel">Hip Hop Gospel</option>
+              <option value="R&B Gospel">R&B Gospel</option>
+              <option value="Reggae Gospel">Reggae Gospel</option>
+              <option value="Classical">Classical</option>
+              <option value="Instrumental">Instrumental</option>
+              <option value="Choir">Choir</option>
+              <option value="Sermon / Messages">Sermon / Messages</option>
+              <option value="Other">Other</option>
+            </select>
             <input
               placeholder="Duration (seconds)"
               value={form.duration}
