@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { usePageTitle } from '../hooks/usePageTitle'
 import { useAudioPlayer } from '../contexts/AudioPlayerContext'
-import { Music, Play, Pause, Loader2, Disc3, Search } from 'lucide-react'
+import { Music, Play, Pause, Loader2, Disc3, Search, Share2, Download } from 'lucide-react'
 
 interface Track {
   id: string
@@ -58,6 +58,35 @@ export default function MusicPage() {
       audioUrl: track.audio_url,
       thumbnail: track.cover_url
     })
+  }
+
+  function handleDownload(track: Track) {
+    const a = document.createElement('a')
+    a.href = track.audio_url
+    a.download = `${track.title}${track.audio_url.match(/\.\w+$/)?.[0] || '.mp3'}`
+    a.target = '_blank'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
+
+  async function handleShare(track: Track) {
+    const shareUrl = `${window.location.origin}/music?track=${track.id}`
+    const shareData = {
+      title: track.title,
+      text: `Listen to "${track.title}" by ${track.artist || 'Unknown artist'} on ZioniteFM`,
+      url: shareUrl
+    }
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData)
+      } else {
+        await navigator.clipboard.writeText(shareUrl)
+        alert('Link copied to clipboard!')
+      }
+    } catch {
+      // user cancelled or share failed silently
+    }
   }
 
   return (
@@ -136,6 +165,24 @@ export default function MusicPage() {
                 <p className="text-sm truncate mt-0.5" style={{ color: 'var(--dim)' }}>
                   {track.artist || 'Unknown artist'}{track.album && ` | ${track.album}`}
                 </p>
+                <div className="flex items-center gap-2 mt-3">
+                  <button
+                    onClick={e => { e.stopPropagation(); handleShare(track) }}
+                    className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg transition-colors"
+                    style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--dim)' }}
+                    title="Share"
+                  >
+                    <Share2 className="w-3.5 h-3.5" /> Share
+                  </button>
+                  <button
+                    onClick={e => { e.stopPropagation(); handleDownload(track) }}
+                    className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg transition-colors"
+                    style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--dim)' }}
+                    title="Download"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Download
+                  </button>
+                </div>
                 {track.lyrics && (
                   <button
                     onClick={e => { e.stopPropagation(); setShowLyrics(showLyrics === track.id ? null : track.id) }}

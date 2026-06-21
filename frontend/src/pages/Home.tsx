@@ -10,7 +10,7 @@ import {
   Play, Pause, Search, Heart,
   Users, BookOpen, Headphones, ChevronRight,
   Download, Facebook, Instagram, Youtube, Twitter,
-  Mic2, MapPin, Mail, Radio, Calendar, Disc3, Music
+  Mic2, MapPin, Mail, Radio, Calendar, Disc3, Music, Share2
 } from "lucide-react"
 
 function SectionHeader({ title, action, to }:{ title:string; action:string; to:string }) {
@@ -64,6 +64,30 @@ const MusicCard = memo(function MusicCard({ track }: { track: MusicTrack }) {
     playTrack({ id: track.id, title: track.title, speaker: track.artist || 'Unknown artist', audioUrl: track.audio_url, thumbnail: track.cover_url })
   }
 
+  function handleDownload(e: React.MouseEvent) {
+    e.stopPropagation()
+    const a = document.createElement('a')
+    a.href = track.audio_url
+    a.download = `${track.title}${track.audio_url.match(/\.\w+$/)?.[0] || '.mp3'}`
+    a.target = '_blank'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
+
+  async function handleShare(e: React.MouseEvent) {
+    e.stopPropagation()
+    const shareUrl = `${window.location.origin}/music?track=${track.id}`
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: track.title, text: `Listen to "${track.title}" by ${track.artist || 'Unknown artist'} on ZioniteFM`, url: shareUrl })
+      } else {
+        await navigator.clipboard.writeText(shareUrl)
+        alert('Link copied to clipboard!')
+      }
+    } catch { /* user cancelled */ }
+  }
+
   return (
     <div className="group block hover-lift">
       <div className="relative rounded-xl overflow-hidden aspect-square mb-2.5 bg-[#1c1d24]">
@@ -79,6 +103,14 @@ const MusicCard = memo(function MusicCard({ track }: { track: MusicTrack }) {
       </div>
       <h4 className="text-sm font-medium text-white group-hover:text-[#c9a227] transition-colors leading-snug truncate">{track.title}</h4>
       <p className="text-xs text-[#9c958a] mt-0.5">{track.artist || 'Unknown artist'}</p>
+      <div className="flex items-center gap-2 mt-1.5">
+        <button onClick={handleShare} className="text-[#9c958a] hover:text-[#c9a227] transition-colors" title="Share">
+          <Share2 className="w-3.5 h-3.5" />
+        </button>
+        <button onClick={handleDownload} className="text-[#9c958a] hover:text-[#c9a227] transition-colors" title="Download">
+          <Download className="w-3.5 h-3.5" />
+        </button>
+      </div>
     </div>
   )
 })
