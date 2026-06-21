@@ -4,6 +4,11 @@ test.describe('Add Music Flow', () => {
   test('admin can add a track via external URL', async ({ page }) => {
     let musicTracks: any[] = []
 
+    // Prevent service workers from interfering with Playwright route interception
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'serviceWorker', { value: undefined, writable: false })
+    })
+
     await page.route('**/api/auth/verify', async (route) => {
       await route.fulfill({
         status: 200,
@@ -30,57 +35,48 @@ test.describe('Add Music Flow', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sermons: [] }) })
     })
 
-    await page.route('**/api/music', async (route) => {
+    await page.route(url => new URL(url).pathname === '/api/music/signature', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          signature: 'fakesig',
+          timestamp: 1234567890,
+          apiKey: 'fakekey',
+          cloudName: 'fakecloud',
+          folder: 'zionite/music/audio',
+          uploadUrl: 'https://api.cloudinary.com/v1_1/fakecloud/auto/upload'
+        })
+      })
+    })
+
+    await page.route('https://api.cloudinary.com/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ secure_url: 'https://cloudinary.com/fake-file.mp3' })
+      })
+    })
+
+    await page.route(url => new URL(url).pathname === '/api/music', async (route) => {
       if (route.request().method() === 'POST') {
-        const postData = route.request().postData()
-        let title = ''
-        let artist = ''
-        let album = ''
-        let genre = ''
-        let duration = ''
-        let lyrics = ''
-        let audio_url = ''
-        let hasCover = false
-
-        if (postData && typeof postData === 'string' && postData.includes('------')) {
-          const parts = postData.split(/------[\w-]+/)
-          for (const part of parts) {
-            if (part.includes('name="title"')) title = part.split('\r\n\r\n')[1]?.trim() || ''
-            if (part.includes('name="artist"')) artist = part.split('\r\n\r\n')[1]?.trim() || ''
-            if (part.includes('name="album"')) album = part.split('\r\n\r\n')[1]?.trim() || ''
-            if (part.includes('name="genre"')) genre = part.split('\r\n\r\n')[1]?.trim() || ''
-            if (part.includes('name="duration"')) duration = part.split('\r\n\r\n')[1]?.trim() || ''
-            if (part.includes('name="lyrics"')) lyrics = part.split('\r\n\r\n')[1]?.trim() || ''
-            if (part.includes('name="audio_url"')) audio_url = part.split('\r\n\r\n')[1]?.trim() || ''
-            if (part.includes('name="cover"')) hasCover = true
-          }
-        } else {
-          const body = await route.request().postDataJSON()
-          title = body.title || ''
-          artist = body.artist || ''
-          album = body.album || ''
-          genre = body.genre || ''
-          duration = body.duration || ''
-          lyrics = body.lyrics || ''
-          audio_url = body.audio_url || ''
-        }
-
+        const body = await route.request().postDataJSON()
         const id = `track-${Date.now()}`
         musicTracks.push({
           id,
-          title,
-          artist,
-          album,
-          genre,
-          audio_url,
-          cover_url: hasCover ? 'data:image/png;base64,mockcover' : '',
-          duration: parseInt(duration) || 0,
-          lyrics,
+          title: body.title || '',
+          artist: body.artist || '',
+          album: body.album || '',
+          genre: body.genre || '',
+          audio_url: body.audio_url || '',
+          cover_url: body.cover_url || '',
+          duration: parseInt(body.duration) || 0,
+          lyrics: body.lyrics || '',
           file_format: '',
           file_size: 0,
           created_at: new Date().toISOString()
         })
-        await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ id, title }) })
+        await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ id, title: body.title }) })
       } else {
         await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ music: musicTracks }) })
       }
@@ -148,6 +144,10 @@ test.describe('Add Music Flow', () => {
   })
 
   test('user can discover and play music from home and library', async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'serviceWorker', { value: undefined, writable: false })
+    })
+
     const mockTrack = {
       id: 'track-123',
       title: 'Amazing Grace',
@@ -160,7 +160,7 @@ test.describe('Add Music Flow', () => {
       lyrics: 'Amazing grace, how sweet the sound...'
     }
 
-    await page.route('**/api/music', async (route) => {
+    await page.route(url => new URL(url).pathname === '/api/music', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ music: [mockTrack] }) })
     })
 
@@ -202,6 +202,10 @@ test.describe('Add Music Flow', () => {
   test('admin can upload a track with cover image', async ({ page }) => {
     let musicTracks: any[] = []
 
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'serviceWorker', { value: undefined, writable: false })
+    })
+
     await page.route('**/api/auth/verify', async (route) => {
       await route.fulfill({
         status: 200,
@@ -228,49 +232,49 @@ test.describe('Add Music Flow', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sermons: [] }) })
     })
 
-    await page.route('**/api/music', async (route) => {
+    await page.route(url => new URL(url).pathname === '/api/music/signature', async (route) => {
+      const folder = route.request().url().includes('covers') ? 'zionite/music/covers' : 'zionite/music/audio'
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          signature: 'fakesig',
+          timestamp: 1234567890,
+          apiKey: 'fakekey',
+          cloudName: 'fakecloud',
+          folder,
+          uploadUrl: 'https://api.cloudinary.com/v1_1/fakecloud/auto/upload'
+        })
+      })
+    })
+
+    await page.route('https://api.cloudinary.com/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ secure_url: 'https://cloudinary.com/fake-file.mp3' })
+      })
+    })
+
+    await page.route(url => new URL(url).pathname === '/api/music', async (route) => {
       if (route.request().method() === 'POST') {
-        const postData = route.request().postData()
-        let title = ''
-        let artist = ''
-        let album = ''
-        let genre = ''
-        let duration = ''
-        let lyrics = ''
-        let hasAudio = false
-        let hasCover = false
-
-        if (postData && typeof postData === 'string' && postData.includes('------')) {
-          // multipart form data
-          const parts = postData.split(/------[\w-]+/)
-          for (const part of parts) {
-            if (part.includes('name="title"')) title = part.split('\r\n\r\n')[1]?.trim() || ''
-            if (part.includes('name="artist"')) artist = part.split('\r\n\r\n')[1]?.trim() || ''
-            if (part.includes('name="album"')) album = part.split('\r\n\r\n')[1]?.trim() || ''
-            if (part.includes('name="genre"')) genre = part.split('\r\n\r\n')[1]?.trim() || ''
-            if (part.includes('name="duration"')) duration = part.split('\r\n\r\n')[1]?.trim() || ''
-            if (part.includes('name="lyrics"')) lyrics = part.split('\r\n\r\n')[1]?.trim() || ''
-            if (part.includes('name="audio"')) hasAudio = true
-            if (part.includes('name="cover"')) hasCover = true
-          }
-        }
-
+        const body = await route.request().postDataJSON()
         const id = `track-${Date.now()}`
         musicTracks.push({
           id,
-          title,
-          artist,
-          album,
-          genre,
-          audio_url: hasAudio ? 'data:audio/mpeg;base64,mock' : '',
-          cover_url: hasCover ? 'data:image/png;base64,mockcover' : '',
-          duration: parseInt(duration) || 0,
-          lyrics,
-          file_format: hasAudio ? 'audio/mpeg' : '',
-          file_size: hasAudio ? 1024 : 0,
+          title: body.title || '',
+          artist: body.artist || '',
+          album: body.album || '',
+          genre: body.genre || '',
+          audio_url: body.audio_url || '',
+          cover_url: body.cover_url || '',
+          duration: parseInt(body.duration) || 0,
+          lyrics: body.lyrics || '',
+          file_format: '',
+          file_size: 0,
           created_at: new Date().toISOString()
         })
-        await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ id, title }) })
+        await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ id, title: body.title }) })
       } else {
         await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ music: musicTracks }) })
       }

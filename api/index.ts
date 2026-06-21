@@ -8,6 +8,14 @@ import multer from 'multer'
 import { v2 as cloudinary } from 'cloudinary'
 
 // Cloudinary auto-configures from CLOUDINARY_URL env var
+// Parse URL so we can expose cloud_name + api_key to clients for signed uploads
+function parseCloudinaryUrl() {
+  const url = process.env.CLOUDINARY_URL || ''
+  const match = url.match(/^cloudinary:\/\/([^:]+):([^@]+)@(.+)$/)
+  if (!match) return null
+  return { apiKey: match[1], apiSecret: match[2], cloudName: match[3] }
+}
+const cloudConfig = parseCloudinaryUrl()
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -34,6 +42,12 @@ function uploadToCloudinary(buffer: Buffer, folder: string, resourceType: 'auto'
       else resolve(result.secure_url)
     }).end(buffer)
   })
+}
+
+function generateCloudinarySignature(folder: string, timestamp: number) {
+  if (!cloudConfig) return null
+  const paramsToSign = `folder=${folder}&timestamp=${timestamp}${cloudConfig.apiSecret}`
+  return require('crypto').createHash('sha1').update(paramsToSign).digest('hex')
 }
 
 // ── Express setup ──────────────────────────────────────────────
@@ -455,6 +469,28 @@ app.get('/music', async (_req, res) => {
     const rows = await dbQuery('SELECT id, title, artist, album, genre, audio_url, cover_url, duration, lyrics, file_format, file_size, created_at FROM music ORDER BY created_at DESC')
     res.json({ music: rows })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.get('/music/signature', auth, requireRole('admin'), (req: AuthReq, res) => {
+  if (!cloudConfig) {
+    res.status(500).json({ error: 'Cloudinary not configured' })
+    return
+  }
+  const folder = (req.query.folder as string) || 'zionite/uploads'
+  const timestamp = Math.round(Date.now() / 1000)
+  const signature = generateCloudinarySignature(folder, timestamp)
+  if (!signature) {
+    res.status(500).json({ error: 'Failed to generate upload signature' })
+    return
+  }
+  res.json({
+    signature,
+    timestamp,
+    apiKey: cloudConfig.apiKey,
+    cloudName: cloudConfig.cloudName,
+    folder,
+    uploadUrl: `https://api.cloudinary.com/v1_1/${cloudConfig.cloudName}/auto/upload`
+  })
 })
 
 app.post('/music', auth, requireRole('admin'), upload.fields([{ name: 'audio', maxCount: 1 }, { name: 'cover', maxCount: 1 }]), async (req: AuthReq, res) => {

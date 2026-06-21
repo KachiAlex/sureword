@@ -54,55 +54,52 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
     if (mode === 'file' && !file && !form.audio_url) { alert('Audio file or URL required'); return }
     if (mode === 'url' && !form.audio_url.trim()) { alert('Audio URL is required'); return }
 
-    // Client-side guard: Vercel serverless has ~4.5MB body limit.
-    // Multipart encoding adds ~20% overhead, so keep total under 2MB.
-    const totalRaw = (file?.size || 0) + (coverFile?.size || 0)
-    if (totalRaw > 2 * 1024 * 1024) {
-      alert('Files too large. Please use files under 2MB total, or paste an external audio URL instead.')
-      return
-    }
-
     setSubmitting(true)
     try {
-      let payload: FormData | object
-      let headers: any = { Authorization: `Bearer ${token}` }
+      let audioUrl = form.audio_url
+      let coverUrl = ''
 
-      if (mode === 'file' && file) {
-        const data = new FormData()
-        data.append('audio', file)
-        data.append('title', form.title)
-        data.append('artist', form.artist)
-        data.append('album', form.album)
-        data.append('genre', form.genre)
-        data.append('duration', form.duration)
-        data.append('lyrics', form.lyrics)
-        if (coverFile) data.append('cover', coverFile)
-        payload = data
-      } else if (coverFile) {
-        const data = new FormData()
-        data.append('title', form.title)
-        data.append('artist', form.artist)
-        data.append('album', form.album)
-        data.append('genre', form.genre)
-        data.append('audio_url', form.audio_url)
-        data.append('duration', form.duration)
-        data.append('lyrics', form.lyrics)
-        data.append('cover', coverFile)
-        payload = data
-      } else {
-        payload = {
-          title: form.title,
-          artist: form.artist,
-          album: form.album,
-          genre: form.genre,
-          audio_url: form.audio_url,
-          duration: parseInt(form.duration) || 0,
-          lyrics: form.lyrics
-        }
-        headers['Content-Type'] = 'application/json'
+      // ── Step 1: Upload files directly to Cloudinary (signed) ──
+      if (file) {
+        const { data: sig } = await axios.get('/api/music/signature?folder=zionite/music/audio', {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        const fd = new FormData()
+        fd.append('file', file)
+        fd.append('api_key', sig.apiKey)
+        fd.append('timestamp', sig.timestamp)
+        fd.append('signature', sig.signature)
+        fd.append('folder', sig.folder)
+        const { data: up } = await axios.post(sig.uploadUrl, fd)
+        audioUrl = up.secure_url
       }
 
-      await axios.post('/api/music', payload, { headers })
+      if (coverFile) {
+        const { data: sig } = await axios.get('/api/music/signature?folder=zionite/music/covers', {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        const fd = new FormData()
+        fd.append('file', coverFile)
+        fd.append('api_key', sig.apiKey)
+        fd.append('timestamp', sig.timestamp)
+        fd.append('signature', sig.signature)
+        fd.append('folder', sig.folder)
+        const { data: up } = await axios.post(sig.uploadUrl, fd)
+        coverUrl = up.secure_url
+      }
+
+      // ── Step 2: Save metadata + Cloudinary URLs to backend ──
+      await axios.post('/api/music', {
+        title: form.title,
+        artist: form.artist,
+        album: form.album,
+        genre: form.genre,
+        audio_url: audioUrl,
+        cover_url: coverUrl,
+        duration: parseInt(form.duration) || 0,
+        lyrics: form.lyrics
+      }, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } })
+
       setForm({ title: '', artist: '', album: '', genre: '', duration: '', lyrics: '', audio_url: '' })
       setFile(null)
       setCoverFile(null)
@@ -113,13 +110,9 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
       let msg = 'Failed to upload music'
       const data = err?.response?.data
       if (data) {
-        if (typeof data === 'string') {
-          msg = data
-        } else if (data.error) {
-          msg = typeof data.error === 'string' ? data.error : JSON.stringify(data.error)
-        } else {
-          msg = JSON.stringify(data)
-        }
+        if (typeof data === 'string') msg = data
+        else if (data.error) msg = typeof data.error === 'string' ? data.error : JSON.stringify(data.error)
+        else msg = JSON.stringify(data)
       } else if (err?.message) {
         msg = err.message
       }
@@ -173,7 +166,7 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
           {mode === 'file' ? (
             <div>
               <label className="block text-xs mb-1.5" style={{ color: 'var(--dim)' }}>
-                Audio File <span style={{ color: 'var(--dim)' }}>(MP3, WAV, AAC, OGG, FLAC, M4A, WEBM — max 2MB)</span>
+                Audio File <span style={{ color: 'var(--dim)' }}>(MP3, WAV, AAC, OGG, FLAC, M4A, WEBM — max 25MB)</span>
               </label>
               <input
                 ref={fileInputRef}
@@ -256,7 +249,7 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
           </div>
           <div>
             <label className="block text-xs mb-1.5" style={{ color: 'var(--dim)' }}>
-              Cover image <span style={{ color: 'var(--dim)' }}>(JPG, PNG, WEBP — max 2MB)</span>
+              Cover image <span style={{ color: 'var(--dim)' }}>(JPG, PNG, WEBP — max 10MB)</span>
             </label>
             <input
               ref={coverInputRef}
