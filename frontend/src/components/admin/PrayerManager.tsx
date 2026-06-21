@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { Heart, Trash2 } from 'lucide-react'
+import { Heart, Trash2, CheckCircle2 } from 'lucide-react'
 
 interface Prayer {
   id: string
@@ -8,6 +8,7 @@ interface Prayer {
   request: string
   is_anonymous: boolean
   prayers_count: number
+  is_answered: boolean
   created_at: string
 }
 
@@ -61,6 +62,7 @@ export default function PrayerManager() {
                   <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--dim)' }}>{p.request}</p>
                   <div className="flex items-center gap-3 mt-2 text-[11px]" style={{ color: 'var(--dim)' }}>
                     <span className="flex items-center gap-1"><Heart className="w-3 h-3" /> {p.prayers_count} prayers</span>
+                    {p.is_answered && <span className="flex items-center gap-1 text-green-400"><CheckCircle2 className="w-3 h-3" /> Answered</span>}
                     <span>{new Date(p.created_at).toLocaleDateString()}</span>
                   </div>
                 </div>

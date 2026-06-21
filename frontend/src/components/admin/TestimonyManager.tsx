@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { Star, Trash2, CheckCircle, Clock } from 'lucide-react'
+import { Star, Trash2, CheckCircle, Clock, User } from 'lucide-react'
 
 interface Testimony {
   id: string
   name: string
   email: string | null
   content: string
+  is_anonymous: boolean
   status: string
   is_featured: boolean
   created_at: string
@@ -74,6 +75,7 @@ export default function TestimonyManager() {
                       {t.status === 'approved' ? <CheckCircle className="w-3 h-3 text-green-400" /> : <Clock className="w-3 h-3 text-yellow-400" />}
                       {t.status}
                     </span>
+                    {t.is_anonymous && <span className="flex items-center gap-1 text-[#9c958a]"><User className="w-3 h-3" /> Anonymous</span>}
                     {t.is_featured && <span className="flex items-center gap-1 text-[#c9a227]"><Star className="w-3 h-3" /> Featured</span>}
                     <span>{new Date(t.created_at).toLocaleDateString()}</span>
                   </div>

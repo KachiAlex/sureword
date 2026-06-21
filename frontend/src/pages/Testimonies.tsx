@@ -22,6 +22,7 @@ export default function Testimonies() {
   const [name, setName] = useState(user?.name || '')
   const [email, setEmail] = useState(user?.email || '')
   const [content, setContent] = useState('')
+  const [isAnonymous, setIsAnonymous] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [validationError, setValidationError] = useState('')
 
@@ -53,8 +54,9 @@ export default function Testimonies() {
     }
     setSubmitting(true)
     try {
-      await axios.post('/api/testimonies', { name: name.trim(), email: email.trim() || null, content: content.trim() })
+      await axios.post('/api/testimonies', { name: name.trim(), email: email.trim() || null, content: content.trim(), is_anonymous: isAnonymous })
       setContent('')
+      setIsAnonymous(false)
       fetchTestimonies()
     } catch (err: any) {
       setValidationError(err.response?.data?.error || 'Failed to submit testimony.')
@@ -81,10 +83,14 @@ export default function Testimonies() {
           <h3 className="font-semibold mb-4">Share Your Testimony</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
             <input placeholder="Your name" value={name} onChange={e => setName(e.target.value)}
-              className="input-dark text-sm w-full" required />
+              className="input-dark text-sm w-full" required disabled={isAnonymous} />
             <input placeholder="Your email (optional)" value={email} onChange={e => setEmail(e.target.value)}
               className="input-dark text-sm w-full" />
           </div>
+          <label className="flex items-center gap-2 text-sm mb-3" style={{ color: 'var(--parchment)' }}>
+            <input type="checkbox" checked={isAnonymous} onChange={e => setIsAnonymous(e.target.checked)} className="rounded" />
+            Submit anonymously
+          </label>
           <textarea placeholder="Write your testimony... Share what God has done in your life."
             value={content} onChange={e => setContent(e.target.value)}
             required className="input-dark text-sm w-full h-28 resize-none mb-3" />

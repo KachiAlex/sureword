@@ -3,14 +3,16 @@ import axios from 'axios'
 import { usePageTitle } from '../hooks/usePageTitle'
 import { useAuth } from '../contexts/AuthContext'
 import { prayerRequestSchema } from '../lib/validation'
-import { Heart, Send, AlertCircle, User, Check } from 'lucide-react'
+import { Heart, Send, AlertCircle, User, Check, CheckCircle2, RotateCcw } from 'lucide-react'
 
 interface Prayer {
   id: string
+  user_id: string | null
   name: string | null
   request: string
   is_anonymous: boolean
   prayers_count: number
+  is_answered: boolean
   has_prayed?: boolean
   created_at: string
 }
@@ -79,6 +81,16 @@ export default function PrayerWall() {
     }
   }
 
+  async function handleAnswered(id: string, answered: boolean) {
+    if (!user) return
+    try {
+      await axios.patch(`/api/prayer/${id}/answered`, { is_answered: answered })
+      setPrayers(prayers.map(p => p.id === id ? { ...p, is_answered: answered } : p))
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to update answered status.')
+    }
+  }
+
   return (
     <div className="min-h-screen py-8 lg:py-12" style={{ background: 'var(--ink)', color: 'var(--parchment)' }}>
       <div className="max-w-5xl mx-auto px-6">
@@ -132,37 +144,61 @@ export default function PrayerWall() {
 
         {!loading && prayers.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {prayers.map(p => (
-              <div key={p.id} className="p-5 rounded-2xl" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'var(--gold)', color: '#1b1208' }}>
-                    {p.is_anonymous || !p.name ? <User className="w-4 h-4" /> : p.name[0]}
+            {prayers.map(p => {
+              const isCreator = user && p.user_id === user.id
+              return (
+                <div key={p.id} className="p-5 rounded-2xl relative" style={{ background: 'var(--ink-2)', border: p.is_answered ? '1px solid rgba(74,222,128,0.3)' : '1px solid var(--line)' }}>
+                  {p.is_answered && (
+                    <div className="absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1"
+                      style={{ background: 'rgba(74,222,128,0.12)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.2)' }}>
+                      <CheckCircle2 className="w-3 h-3" /> Answered
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'var(--gold)', color: '#1b1208' }}>
+                      {p.is_anonymous || !p.name ? <User className="w-4 h-4" /> : p.name[0]}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{p.is_anonymous || !p.name ? 'Anonymous' : p.name}</p>
+                      <p className="text-[11px]" style={{ color: 'var(--dim)' }}>{new Date(p.created_at).toLocaleDateString()}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium">{p.is_anonymous || !p.name ? 'Anonymous' : p.name}</p>
-                    <p className="text-[11px]" style={{ color: 'var(--dim)' }}>{new Date(p.created_at).toLocaleDateString()}</p>
+                  <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--parchment)' }}>{p.request}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {user ? (
+                      p.has_prayed ? (
+                        <button disabled className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors"
+                          style={{ borderColor: 'var(--gold)', color: 'var(--gold)', background: 'rgba(201,162,39,0.08)' }}>
+                          <Check className="w-3.5 h-3.5" /> {p.prayers_count || 0} Prayed
+                        </button>
+                      ) : (
+                        <button onClick={() => handlePray(p.id)} className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors hover:border-[#c9a227]"
+                          style={{ borderColor: 'var(--line)', color: 'var(--dim)' }}>
+                          <Heart className="w-3.5 h-3.5" /> {p.prayers_count || 0} Pray
+                        </button>
+                      )
+                    ) : (
+                      <p className="text-xs" style={{ color: 'var(--dim)' }}>
+                        <Heart className="w-3.5 h-3.5 inline mr-1" />{p.prayers_count || 0} praying — <a href="/login" className="underline" style={{ color: 'var(--gold)' }}>Log in</a> to pray
+                      </p>
+                    )}
+                    {isCreator && (
+                      p.is_answered ? (
+                        <button onClick={() => handleAnswered(p.id, false)} className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors hover:border-[#ef4444]"
+                          style={{ borderColor: 'rgba(239,68,68,0.2)', color: '#ef4444', background: 'rgba(239,68,68,0.06)' }}>
+                          <RotateCcw className="w-3.5 h-3.5" /> Mark Unanswered
+                        </button>
+                      ) : (
+                        <button onClick={() => handleAnswered(p.id, true)} className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors hover:border-[#4ade80]"
+                          style={{ borderColor: 'rgba(74,222,128,0.2)', color: '#4ade80', background: 'rgba(74,222,128,0.06)' }}>
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Mark Answered
+                        </button>
+                      )
+                    )}
                   </div>
                 </div>
-                <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--parchment)' }}>{p.request}</p>
-                {user ? (
-                  p.has_prayed ? (
-                    <button disabled className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors"
-                      style={{ borderColor: 'var(--gold)', color: 'var(--gold)', background: 'rgba(201,162,39,0.08)' }}>
-                      <Check className="w-3.5 h-3.5" /> {p.prayers_count || 0} Prayed
-                    </button>
-                  ) : (
-                    <button onClick={() => handlePray(p.id)} className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors hover:border-[#c9a227]"
-                      style={{ borderColor: 'var(--line)', color: 'var(--dim)' }}>
-                      <Heart className="w-3.5 h-3.5" /> {p.prayers_count || 0} Pray
-                    </button>
-                  )
-                ) : (
-                  <p className="text-xs" style={{ color: 'var(--dim)' }}>
-                    <Heart className="w-3.5 h-3.5 inline mr-1" />{p.prayers_count || 0} praying — <a href="/login" className="underline" style={{ color: 'var(--gold)' }}>Log in</a> to pray
-                  </p>
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

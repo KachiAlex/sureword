@@ -153,8 +153,8 @@ async function _doInitDb() {
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`)
   await dbQuery(`CREATE TABLE IF NOT EXISTS prayer_requests (
-    id TEXT PRIMARY KEY, name TEXT, request TEXT NOT NULL, is_anonymous BOOLEAN DEFAULT FALSE,
-    prayers_count INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    id TEXT PRIMARY KEY, user_id TEXT, name TEXT, request TEXT NOT NULL, is_anonymous BOOLEAN DEFAULT FALSE,
+    prayers_count INTEGER DEFAULT 0, is_answered BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`)
   await dbQuery(`CREATE TABLE IF NOT EXISTS prayer_interactions (
     id TEXT PRIMARY KEY, prayer_id TEXT NOT NULL, user_id TEXT NOT NULL,
@@ -167,8 +167,8 @@ async function _doInitDb() {
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`)
   await dbQuery(`CREATE TABLE IF NOT EXISTS testimonies (
-    id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT, content TEXT NOT NULL,
-    status TEXT DEFAULT 'pending', is_featured BOOLEAN DEFAULT FALSE,
+    id TEXT PRIMARY KEY, user_id TEXT, name TEXT NOT NULL, email TEXT, content TEXT NOT NULL,
+    is_anonymous BOOLEAN DEFAULT FALSE, status TEXT DEFAULT 'pending', is_featured BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`)
   await dbQuery(`CREATE TABLE IF NOT EXISTS campaigns (
@@ -179,10 +179,14 @@ async function _doInitDb() {
   // Migrations for existing tables
   try { await dbQuery(`ALTER TABLE stream_listeners ADD COLUMN IF NOT EXISTS platform TEXT DEFAULT 'web'`) } catch {}
   try { await dbQuery(`ALTER TABLE donations ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'completed'`) } catch {}
+  try { await dbQuery(`ALTER TABLE prayer_requests ADD COLUMN IF NOT EXISTS user_id TEXT`) } catch {}
   try { await dbQuery(`ALTER TABLE prayer_requests ADD COLUMN IF NOT EXISTS name TEXT`) } catch {}
   try { await dbQuery(`ALTER TABLE prayer_requests ADD COLUMN IF NOT EXISTS request TEXT`) } catch {}
   try { await dbQuery(`ALTER TABLE prayer_requests ADD COLUMN IF NOT EXISTS is_anonymous BOOLEAN DEFAULT FALSE`) } catch {}
   try { await dbQuery(`ALTER TABLE prayer_requests ADD COLUMN IF NOT EXISTS prayers_count INTEGER DEFAULT 0`) } catch {}
+  try { await dbQuery(`ALTER TABLE prayer_requests ADD COLUMN IF NOT EXISTS is_answered BOOLEAN DEFAULT FALSE`) } catch {}
+  try { await dbQuery(`ALTER TABLE testimonies ADD COLUMN IF NOT EXISTS user_id TEXT`) } catch {}
+  try { await dbQuery(`ALTER TABLE testimonies ADD COLUMN IF NOT EXISTS is_anonymous BOOLEAN DEFAULT FALSE`) } catch {}
 
   const sched = await dbGet('SELECT * FROM schedule LIMIT 1')
   if (!sched) {
@@ -796,7 +800,7 @@ app.get('/prayer', optionalAuth, async (req: AuthReq, res) => {
   try {
     await initDb()
     const rows = await dbQuery(`
-      SELECT p.id, p.name, p.request, p.is_anonymous, p.created_at,
+      SELECT p.id, p.user_id, p.name, p.request, p.is_anonymous, p.is_answered, p.created_at,
         (SELECT COUNT(*) FROM prayer_interactions WHERE prayer_id = p.id) as prayers_count
       FROM prayer_requests p
       ORDER BY p.created_at DESC
@@ -812,15 +816,16 @@ app.get('/prayer', optionalAuth, async (req: AuthReq, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
-app.post('/prayer', async (req, res) => {
+app.post('/prayer', optionalAuth, async (req: AuthReq, res) => {
   try {
     await initDb()
     const { name, request, is_anonymous } = req.body
     if (!request?.trim()) { res.status(400).json({ error: 'Request is required' }); return }
     const id = uuidv4()
-    await dbQuery(`INSERT INTO prayer_requests (id, name, request, is_anonymous) VALUES ($1,$2,$3,$4)`,
-      [id, name || 'Anonymous', request.trim(), is_anonymous || false])
-    res.status(201).json({ prayer: { id, name: name || 'Anonymous', request, is_anonymous: is_anonymous || false, prayers_count: 0 } })
+    const userId = req.user?.id || null
+    await dbQuery(`INSERT INTO prayer_requests (id, user_id, name, request, is_anonymous) VALUES ($1,$2,$3,$4,$5)`,
+      [id, userId, name || 'Anonymous', request.trim(), is_anonymous || false])
+    res.status(201).json({ prayer: { id, user_id: userId, name: name || 'Anonymous', request, is_anonymous: is_anonymous || false, prayers_count: 0, is_answered: false } })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
@@ -839,6 +844,19 @@ app.post('/prayer/:id/pray', auth, async (req: AuthReq, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
+app.patch('/prayer/:id/answered', auth, async (req: AuthReq, res) => {
+  try {
+    await initDb()
+    if (!req.user?.id) { res.status(401).json({ error: 'Unauthorized' }); return }
+    const prayer = await dbGet('SELECT user_id FROM prayer_requests WHERE id=$1', [req.params.id])
+    if (!prayer) { res.status(404).json({ error: 'Prayer request not found' }); return }
+    if (prayer.user_id !== req.user.id) { res.status(403).json({ error: 'Only the creator can mark this prayer as answered' }); return }
+    const { is_answered } = req.body
+    await dbQuery('UPDATE prayer_requests SET is_answered=$1 WHERE id=$2', [is_answered === true, req.params.id])
+    res.json({ ok: true, is_answered: is_answered === true })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
 app.delete('/prayer/:id', auth, requireRole('admin'), async (req, res) => {
   try { await initDb(); await dbQuery('DELETE FROM prayer_requests WHERE id=$1', [req.params.id]); res.json({ ok: true }) }
   catch (e: any) { res.status(500).json({ error: e.message }) }
@@ -848,7 +866,7 @@ app.get('/prayer/admin/all', auth, requireRole('admin'), async (_req, res) => {
   try {
     await initDb()
     const rows = await dbQuery(`
-      SELECT p.id, p.name, p.request, p.is_anonymous, p.created_at,
+      SELECT p.id, p.user_id, p.name, p.request, p.is_anonymous, p.is_answered, p.created_at,
         (SELECT COUNT(*) FROM prayer_interactions WHERE prayer_id = p.id) as prayers_count
       FROM prayer_requests p
       ORDER BY p.created_at DESC
@@ -892,19 +910,22 @@ app.get('/donations/admin/all', auth, requireRole('admin'), async (_req, res) =>
 app.get('/testimonies', async (_req, res) => {
   try {
     await initDb()
-    const rows = await dbQuery(`SELECT id, name, content, status, is_featured, created_at FROM testimonies WHERE status='approved' ORDER BY created_at DESC LIMIT 50`)
-    res.json({ testimonies: rows })
+    const rows = await dbQuery(`SELECT id, user_id, name, content, is_anonymous, status, is_featured, created_at FROM testimonies WHERE status='approved' ORDER BY created_at DESC LIMIT 50`)
+    const testimonies = rows.map((t: any) => ({ ...t, name: t.is_anonymous ? 'Anonymous' : t.name }))
+    res.json({ testimonies })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
-app.post('/testimonies', async (req, res) => {
+app.post('/testimonies', optionalAuth, async (req: AuthReq, res) => {
   try {
     await initDb()
-    const { name, email, content } = req.body
+    const { name, email, content, is_anonymous } = req.body
     if (!name || !content) { res.status(400).json({ error: 'Name and content are required' }); return }
     const id = uuidv4()
-    await dbQuery(`INSERT INTO testimonies (id, name, email, content) VALUES ($1,$2,$3,$4)`,
-      [id, name, email || null, content.trim()])
+    const userId = req.user?.id || null
+    const displayName = is_anonymous ? 'Anonymous' : name
+    await dbQuery(`INSERT INTO testimonies (id, user_id, name, email, content, is_anonymous) VALUES ($1,$2,$3,$4,$5,$6)`,
+      [id, userId, displayName, email || null, content.trim(), is_anonymous === true])
     const row = await dbGet('SELECT * FROM testimonies WHERE id=$1', [id])
     res.status(201).json({ testimony: row })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
@@ -913,7 +934,7 @@ app.post('/testimonies', async (req, res) => {
 app.get('/testimonies/admin/all', auth, requireRole('admin'), async (_req, res) => {
   try {
     await initDb()
-    const rows = await dbQuery('SELECT * FROM testimonies ORDER BY created_at DESC')
+    const rows = await dbQuery('SELECT id, user_id, name, email, content, is_anonymous, status, is_featured, created_at FROM testimonies ORDER BY created_at DESC')
     res.json({ testimonies: rows })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
