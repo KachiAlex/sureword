@@ -54,13 +54,6 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
     if (mode === 'file' && !file && !form.audio_url) { alert('Audio file or URL required'); return }
     if (mode === 'url' && !form.audio_url.trim()) { alert('Audio URL is required'); return }
 
-    // Client-side size check: Vercel has ~4.5MB body limit; base64 adds ~33%
-    const totalRaw = (file?.size || 0) + (coverFile?.size || 0)
-    if (totalRaw > 3 * 1024 * 1024) {
-      alert('Total file size exceeds 3MB limit. Please use a smaller audio file or compress your cover image.')
-      return
-    }
-
     setSubmitting(true)
     try {
       let payload: FormData | object
@@ -163,7 +156,7 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
           {mode === 'file' ? (
             <div>
               <label className="block text-xs mb-1.5" style={{ color: 'var(--dim)' }}>
-                Audio File <span style={{ color: 'var(--dim)' }}>(MP3, WAV, AAC, OGG, FLAC, M4A, WEBM — max 5MB)</span>
+                Audio File <span style={{ color: 'var(--dim)' }}>(MP3, WAV, AAC, OGG, FLAC, M4A, WEBM — max 50MB)</span>
               </label>
               <input
                 ref={fileInputRef}
@@ -246,7 +239,7 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
           </div>
           <div>
             <label className="block text-xs mb-1.5" style={{ color: 'var(--dim)' }}>
-              Cover image <span style={{ color: 'var(--dim)' }}>(JPG, PNG, WEBP — max 5MB)</span>
+              Cover image <span style={{ color: 'var(--dim)' }}>(JPG, PNG, WEBP — max 10MB)</span>
             </label>
             <input
               ref={coverInputRef}

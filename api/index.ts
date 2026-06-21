@@ -472,16 +472,14 @@ app.post('/music', auth, requireRole('admin'), upload.fields([{ name: 'audio', m
       const audioFile = files.audio[0]
       file_format = audioFile.mimetype
       file_size = audioFile.size
-      const base64 = audioFile.buffer.toString('base64')
-      audio_url = `data:${audioFile.mimetype};base64,${base64}`
+      audio_url = await uploadToCloudinary(audioFile.buffer, 'zionite/music/audio', 'video')
     }
     if (!audio_url) { res.status(400).json({ error: 'Audio file or URL required' }); return }
 
     let finalCoverUrl = cover_url || ''
     if (files.cover && files.cover[0]) {
       const coverFile = files.cover[0]
-      const base64 = coverFile.buffer.toString('base64')
-      finalCoverUrl = `data:${coverFile.mimetype};base64,${base64}`
+      finalCoverUrl = await uploadToCloudinary(coverFile.buffer, 'zionite/music/covers', 'image')
     }
 
     const id = uuidv4()
@@ -494,8 +492,7 @@ app.post('/music', auth, requireRole('admin'), upload.fields([{ name: 'audio', m
 app.post('/uploads/image', auth, requireRole('admin'), uploadImage.single('image'), async (req: AuthReq, res) => {
   try {
     if (!req.file) { res.status(400).json({ error: 'Image file required' }); return }
-    const base64 = req.file.buffer.toString('base64')
-    const image_url = `data:${req.file.mimetype};base64,${base64}`
+    const image_url = await uploadToCloudinary(req.file.buffer, 'zionite/uploads', 'image')
     res.json({ image_url })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
