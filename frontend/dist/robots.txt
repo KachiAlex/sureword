@@ -1,10 +1,9 @@
 # robots.txt
-# Allow all crawlers to index the site
-
 User-agent: *
 Allow: /
-
-# Disallow API routes
 Disallow: /api/
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /broadcast
 
-Sitemap: https://example.com/sitemap.xml
+Sitemap: https://zionite.vercel.app/sitemap.xml

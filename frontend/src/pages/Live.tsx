@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
 import { useAuth } from '../contexts/AuthContext'
+import { usePageTitle } from '../hooks/usePageTitle'
 import {
   ArrowLeft, Send, Users, Radio, BookOpen, Play, Pause, Volume2, Volume1, VolumeX,
   Lock, Globe, MessageSquare, Clock, User, ChevronDown, Headphones, X
@@ -236,6 +237,7 @@ function StreamPlayer({ broadcastId }: { broadcastId: string }) {
 }
 
 export default function Live() {
+  usePageTitle('Live Broadcast')
   const { broadcastId } = useParams()
   const [searchParams] = useSearchParams()
   const showChat = searchParams.get('chat') === '1'

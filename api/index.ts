@@ -445,27 +445,36 @@ app.get('/music', async (_req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
-app.post('/music', auth, requireRole('admin'), upload.single('audio'), async (req: AuthReq, res) => {
+app.post('/music', auth, requireRole('admin'), upload.fields([{ name: 'audio', maxCount: 1 }, { name: 'cover', maxCount: 1 }]), async (req: AuthReq, res) => {
   try {
     await initDb()
     const { title, artist, album, genre, cover_url, duration, lyrics } = req.body
     if (!title) { res.status(400).json({ error: 'Title required' }); return }
 
+    const files = req.files as { audio?: Express.Multer.File[]; cover?: Express.Multer.File[] }
     let audio_url = req.body.audio_url || ''
     let file_format = req.body.file_format || ''
     let file_size = 0
 
-    if (req.file) {
-      file_format = req.file.mimetype
-      file_size = req.file.size
-      const base64 = req.file.buffer.toString('base64')
-      audio_url = `data:${req.file.mimetype};base64,${base64}`
+    if (files.audio && files.audio[0]) {
+      const audioFile = files.audio[0]
+      file_format = audioFile.mimetype
+      file_size = audioFile.size
+      const base64 = audioFile.buffer.toString('base64')
+      audio_url = `data:${audioFile.mimetype};base64,${base64}`
     }
     if (!audio_url) { res.status(400).json({ error: 'Audio file or URL required' }); return }
 
+    let finalCoverUrl = cover_url || ''
+    if (files.cover && files.cover[0]) {
+      const coverFile = files.cover[0]
+      const base64 = coverFile.buffer.toString('base64')
+      finalCoverUrl = `data:${coverFile.mimetype};base64,${base64}`
+    }
+
     const id = uuidv4()
     await dbQuery(`INSERT INTO music (id, title, artist, album, genre, audio_url, cover_url, duration, lyrics, file_format, file_size) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-      [id, title, artist || '', album || '', genre || '', audio_url, cover_url || '', parseInt(duration) || 0, lyrics || '', file_format, file_size])
+      [id, title, artist || '', album || '', genre || '', audio_url, finalCoverUrl || '', parseInt(duration) || 0, lyrics || '', file_format, file_size])
     res.status(201).json({ id, title })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })

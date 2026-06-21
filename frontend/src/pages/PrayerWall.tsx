@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
+import { usePageTitle } from '../hooks/usePageTitle'
 import { Heart, Send, AlertCircle, User } from 'lucide-react'
 
 interface Prayer {
@@ -12,6 +13,7 @@ interface Prayer {
 }
 
 export default function PrayerWall() {
+  usePageTitle('Prayer Wall')
   const [prayers, setPrayers] = useState<Prayer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')

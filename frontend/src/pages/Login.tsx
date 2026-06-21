@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
 import { useAuth } from '../contexts/AuthContext'
+import { usePageTitle } from '../hooks/usePageTitle'
 import { loginSchema, registerSchema } from '../lib/validation'
 import { LogIn, UserPlus, Radio, ArrowLeft } from 'lucide-react'
 
 export default function Login() {
+  usePageTitle('Login')
   const [isRegister, setIsRegister] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

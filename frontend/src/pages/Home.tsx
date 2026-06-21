@@ -1,6 +1,7 @@
 import { memo } from "react"
 import { Link } from "react-router-dom"
 import { useAuth } from "../contexts/AuthContext"
+import { usePageTitle } from "../hooks/usePageTitle"
 import { useAudioPlayer } from "../contexts/AudioPlayerContext"
 import { useActiveBroadcast, useSermons, useMusic, useGuestSpeakers, useEvents } from "../lib/api"
 import type { Sermon, MusicTrack } from "../lib/api"
@@ -28,7 +29,7 @@ const SermonCard = memo(function SermonCard({ s }:{ s:Sermon }) {
       <Link to={`/archive/${s.id}`}>
         <div className="relative rounded-xl overflow-hidden aspect-[4/3] mb-2.5 bg-[#1c1d24]">
           {s.thumbnail_url ? (
-            <img src={s.thumbnail_url} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+            <img src={s.thumbnail_url} alt={`${s.title} sermon thumbnail`} loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
           ) : null}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
           {s.video_url && (
@@ -67,7 +68,7 @@ const MusicCard = memo(function MusicCard({ track }: { track: MusicTrack }) {
     <div className="group block hover-lift">
       <div className="relative rounded-xl overflow-hidden aspect-square mb-2.5 bg-[#1c1d24]">
         {track.cover_url ? (
-          <img src={track.cover_url} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+          <img src={track.cover_url} alt={`${track.title} album cover`} loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
         ) : (
           <div className="w-full h-full flex items-center justify-center"><Disc3 className="w-12 h-12 text-[#9c958a]/40" /></div>
         )}
@@ -83,6 +84,7 @@ const MusicCard = memo(function MusicCard({ track }: { track: MusicTrack }) {
 })
 
 export default function Home() {
+  usePageTitle('The Voice of Redemption')
   const { data: broadcast } = useActiveBroadcast()
   const { data: sermons = [] } = useSermons(4)
   const { data: musicTracks = [] } = useMusic()
@@ -192,7 +194,7 @@ export default function Home() {
                 {guestSpeakers.length > 0 ? (
                   <div className="flex gap-3">
                     {guestSpeakers[0].photo_url ? (
-                      <img src={guestSpeakers[0].photo_url} alt="" loading="lazy" className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+                      <img src={guestSpeakers[0].photo_url} alt={`${guestSpeakers[0].name} guest speaker`} loading="lazy" className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
                     ) : (
                       <div className="w-16 h-16 rounded-lg bg-[#21222c] flex items-center justify-center flex-shrink-0">
                         <Users className="w-8 h-8 text-[#c9a227]/40" />
@@ -252,7 +254,7 @@ export default function Home() {
                   {events.slice(0, 3).map(evt => (
                     <div key={evt.id} className="flex items-start gap-3">
                       {evt.image_url ? (
-                        <img src={evt.image_url} alt="" loading="lazy" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                        <img src={evt.image_url} alt={`${evt.title} event`} loading="lazy" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
                       ) : (
                         <div className="w-12 h-12 rounded-lg bg-[#21222c] flex items-center justify-center flex-shrink-0">
                           <Calendar className="w-5 h-5 text-[#c9a227]/60" />

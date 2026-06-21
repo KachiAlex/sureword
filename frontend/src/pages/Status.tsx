@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
+import { usePageTitle } from '../hooks/usePageTitle'
 import { Activity, CheckCircle, XCircle, Radio, Database, Server, Wifi, RefreshCw } from 'lucide-react'
 
 interface StatusData {
@@ -10,6 +11,7 @@ interface StatusData {
 }
 
 export default function Status() {
+  usePageTitle('Status')
   const [data, setData] = useState<StatusData | null>(null)
   const [error, setError] = useState(false)
 

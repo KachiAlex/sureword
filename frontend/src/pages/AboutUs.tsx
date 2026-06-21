@@ -1,6 +1,8 @@
 import { Cross, Radio, Heart, Users, Mic2, Globe } from 'lucide-react'
+import { usePageTitle } from '../hooks/usePageTitle'
 
 export default function AboutUs() {
+  usePageTitle('About')
   return (
     <div className="min-h-screen py-8 lg:py-12" style={{ background: 'var(--ink)', color: 'var(--parchment)' }}>
       <div className="max-w-4xl mx-auto px-6">

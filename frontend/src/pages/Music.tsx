@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
+import { usePageTitle } from '../hooks/usePageTitle'
 import { useAudioPlayer } from '../contexts/AudioPlayerContext'
 import { Music, Play, Pause, Loader2, Disc3, Search } from 'lucide-react'
 
@@ -16,6 +17,7 @@ interface Track {
 }
 
 export default function MusicPage() {
+  usePageTitle('Music Library')
   const { currentTrack, isPlaying, playTrack: globalPlayTrack, togglePlay } = useAudioPlayer()
   const [tracks, setTracks] = useState<Track[]>([])
   const [loading, setLoading] = useState(true)
@@ -116,7 +118,7 @@ export default function MusicPage() {
               >
                 <div className="aspect-square rounded-xl mb-3 overflow-hidden relative" style={{ background: 'var(--ink)' }}>
                   {track.cover_url ? (
-                    <img src={track.cover_url} alt={track.title} loading="lazy" className="w-full h-full object-cover" />
+                    <img src={track.cover_url} alt={`${track.title} by ${track.artist || 'Unknown artist'} album cover`} loading="lazy" className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <Music className="w-12 h-12" style={{ color: 'var(--line)' }} />

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
+import { usePageTitle } from '../hooks/usePageTitle'
 import { Calendar, MapPin, Clock, AlertCircle } from 'lucide-react'
 
 interface Event {
@@ -14,6 +15,7 @@ interface Event {
 }
 
 export default function Events() {
+  usePageTitle('Events')
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -68,7 +70,7 @@ export default function Events() {
             {events.map(evt => (
               <div key={evt.id} className="rounded-2xl overflow-hidden" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
                 {evt.image_url ? (
-                  <img src={evt.image_url} alt="" loading="lazy" className="w-full h-48 object-cover" />
+                  <img src={evt.image_url} alt={`${evt.title} event banner`} loading="lazy" className="w-full h-48 object-cover" />
                 ) : (
                   <div className="w-full h-48 flex items-center justify-center" style={{ background: 'var(--ink)' }}>
                     <Calendar className="w-10 h-10" style={{ color: 'var(--dim)' }} />

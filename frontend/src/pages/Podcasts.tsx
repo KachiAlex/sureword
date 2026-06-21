@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
+import { usePageTitle } from '../hooks/usePageTitle'
 import { Headphones, Play, Calendar, User, Search, AlertCircle } from 'lucide-react'
 
 interface Podcast {
@@ -13,6 +14,7 @@ interface Podcast {
 }
 
 export default function Podcasts() {
+  usePageTitle('Podcasts')
   const [podcasts, setPodcasts] = useState<Podcast[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import axios from 'axios'
-import { Music, Plus, Loader2, Trash2, Link2, Upload, FileAudio } from 'lucide-react'
+import { Music, Plus, Loader2, Trash2, Link2, Upload, FileAudio, Image } from 'lucide-react'
 
 interface MusicTrack {
   id: string
@@ -20,12 +20,14 @@ interface MusicTrack {
 export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]; onRefresh: () => void }) {
   const [mode, setMode] = useState<'file' | 'url'>('file')
   const [form, setForm] = useState({
-    title: '', artist: '', album: '', genre: '', cover_url: '', duration: '', lyrics: '', audio_url: ''
+    title: '', artist: '', album: '', genre: '', duration: '', lyrics: '', audio_url: ''
   })
   const [file, setFile] = useState<File | null>(null)
+  const [coverFile, setCoverFile] = useState<File | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const coverInputRef = useRef<HTMLInputElement>(null)
   const token = localStorage.getItem('token')
 
   const acceptedTypes = '.mp3,.wav,.aac,.ogg,.flac,.m4a,.webm,.wma'
@@ -64,9 +66,20 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
         data.append('artist', form.artist)
         data.append('album', form.album)
         data.append('genre', form.genre)
-        data.append('cover_url', form.cover_url)
         data.append('duration', form.duration)
         data.append('lyrics', form.lyrics)
+        if (coverFile) data.append('cover', coverFile)
+        payload = data
+      } else if (coverFile) {
+        const data = new FormData()
+        data.append('title', form.title)
+        data.append('artist', form.artist)
+        data.append('album', form.album)
+        data.append('genre', form.genre)
+        data.append('audio_url', form.audio_url)
+        data.append('duration', form.duration)
+        data.append('lyrics', form.lyrics)
+        data.append('cover', coverFile)
         payload = data
       } else {
         payload = {
@@ -75,7 +88,6 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
           album: form.album,
           genre: form.genre,
           audio_url: form.audio_url,
-          cover_url: form.cover_url,
           duration: parseInt(form.duration) || 0,
           lyrics: form.lyrics
         }
@@ -83,9 +95,11 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
       }
 
       await axios.post('/api/music', payload, { headers })
-      setForm({ title: '', artist: '', album: '', genre: '', cover_url: '', duration: '', lyrics: '', audio_url: '' })
+      setForm({ title: '', artist: '', album: '', genre: '', duration: '', lyrics: '', audio_url: '' })
       setFile(null)
+      setCoverFile(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
+      if (coverInputRef.current) coverInputRef.current.value = ''
       onRefresh()
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to upload music')
@@ -204,13 +218,25 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
               style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--parchment)' }}
             />
           </div>
-          <input
-            placeholder="Cover image URL (optional)"
-            value={form.cover_url}
-            onChange={e => setForm({ ...form, cover_url: e.target.value })}
-            className="w-full rounded-xl px-4 py-2.5 text-sm"
-            style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--parchment)' }}
-          />
+          <div>
+            <label className="block text-xs mb-1.5" style={{ color: 'var(--dim)' }}>
+              Cover image <span style={{ color: 'var(--dim)' }}>(JPG, PNG, WEBP — max 5MB)</span>
+            </label>
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept=".jpg,.jpeg,.png,.webp,.gif"
+              onChange={e => setCoverFile(e.target.files?.[0] || null)}
+              className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium"
+              style={{ background: 'var(--ink)', color: 'var(--parchment)' }}
+            />
+            {coverFile && (
+              <p className="text-xs mt-1" style={{ color: 'var(--dim)' }}>
+                <Image className="w-3 h-3 inline mr-1" />
+                {coverFile.name} ({formatBytes(coverFile.size)})
+              </p>
+            )}
+          </div>
           <textarea
             placeholder="Lyrics (optional)"
             value={form.lyrics}
