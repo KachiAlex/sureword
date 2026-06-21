@@ -504,12 +504,12 @@ app.post('/music', auth, requireRole('admin'), upload.fields([{ name: 'audio', m
     const { title, artist, album, genre, cover_url, duration, lyrics } = req.body
     if (!title) { res.status(400).json({ error: 'Title required' }); return }
 
-    const files = req.files as { audio?: Express.Multer.File[]; cover?: Express.Multer.File[] }
+    const files = req.files as { audio?: Express.Multer.File[]; cover?: Express.Multer.File[] } | undefined
     let audio_url = req.body.audio_url || ''
     let file_format = req.body.file_format || ''
     let file_size = 0
 
-    if (files.audio && files.audio[0]) {
+    if (files?.audio && files.audio[0]) {
       const audioFile = files.audio[0]
       file_format = audioFile.mimetype
       file_size = audioFile.size
@@ -517,8 +517,8 @@ app.post('/music', auth, requireRole('admin'), upload.fields([{ name: 'audio', m
     }
     if (!audio_url) { res.status(400).json({ error: 'Audio file or URL required' }); return }
 
-    let finalCoverUrl = cover_url || ''
-    if (files.cover && files.cover[0]) {
+    let finalCoverUrl = cover_url || req.body.cover_url || ''
+    if (files?.cover && files.cover[0]) {
       const coverFile = files.cover[0]
       finalCoverUrl = await uploadToCloudinary(coverFile.buffer, 'zionite/music/covers', 'image')
     }
