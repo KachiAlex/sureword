@@ -6,7 +6,7 @@ export const api = axios.create({ baseURL: '/api', timeout: 15000 })
 export interface Broadcast { id: string; title: string; description?: string; scripture_reference?: string; status: string; started_at?: string; broadcaster_id: string }
 export interface Sermon { id: string; title: string; scripture_reference?: string; speaker?: string; series?: string; duration?: number; date: string; audio_url?: string; video_url?: string; thumbnail_url?: string }
 export interface GuestSpeaker { id: string; name: string; bio: string; photo_url: string; topic: string; date: string; is_active: boolean }
-export interface EventItem { id: string; title: string; description: string; date: string; time: string; location: string; image_url: string }
+export interface EventItem { id: string; title: string; description: string; date: string; time: string; location: string; image_url: string; category?: string }
 export interface MusicTrack { id: string; title: string; artist: string; album: string; genre: string; audio_url: string; cover_url: string; duration: number; lyrics: string }
 export interface User { id: string; email: string; name?: string; role: string; created_at?: string }
 export interface Podcast { id: string; title: string; speaker: string; duration: string; audio_url: string; thumbnail_url: string; description: string; date: string; category: string; is_featured: boolean; listen_count: number; created_at: string }

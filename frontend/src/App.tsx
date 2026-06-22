@@ -23,6 +23,7 @@ const SermonDetail = lazy(() => import('./pages/SermonDetail'))
 const PrayerWall = lazy(() => import('./pages/PrayerWall'))
 const Testimonies = lazy(() => import('./pages/Testimonies'))
 const Events = lazy(() => import('./pages/Events'))
+const EventDetail = lazy(() => import('./pages/EventDetail'))
 const AboutUs = lazy(() => import('./pages/AboutUs'))
 
 function PageLoader() {
@@ -51,6 +52,7 @@ function AnimatedRoutes() {
         <Route path="/prayer" element={<PrayerWall />} />
         <Route path="/testimonies" element={<Testimonies />} />
         <Route path="/events" element={<Events />} />
+        <Route path="/events/:id" element={<EventDetail />} />
         <Route path="/about" element={<AboutUs />} />
         <Route
           path="/dashboard"

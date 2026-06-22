@@ -284,19 +284,19 @@ export default function Home() {
               {events.length > 0 ? (
                 <div className="space-y-3">
                   {events.slice(0, 3).map(evt => (
-                    <div key={evt.id} className="flex items-start gap-3">
+                    <Link key={evt.id} to={`/events/${evt.id}`} className="flex items-start gap-3 group no-underline">
                       {evt.image_url ? (
-                        <img src={evt.image_url} alt={`${evt.title} event`} loading="lazy" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                        <img src={evt.image_url} alt={`${evt.title} event`} loading="lazy" className="w-12 h-12 rounded-lg object-cover flex-shrink-0 transition-transform group-hover:scale-105" />
                       ) : (
                         <div className="w-12 h-12 rounded-lg bg-[#21222c] flex items-center justify-center flex-shrink-0">
                           <Calendar className="w-5 h-5 text-[#c9a227]/60" />
                         </div>
                       )}
                       <div>
-                        <p className="text-sm font-medium text-white">{evt.title}</p>
+                        <p className="text-sm font-medium text-white group-hover:text-[#c9a227] transition-colors">{evt.title}</p>
                         <p className="text-[10px] text-[#9c958a]">{evt.date}{evt.time ? ` · ${evt.time}` : ''}{evt.location ? ` · ${evt.location}` : ''}</p>
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               ) : (

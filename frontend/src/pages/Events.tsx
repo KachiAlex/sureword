@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { usePageTitle } from '../hooks/usePageTitle'
-import { Calendar, MapPin, Clock, AlertCircle } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Calendar, MapPin, Clock, AlertCircle, Tag } from 'lucide-react'
 
 interface Event {
   id: string
@@ -12,6 +13,7 @@ interface Event {
   location: string
   image_url: string
   is_active: boolean
+  category?: string
 }
 
 export default function Events() {
@@ -68,14 +70,23 @@ export default function Events() {
         {!loading && events.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {events.map(evt => (
-              <div key={evt.id} className="rounded-2xl overflow-hidden" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
-                {evt.image_url ? (
-                  <img src={evt.image_url} alt={`${evt.title} event banner`} loading="lazy" className="w-full h-48 object-cover" />
-                ) : (
-                  <div className="w-full h-48 flex items-center justify-center" style={{ background: 'var(--ink)' }}>
-                    <Calendar className="w-10 h-10" style={{ color: 'var(--dim)' }} />
-                  </div>
-                )}
+              <Link key={evt.id} to={`/events/${evt.id}`} className="rounded-2xl overflow-hidden block transition-all hover:scale-[1.02] group no-underline"
+                style={{ background: 'var(--ink-2)', border: '1px solid var(--line)', color: 'inherit' }}>
+                <div className="aspect-[21/9] relative overflow-hidden" style={{ background: 'var(--ink)' }}>
+                  {evt.image_url ? (
+                    <img src={evt.image_url} alt={`${evt.title} event banner`} loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Calendar className="w-10 h-10" style={{ color: 'var(--dim)' }} />
+                    </div>
+                  )}
+                  {evt.category && (
+                    <div className="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                      style={{ background: 'var(--gold)', color: '#1b1208' }}>
+                      <Tag className="w-3 h-3 inline mr-1" />{evt.category}
+                    </div>
+                  )}
+                </div>
                 <div className="p-5">
                   <h3 className="font-semibold text-lg mb-2">{evt.title}</h3>
                   {evt.description && <p className="text-sm mb-3 line-clamp-2" style={{ color: 'var(--dim)' }}>{evt.description}</p>}
@@ -85,7 +96,7 @@ export default function Events() {
                     {evt.location && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{evt.location}</span>}
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}

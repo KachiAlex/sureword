@@ -134,6 +134,9 @@ async function _doInitDb() {
   try { await dbQuery(`ALTER TABLE music ADD COLUMN IF NOT EXISTS play_count INTEGER DEFAULT 0`) } catch {}
   try { await dbQuery(`UPDATE music SET play_count = 0 WHERE play_count IS NULL`) } catch {}
 
+  // Add event columns if missing
+  try { await dbQuery(`ALTER TABLE events ADD COLUMN IF NOT EXISTS category TEXT`) } catch {}
+
   // New tables
   await dbQuery(`CREATE TABLE IF NOT EXISTS featured_sermons (
     id TEXT PRIMARY KEY, sermon_id TEXT NOT NULL, order_index INTEGER DEFAULT 0,
@@ -172,6 +175,12 @@ async function _doInitDb() {
     id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, date TEXT, time TEXT,
     location TEXT, image_url TEXT, is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`)
+  await dbQuery(`CREATE TABLE IF NOT EXISTS event_rsvps (
+    id TEXT PRIMARY KEY, event_id TEXT NOT NULL, name TEXT NOT NULL, email TEXT NOT NULL,
+    phone TEXT, guests INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
   )`)
   await dbQuery(`CREATE TABLE IF NOT EXISTS testimonies (
     id TEXT PRIMARY KEY, user_id TEXT, name TEXT NOT NULL, email TEXT, content TEXT NOT NULL,
@@ -786,12 +795,12 @@ app.get('/events/:id', async (req, res) => {
 app.post('/events', auth, requireRole('admin'), async (req: AuthReq, res) => {
   try {
     await initDb()
-    const { title, description, date, time, location, image_url, is_active } = req.body
+    const { title, description, date, time, location, image_url, is_active, category } = req.body
     if (!title) { res.status(400).json({ error: 'Title is required' }); return }
     const id = uuidv4()
-    await dbQuery(`INSERT INTO events (id, title, description, date, time, location, image_url, is_active) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [id, title, description || '', date || '', time || '', location || '', image_url || '', is_active !== false])
-    res.status(201).json({ event: { id, title, description, date, time, location, image_url, is_active: is_active !== false } })
+    await dbQuery(`INSERT INTO events (id, title, description, date, time, location, image_url, is_active, category) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [id, title, description || '', date || '', time || '', location || '', image_url || '', is_active !== false, category || ''])
+    res.status(201).json({ event: { id, title, description, date, time, location, image_url, is_active: is_active !== false, category: category || '' } })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
@@ -800,11 +809,11 @@ app.patch('/events/:id', auth, requireRole('admin'), async (req, res) => {
     await initDb()
     const existing = await dbGet('SELECT * FROM events WHERE id=$1', [req.params.id])
     if (!existing) { res.status(404).json({ error: 'Not found' }); return }
-    const { title, description, date, time, location, image_url, is_active } = req.body
-    await dbQuery(`UPDATE events SET title=$1, description=$2, date=$3, time=$4, location=$5, image_url=$6, is_active=$7 WHERE id=$8`,
+    const { title, description, date, time, location, image_url, is_active, category } = req.body
+    await dbQuery(`UPDATE events SET title=$1, description=$2, date=$3, time=$4, location=$5, image_url=$6, is_active=$7, category=$8 WHERE id=$9`,
       [title ?? existing.title, description ?? existing.description, date ?? existing.date,
        time ?? existing.time, location ?? existing.location, image_url ?? existing.image_url,
-       is_active ?? existing.is_active, req.params.id])
+       is_active ?? existing.is_active, category ?? existing.category, req.params.id])
     res.json({ ok: true })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
@@ -812,6 +821,31 @@ app.patch('/events/:id', auth, requireRole('admin'), async (req, res) => {
 app.delete('/events/:id', auth, requireRole('admin'), async (req, res) => {
   try { await initDb(); await dbQuery('DELETE FROM events WHERE id=$1', [req.params.id]); res.json({ ok: true }) }
   catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+// ── Event RSVPs ────────────────────────────────────────────────
+app.post('/events/:id/rsvp', async (req, res) => {
+  try {
+    await initDb()
+    const { name, email, phone, guests } = req.body
+    if (!name || !email) { res.status(400).json({ error: 'Name and email are required' }); return }
+    const eventId = req.params.id
+    const exists = await dbGet('SELECT 1 FROM events WHERE id=$1', [eventId])
+    if (!exists) { res.status(404).json({ error: 'Event not found' }); return }
+    const id = uuidv4()
+    await dbQuery(`INSERT INTO event_rsvps (id, event_id, name, email, phone, guests) VALUES ($1,$2,$3,$4,$5,$6)`,
+      [id, eventId, name, email, phone || '', parseInt(guests || '0', 10)])
+    res.status(201).json({ success: true })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.get('/events/:id/rsvps', auth, requireRole('admin'), async (req, res) => {
+  try {
+    await initDb()
+    const rows = await dbQuery('SELECT id, name, email, phone, guests, created_at FROM event_rsvps WHERE event_id=$1 ORDER BY created_at DESC', [req.params.id])
+    const countRow = await dbGet('SELECT COUNT(*) as total, COALESCE(SUM(guests),0) as guest_total FROM event_rsvps WHERE event_id=$1', [req.params.id])
+    res.json({ rsvps: rows, total: countRow?.total || 0, guestTotal: countRow?.guest_total || 0 })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
 // ── Podcasts ───────────────────────────────────────────────────
