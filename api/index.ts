@@ -127,6 +127,12 @@ async function _doInitDb() {
     id TEXT PRIMARY KEY, broadcast_id TEXT NOT NULL, session_id TEXT NOT NULL,
     platform TEXT DEFAULT 'web', last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`)
+  // Add chat_messages columns if missing
+  try { await dbQuery(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS guest_name TEXT`) } catch {}
+  try { await dbQuery(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS recipient_id TEXT`) } catch {}
+  try { await dbQuery(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS is_private BOOLEAN DEFAULT FALSE`) } catch {}
+  try { await dbQuery(`UPDATE chat_messages SET is_private=FALSE WHERE is_private IS NULL`) } catch {}
+
   // Add stream config columns if missing (safe for existing tables)
   try { await dbQuery(`ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS rtmp_url TEXT`) } catch {}
   try { await dbQuery(`ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS stream_key TEXT`) } catch {}
