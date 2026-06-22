@@ -57,7 +57,7 @@ function AudioBars({ active }: { active: boolean }) {
 }
 
 /* ── StreamPlayer ─────────────────────────────────── */
-function StreamPlayer({ broadcastId }: { broadcastId: string }) {
+function StreamPlayer({ broadcastId, title }: { broadcastId: string; title?: string }) {
   const [started, setStarted] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [listenerCount, setListenerCount] = useState(0)
@@ -72,6 +72,7 @@ function StreamPlayer({ broadcastId }: { broadcastId: string }) {
   const ctxRef = useRef<AudioContext | null>(null)
   const gainRef = useRef<GainNode | null>(null)
   const sessionIdRef = useRef('')
+  const titleRef = useRef('')
 
   async function fetchChunk(index: number): Promise<Blob | null> {
     try {
@@ -142,18 +143,64 @@ function StreamPlayer({ broadcastId }: { broadcastId: string }) {
     if (gainRef.current) gainRef.current.gain.value = volume / 100
   }, [volume])
 
+  // Resume AudioContext when tab becomes visible again (browser may suspend it)
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState === 'visible' && ctxRef.current?.state === 'suspended' && !userPausedRef.current) {
+        ctxRef.current.resume().catch(() => {})
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
+
   useEffect(() => {
     return () => { if (ctxRef.current) { ctxRef.current.close().catch(() => {}); ctxRef.current = null } }
   }, [])
 
+  function updateMediaSession(playing: boolean) {
+    if (!('mediaSession' in navigator)) return
+    navigator.mediaSession.playbackState = playing ? 'playing' : 'paused'
+  }
+
+  function setupMediaSession(title: string) {
+    if (!('mediaSession' in navigator)) return
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title,
+      artist: 'ZioniteFM',
+      album: 'The Voice of Redemption',
+      artwork: [{ src: '/logo.png', sizes: '512x512', type: 'image/png' }]
+    })
+    navigator.mediaSession.setActionHandler('play', () => {
+      userPausedRef.current = false
+      ctxRef.current?.resume().catch(() => {})
+      if (decodedRef.current.length > 0) scheduleNext()
+    })
+    navigator.mediaSession.setActionHandler('pause', () => {
+      userPausedRef.current = true
+      playingRef.current = false
+      setIsPlaying(false)
+      ctxRef.current?.suspend().catch(() => {})
+      updateMediaSession(false)
+    })
+    navigator.mediaSession.setActionHandler('stop', () => {
+      userPausedRef.current = true
+      playingRef.current = false
+      setIsPlaying(false)
+      ctxRef.current?.suspend().catch(() => {})
+      updateMediaSession(false)
+    })
+  }
+
   function scheduleNext() {
-    if (decodedRef.current.length === 0) { playingRef.current = false; setIsPlaying(false); return }
-    if (userPausedRef.current) { playingRef.current = false; setIsPlaying(false); return }
+    if (decodedRef.current.length === 0) { playingRef.current = false; setIsPlaying(false); updateMediaSession(false); return }
+    if (userPausedRef.current) { playingRef.current = false; setIsPlaying(false); updateMediaSession(false); return }
     if (!ctxRef.current) return
     const ctx = ctxRef.current
     if (ctx.state === 'suspended') ctx.resume().catch(() => {})
     playingRef.current = true
     setIsPlaying(true)
+    updateMediaSession(true)
     const buf = decodedRef.current.shift()!
     const src = ctx.createBufferSource()
     src.buffer = buf
@@ -170,14 +217,16 @@ function StreamPlayer({ broadcastId }: { broadcastId: string }) {
       playingRef.current = false
       setIsPlaying(false)
       ctx.suspend().catch(() => {})
+      updateMediaSession(false)
     } else {
       userPausedRef.current = false
       ctx.resume().catch(() => {})
+      updateMediaSession(true)
       if (decodedRef.current.length > 0) scheduleNext()
     }
   }
 
-  function handleStart() {
+  function handleStart(broadcastTitle?: string) {
     if (!ctxRef.current) {
       const ctx = new AudioContext()
       ctxRef.current = ctx
@@ -186,6 +235,8 @@ function StreamPlayer({ broadcastId }: { broadcastId: string }) {
       g.connect(ctx.destination)
       gainRef.current = g
     }
+    titleRef.current = broadcastTitle || title || 'Live Broadcast'
+    setupMediaSession(titleRef.current)
     setStarted(true)
   }
 
@@ -247,7 +298,8 @@ export default function Live() {
   const [newMessage, setNewMessage] = useState('')
   const [chatMode, setChatMode] = useState<'public' | 'private'>('public')
   const [privateRecipient, setPrivateRecipient] = useState<{ user_id: string; user_name: string } | null>(null)
-  const [guestName, setGuestName] = useState('')
+  const [guestName, setGuestName] = useState(() => sessionStorage.getItem('chat_guest_name') || '')
+  const [guestNameSet, setGuestNameSet] = useState(() => !!sessionStorage.getItem('chat_guest_name'))
   const [chatUsers, setChatUsers] = useState<{ user_id: string; user_name: string }[]>([])
   const [showRecipientPicker, setShowRecipientPicker] = useState(false)
   const [onlineCount, setOnlineCount] = useState(0)
@@ -327,9 +379,9 @@ export default function Live() {
         if (user) {
           const payload: any = { message: text }
           if (chatMode === 'private' && privateRecipient) payload.recipientId = privateRecipient.user_id
-          await axios.post(`/api/chat/broadcast/${bid}`, payload)
+          await axios.post(`/api/chat/${bid}`, payload, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
         } else {
-          await axios.post(`/api/chat/broadcast/${bid}/guest`, { message: text, guestName: guestName.trim() || 'Guest' })
+          await axios.post(`/api/chat/${bid}/guest`, { message: text, guestName: guestName.trim() || 'Guest' })
         }
         fetchChatMessages()
       }
@@ -412,7 +464,7 @@ export default function Live() {
               <div className="flex-1 relative min-h-[300px] md:min-h-0">
                 <iframe ref={iframeRef} src={getChurchOnlineUrl()!} className="absolute inset-0 w-full h-full" style={{ border: 'none' }} allow="autoplay; fullscreen" allowFullScreen title="Live Broadcast" />
               </div>
-              {broadcast.status === 'live' && <StreamPlayer broadcastId={broadcast.id} />}
+              {broadcast.status === 'live' && <StreamPlayer broadcastId={broadcast.id} title={broadcast.title} />}
               {broadcast.scripture_reference && (
                 <div className="mx-4 mb-4 rounded-xl p-4 text-center bg-[#14141a] border border-[rgba(243,238,228,0.06)]">
                   <div className="text-[10px] font-mono font-medium tracking-widest text-[#c9a227] mb-1.5">NOW READING</div>
@@ -437,7 +489,7 @@ export default function Live() {
                   </div>
                 </div>
                 {/* Player */}
-                {broadcast.status === 'live' && <StreamPlayer broadcastId={broadcast.id} />}
+                {broadcast.status === 'live' && <StreamPlayer broadcastId={broadcast.id} title={broadcast.title} />}
               </div>
             </div>
           )}
@@ -531,19 +583,32 @@ export default function Live() {
 
             {/* Input */}
             <div className="p-4 border-t border-[rgba(243,238,228,0.06)]">
-              {!user && (
-                <div className="mb-2">
+              {!user && !guestNameSet && (
+                <div className="mb-2 flex gap-1.5">
                   <input type="text" value={guestName} onChange={(e) => setGuestName(e.target.value)}
-                    placeholder="Your name..." maxLength={20}
-                    className="w-full rounded-lg px-3 py-1.5 text-[11px] border border-[rgba(243,238,228,0.08)] bg-[#0f1016] text-[#f3eee4] placeholder-[#9c958a] outline-none focus:border-[#c9a227]/30" />
+                    onKeyDown={(e) => { if (e.key === 'Enter' && guestName.trim()) { sessionStorage.setItem('chat_guest_name', guestName.trim()); setGuestNameSet(true) }}}
+                    placeholder="Your name to start chatting..." maxLength={20}
+                    className="flex-1 rounded-lg px-3 py-1.5 text-[11px] border border-[rgba(243,238,228,0.08)] bg-[#0f1016] text-[#f3eee4] placeholder-[#9c958a] outline-none focus:border-[#c9a227]/30" />
+                  <button type="button" onClick={() => { if (guestName.trim()) { sessionStorage.setItem('chat_guest_name', guestName.trim()); setGuestNameSet(true) }}}
+                    className="px-2.5 py-1 rounded-lg bg-[#c9a227] text-[#1b1208] text-[11px] font-semibold shrink-0">
+                    OK
+                  </button>
+                </div>
+              )}
+              {!user && guestNameSet && (
+                <div className="mb-2 flex items-center justify-between text-[10px] text-[#9c958a]">
+                  <span>Chatting as <span className="text-white font-medium">{guestName}</span></span>
+                  <button type="button" onClick={() => { sessionStorage.removeItem('chat_guest_name'); setGuestNameSet(false) }}
+                    className="text-[#c9a227] hover:underline">Change</button>
                 </div>
               )}
               <form onSubmit={sendMessage}>
                 <div className="flex gap-2">
                   <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder={chatMode === 'private' && privateRecipient ? `Message ${privateRecipient.user_name}...` : 'Send a message...'}
-                    className="flex-1 rounded-lg px-3 py-2 text-sm border border-[rgba(243,238,228,0.08)] bg-[#0f1016] text-[#f3eee4] placeholder-[#9c958a] outline-none focus:border-[#c9a227]/30" />
-                  <button type="submit" disabled={!newMessage.trim() || (chatMode === 'private' && !privateRecipient)}
+                    disabled={!user && !guestNameSet}
+                    placeholder={!user && !guestNameSet ? 'Enter your name above first...' : chatMode === 'private' && privateRecipient ? `Message ${privateRecipient.user_name}...` : 'Send a message...'}
+                    className="flex-1 rounded-lg px-3 py-2 text-sm border border-[rgba(243,238,228,0.08)] bg-[#0f1016] text-[#f3eee4] placeholder-[#9c958a] outline-none focus:border-[#c9a227]/30 disabled:opacity-50" />
+                  <button type="submit" disabled={!newMessage.trim() || (chatMode === 'private' && !privateRecipient) || (!user && !guestNameSet)}
                     className="w-10 h-10 rounded-lg flex items-center justify-center transition-colors"
                     style={{ background: newMessage.trim() && (chatMode !== 'private' || privateRecipient) ? '#c9a227' : 'rgba(243,238,228,0.08)', color: newMessage.trim() && (chatMode !== 'private' || privateRecipient) ? '#1b1208' : '#9c958a' }}>
                     <Send className="w-4 h-4" />

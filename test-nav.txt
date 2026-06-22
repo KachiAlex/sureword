@@ -1,0 +1,67 @@
+﻿
+Running 8 tests using 1 worker
+
+  Γ£ÿ  1 [chromium] ΓÇ║ e2e\navigation.spec.ts:4:7 ΓÇ║ Navigation & Pages ΓÇ║ home page loads with hero section (14.5s)
+  Γ£ô  2 [chromium] ΓÇ║ e2e\navigation.spec.ts:10:7 ΓÇ║ Navigation & Pages ΓÇ║ archive page loads sermons (2.4s)
+  Γ£ô  3 [chromium] ΓÇ║ e2e\navigation.spec.ts:15:7 ΓÇ║ Navigation & Pages ΓÇ║ events page loads (1.2s)
+  Γ£ÿ  4 [chromium] ΓÇ║ e2e\navigation.spec.ts:20:7 ΓÇ║ Navigation & Pages ΓÇ║ music page loads (6.5s)
+  Γ£ô  5 [chromium] ΓÇ║ e2e\navigation.spec.ts:25:7 ΓÇ║ Navigation & Pages ΓÇ║ prayer wall page loads (1.8s)
+  Γ£ô  6 [chromium] ΓÇ║ e2e\navigation.spec.ts:30:7 ΓÇ║ Navigation & Pages ΓÇ║ about page loads (1.5s)
+  Γ£ô  7 [chromium] ΓÇ║ e2e\navigation.spec.ts:35:7 ΓÇ║ Navigation & Pages ΓÇ║ status page loads (1.4s)
+  Γ£ô  8 [chromium] ΓÇ║ e2e\navigation.spec.ts:40:7 ΓÇ║ Navigation & Pages ΓÇ║ search overlay opens and shows results (2.5s)
+
+
+  1) [chromium] ΓÇ║ e2e\navigation.spec.ts:4:7 ΓÇ║ Navigation & Pages ΓÇ║ home page loads with hero section 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText(/zionite\s*fm/i).first()
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByText(/zionite\s*fm/i).first()
+
+
+      4 |   test('home page loads with hero section', async ({ page }) => {
+      5 |     await page.goto('/')
+    > 6 |     await expect(page.getByText(/zionite\s*fm/i).first()).toBeVisible({ timeout: 10000 })
+        |                                                           ^
+      7 |     await expect(page.getByText(/the voice of redemption/i).first()).toBeVisible({ timeout: 10000 })
+      8 |   })
+      9 |
+        at C:\zionite\e2e\navigation.spec.ts:6:59
+
+    Error Context: test-results\navigation-Navigation-Page-16fff-age-loads-with-hero-section-chromium\error-context.md
+
+  2) [chromium] ΓÇ║ e2e\navigation.spec.ts:20:7 ΓÇ║ Navigation & Pages ΓÇ║ music page loads ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('heading', { name: /music/i })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('heading', { name: /music/i })
+
+
+      20 |   test('music page loads', async ({ page }) => {
+      21 |     await page.goto('/music')
+    > 22 |     await expect(page.getByRole('heading', { name: /music/i })).toBeVisible()
+         |                                                                 ^
+      23 |   })
+      24 |
+      25 |   test('prayer wall page loads', async ({ page }) => {
+        at C:\zionite\e2e\navigation.spec.ts:22:65
+
+    Error Context: test-results\navigation-Navigation-Pages-music-page-loads-chromium\error-context.md
+
+  2 failed
+    [chromium] ΓÇ║ e2e\navigation.spec.ts:4:7 ΓÇ║ Navigation & Pages ΓÇ║ home page loads with hero section 
+    [chromium] ΓÇ║ e2e\navigation.spec.ts:20:7 ΓÇ║ Navigation & Pages ΓÇ║ music page loads ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  6 passed (49.6s)

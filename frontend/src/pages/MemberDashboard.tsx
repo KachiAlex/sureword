@@ -258,7 +258,7 @@ export default function MemberDashboard() {
   async function fetchChatMessages(bid?: string) {
     if (!bid) return
     try {
-      const { data } = await axios.get(`/api/chat/broadcast/${bid}`)
+      const { data } = await axios.get(`/api/chat/${bid}`)
       setChatMessages(data.messages?.slice(-20) || [])
     } catch {}
   }
@@ -267,8 +267,11 @@ export default function MemberDashboard() {
     e.preventDefault()
     const text = chatInput.trim()
     if (!text || !broadcast?.id) return
+    const token = localStorage.getItem('token')
     try {
-      await axios.post(`/api/chat/broadcast/${broadcast.id}`, { message: text })
+      await axios.post(`/api/chat/${broadcast.id}`, { message: text }, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      })
       setChatInput('')
       fetchChatMessages(broadcast.id)
     } catch {}
