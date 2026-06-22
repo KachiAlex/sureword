@@ -23,7 +23,24 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('ErrorBoundary caught:', error, errorInfo)
-    // If Sentry is configured, capture here
+
+    // Auto-reload once on chunk-load failures (stale deploy — old JS chunk URL no longer exists)
+    const isChunkError =
+      error.message?.includes('Failed to fetch dynamically imported module') ||
+      error.message?.includes('Importing a module script failed') ||
+      error.message?.includes('Unable to preload CSS') ||
+      error.name === 'ChunkLoadError'
+    if (isChunkError) {
+      const reloadKey = 'chunk_error_reload'
+      if (!sessionStorage.getItem(reloadKey)) {
+        sessionStorage.setItem(reloadKey, '1')
+        window.location.reload()
+        return
+      }
+    }
+    // Clear the flag once a non-chunk error is shown (so future deploys still auto-reload)
+    sessionStorage.removeItem('chunk_error_reload')
+
     if (typeof window !== 'undefined' && (window as any).Sentry) {
       ;(window as any).Sentry.captureException(error, { extra: errorInfo })
     }
