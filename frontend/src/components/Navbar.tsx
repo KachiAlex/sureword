@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import SearchOverlay from './SearchOverlay'
-import { Mic2, Search, Heart, Users, Menu, X, LayoutDashboard, LogOut, LogIn } from 'lucide-react'
+import { Search, Heart, Users, Menu, X, LayoutDashboard, LogOut, LogIn } from 'lucide-react'
 
 export default function Navbar() {
   const { user, logout } = useAuth()
@@ -38,9 +38,7 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 border-b border-[rgba(243,238,228,0.08)] bg-[#14141a]/95 backdrop-blur-md">
       <div className="max-w-[1440px] mx-auto px-4 md:px-6 h-14 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-full border border-[#c9a227]/40 flex items-center justify-center">
-            <Mic2 className="w-4 h-4 text-[#c9a227]" />
-          </div>
+          <img src="/logo.png" alt="ZioniteFM Logo" className="w-9 h-9 rounded-xl object-cover" />
           <div className="leading-tight">
             <div className="text-sm font-medium text-white tracking-wide">ZIONITEFM</div>
             <div className="text-[9px] text-[#9c958a] tracking-widest uppercase">The Voice of Redemption</div>
