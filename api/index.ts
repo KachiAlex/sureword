@@ -548,7 +548,7 @@ app.get('/chat/:broadcastId/users', async (req, res) => {
     const rows = await dbQuery(
       `SELECT DISTINCT user_id, user_name FROM chat_messages
        WHERE broadcast_id=$1 AND user_id IS NOT NULL
-         AND created_at > datetime('now', '-30 minutes')
+         AND created_at > NOW() - INTERVAL '30 minutes'
        ORDER BY user_name`,
       [req.params.broadcastId])
     res.json({ users: rows })
