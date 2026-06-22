@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import axios from 'axios'
-import { io, Socket } from 'socket.io-client'
 import { useAuth } from '../contexts/AuthContext'
 import { usePageTitle } from '../hooks/usePageTitle'
 import {
@@ -193,9 +192,19 @@ function StreamPlayer({ broadcastId, title }: { broadcastId: string; title?: str
   }
 
   function scheduleNext() {
-    if (decodedRef.current.length === 0) { playingRef.current = false; setIsPlaying(false); updateMediaSession(false); return }
     if (userPausedRef.current) { playingRef.current = false; setIsPlaying(false); updateMediaSession(false); return }
     if (!ctxRef.current) return
+    if (decodedRef.current.length === 0) {
+      // Queue temporarily empty — keep retrying until new chunks arrive from the fetch loop
+      playingRef.current = false
+      setIsPlaying(false)
+      updateMediaSession(false)
+      const retry = setInterval(() => {
+        if (userPausedRef.current) { clearInterval(retry); return }
+        if (decodedRef.current.length > 0) { clearInterval(retry); scheduleNext() }
+      }, 500)
+      return
+    }
     const ctx = ctxRef.current
     if (ctx.state === 'suspended') ctx.resume().catch(() => {})
     playingRef.current = true
@@ -311,25 +320,17 @@ export default function Live() {
 
   const chatEndRef = useRef<HTMLDivElement>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
-  const socketRef = useRef<Socket | null>(null)
+  const chatPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     fetchBroadcast(); fetchChatMessages(); fetchChatUsers()
-    const interval = setInterval(() => { fetchBroadcast(); fetchChatUsers() }, 8000)
-    return () => clearInterval(interval)
+    const broadcastPoll = setInterval(() => { fetchBroadcast(); fetchChatUsers() }, 8000)
+    chatPollRef.current = setInterval(() => { fetchChatMessages() }, 4000)
+    return () => {
+      clearInterval(broadcastPoll)
+      if (chatPollRef.current) clearInterval(chatPollRef.current)
+    }
   }, [broadcastId])
-
-  useEffect(() => {
-    const bid = broadcastId || broadcast?.id
-    if (!bid) return
-    const socket = io({ path: '/socket.io', auth: { token: localStorage.getItem('token') || '' } })
-    socketRef.current = socket
-    socket.on('connect', () => { socket.emit('join_broadcast', bid) })
-    socket.on('new_message', (msg: ChatMessage) => {
-      setChatMessages(prev => [...prev, msg])
-    })
-    return () => { socket.disconnect(); socketRef.current = null }
-  }, [broadcastId, broadcast?.id])
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [chatMessages])
 
@@ -349,14 +350,14 @@ export default function Live() {
   async function fetchChatMessages() {
     const bid = broadcastId || broadcast?.id
     if (!bid) return
-    try { const { data } = await axios.get(`/api/chat/broadcast/${bid}`); setChatMessages(data.messages || []) } catch {}
+    try { const { data } = await axios.get(`/api/chat/${bid}`); setChatMessages(data.messages || []) } catch {}
   }
 
   async function fetchChatUsers() {
     const bid = broadcastId || broadcast?.id
     if (!bid) return
     try {
-      const { data } = await axios.get(`/api/chat/broadcast/${bid}/users`)
+      const { data } = await axios.get(`/api/chat/${bid}/users`)
       setChatUsers((data.users || []).filter((u: any) => u.user_id !== user?.id))
       setOnlineCount(data.users?.length || 0)
     } catch {}
@@ -368,24 +369,15 @@ export default function Live() {
     const text = newMessage.trim()
     if (!text || !bid) return
     try {
-      const socket = socketRef.current
-      if (socket && socket.connected) {
-        if (user) {
-          socket.emit('send_message', { broadcastId: bid, message: text, recipientId: chatMode === 'private' && privateRecipient ? privateRecipient.user_id : undefined })
-        } else {
-          socket.emit('send_guest_message', { broadcastId: bid, message: text, guestName: guestName.trim() || 'Guest' })
-        }
+      if (user) {
+        const payload: any = { message: text }
+        if (chatMode === 'private' && privateRecipient) payload.recipientId = privateRecipient.user_id
+        await axios.post(`/api/chat/${bid}`, payload, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
       } else {
-        if (user) {
-          const payload: any = { message: text }
-          if (chatMode === 'private' && privateRecipient) payload.recipientId = privateRecipient.user_id
-          await axios.post(`/api/chat/${bid}`, payload, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
-        } else {
-          await axios.post(`/api/chat/${bid}/guest`, { message: text, guestName: guestName.trim() || 'Guest' })
-        }
-        fetchChatMessages()
+        await axios.post(`/api/chat/${bid}/guest`, { message: text, guestName: guestName.trim() || 'Guest' })
       }
       setNewMessage('')
+      fetchChatMessages()
     } catch {}
   }
 

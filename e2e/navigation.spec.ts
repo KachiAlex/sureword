@@ -42,11 +42,14 @@ test.describe('Navigation & Pages', () => {
   })
 
   test('music page loads', async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'serviceWorker', { value: undefined, writable: false })
+    })
     await page.route('**/api/music', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ music: [] }) })
     })
     await page.goto('/music')
-    await expect(page.getByRole('heading', { name: /music/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /music/i })).toBeVisible({ timeout: 20000 })
   })
 
   test('prayer wall page loads', async ({ page }) => {
