@@ -39,7 +39,9 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
   const [speaker, setSpeaker] = useState('')
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
   const [thumbnailPreview, setThumbnailPreview] = useState('')
-  const [selectedDevice] = useState('')
+  const [selectedDevice, setSelectedDevice] = useState('')
+  const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([])
+  const [thumbnailUrl, setThumbnailUrl] = useState('')
   const [setupError, setSetupError] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [recordEnabled, setRecordEnabled] = useState(false)
@@ -51,6 +53,22 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
   const [startTime, setStartTime] = useState<Date | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [creating, setCreating] = useState(false)
+
+  /* ── Enumerate audio devices for setup form ── */
+  useEffect(() => {
+    async function loadDevices() {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices()
+        setAudioDevices(devices.filter(d => d.kind === 'audioinput'))
+      } catch {}
+    }
+    // Need permission first to get labels
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(s => { s.getTracks().forEach(t => t.stop()); loadDevices() })
+      .catch(() => loadDevices())
+    navigator.mediaDevices.addEventListener('devicechange', loadDevices)
+    return () => navigator.mediaDevices.removeEventListener('devicechange', loadDevices)
+  }, [])
 
   /* ── Load recording config on mount ── */
   useEffect(() => {
@@ -102,6 +120,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
       }, { headers: { Authorization: `Bearer ${token}` } })
       await axios.patch(`/api/broadcasts/${data.id}/start`, {}, { headers: { Authorization: `Bearer ${token}` } })
       setBroadcastId(data.id)
+      setThumbnailUrl(thumbnail_url || '')
       setStatus('live')
       setStartTime(new Date())
       setView('studio')
@@ -183,6 +202,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     setSpeaker('')
     setThumbnailFile(null)
     setThumbnailPreview('')
+    setThumbnailUrl('')
     setSetupError('')
     setView('setup')
   }
@@ -236,6 +256,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     setChurchOnlineUrl(b.church_online_url || '')
     setRtmpUrl(b.rtmp_url || '')
     setStreamKey(b.stream_key || '')
+    setThumbnailUrl(b.thumbnail_url || '')
     setStatus(b.status === 'live' ? 'live' : 'paused')
     setStartTime(b.started_at ? new Date(b.started_at) : new Date())
     setView('studio')
@@ -418,6 +439,23 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
               </div>
             </div>
 
+            {audioDevices.length > 0 && (
+              <div>
+                <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                  <Mic className="w-3 h-3" /> Microphone Device
+                </label>
+                <select value={selectedDevice} onChange={e => setSelectedDevice(e.target.value)}
+                  className="w-full rounded-lg px-3 py-2.5 text-xs bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors">
+                  <option value="">Default microphone</option>
+                  {audioDevices.map(d => (
+                    <option key={d.deviceId} value={d.deviceId}>
+                      {d.label || `Microphone (${d.deviceId.slice(0, 8)})`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <button type="button" onClick={() => setShowAdvanced(!showAdvanced)}
               className="flex items-center gap-1.5 text-[11px] text-[#9c958a] hover:text-white transition-colors">
               {showAdvanced ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -519,6 +557,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
         status={status as 'live' | 'paused'}
         startTime={startTime}
         selectedDevice={selectedDevice}
+        thumbnailUrl={thumbnailUrl}
         onPause={pauseBroadcast}
         onResume={resumeBroadcast}
         onEnd={stopBroadcast}

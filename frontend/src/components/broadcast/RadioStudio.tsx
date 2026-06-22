@@ -73,6 +73,7 @@ interface Props {
   status: 'live' | 'paused'
   startTime: Date | null
   selectedDevice: string
+  thumbnailUrl?: string
   onPause: () => void
   onResume: () => void
   onEnd: () => void
@@ -140,6 +141,7 @@ function MonitorPlayer({ stream, enabled, volume }: { stream: MediaStream | null
 export default function RadioStudio({
   broadcastId, title, description, scripture,
   churchOnlineUrl: _churchOnlineUrl, status, startTime, selectedDevice,
+  thumbnailUrl,
   onPause, onResume, onEnd, actionLoading,
   recordEnabled
 }: Props) {
@@ -154,8 +156,40 @@ export default function RadioStudio({
   const [monitorVolume, setMonitorVolume] = useState(60)
   const [recordingStatus, setRecordingStatus] = useState('')
   const [recordDirHandle, setRecordDirHandle] = useState<FileSystemDirectoryHandle | null>(null)
+  const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([])
+  const [activeDeviceId, setActiveDeviceId] = useState(selectedDevice || '')
+  const activeDeviceIdRef = useRef(selectedDevice || '')
 
   const isLive = status === 'live'
+
+  /* ── Enumerate mic devices & watch for hotplug ── */
+  async function enumerateDevices() {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices()
+      const mics = devices.filter(d => d.kind === 'audioinput')
+      setAudioDevices(mics)
+      // If active device is no longer in list, fall back to default
+      if (activeDeviceIdRef.current && !mics.find(d => d.deviceId === activeDeviceIdRef.current)) {
+        const fallback = mics[0]?.deviceId || ''
+        activeDeviceIdRef.current = fallback
+        setActiveDeviceId(fallback)
+        if (isLive) {
+          stopStreaming()
+          setTimeout(() => startStreaming(), 300)
+        }
+      }
+    } catch {}
+  }
+
+  useEffect(() => {
+    // Request mic permission first so labels are visible, then enumerate
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(s => { s.getTracks().forEach(t => t.stop()); enumerateDevices() })
+      .catch(() => enumerateDevices())
+    navigator.mediaDevices.addEventListener('devicechange', enumerateDevices)
+    return () => navigator.mediaDevices.removeEventListener('devicechange', enumerateDevices)
+  }, [])
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const chunkIndexRef = useRef(0)
@@ -177,12 +211,13 @@ export default function RadioStudio({
     shouldRecordRef.current = isLive
     if (shouldRecordRef.current) { startStreaming() } else { stopStreaming() }
     return () => stopStreaming()
-  }, [isLive, selectedDevice, broadcastId])
+  }, [isLive, activeDeviceId, broadcastId])
 
   async function startStreaming() {
     try {
+      const deviceId = activeDeviceIdRef.current
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: selectedDevice ? { deviceId: { exact: selectedDevice } } : true
+        audio: deviceId ? { deviceId: { exact: deviceId } } : true
       })
       streamRef.current = stream
       setMicStream(stream)
@@ -497,12 +532,53 @@ export default function RadioStudio({
           </div>
         </div>
 
+        {/* Mic Device Selector */}
+        {audioDevices.length > 1 && (
+          <div className="rounded-xl p-4" style={{ background: 'var(--ink)', border: '1px solid var(--line)' }}>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium flex items-center gap-2">
+                <Mic className="w-4 h-4" style={{ color: 'var(--gold)' }} /> Audio Input Device
+              </span>
+            </div>
+            <select
+              value={activeDeviceId}
+              onChange={e => {
+                activeDeviceIdRef.current = e.target.value
+                setActiveDeviceId(e.target.value)
+              }}
+              className="w-full rounded-lg px-3 py-2 text-sm border outline-none"
+              style={{ background: 'var(--ink-2)', borderColor: 'var(--line)', color: 'var(--parchment)' }}
+            >
+              <option value="">Default microphone</option>
+              {audioDevices.map(d => (
+                <option key={d.deviceId} value={d.deviceId}>
+                  {d.label || `Microphone (${d.deviceId.slice(0, 8)})`}
+                </option>
+              ))}
+            </select>
+            <p className="text-[10px] mt-1.5" style={{ color: 'var(--dim)' }}>
+              Switching device during a live broadcast will restart the audio stream.
+            </p>
+          </div>
+        )}
+
         {/* Broadcast Info */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="rounded-xl p-4" style={{ background: 'var(--ink)', border: '1px solid var(--line)' }}>
-            <span className="text-xs font-medium block mb-1" style={{ color: 'var(--dim)' }}>Description</span>
-            <p className="text-sm">{description || 'No description'}</p>
-          </div>
+          {thumbnailUrl && (
+            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--line)' }}>
+              <img src={thumbnailUrl} alt="Broadcast thumbnail" className="w-full h-40 object-cover" />
+              <div className="p-3" style={{ background: 'var(--ink)' }}>
+                <span className="text-xs font-medium block mb-1" style={{ color: 'var(--dim)' }}>Description</span>
+                <p className="text-sm">{description || 'No description'}</p>
+              </div>
+            </div>
+          )}
+          {!thumbnailUrl && (
+            <div className="rounded-xl p-4" style={{ background: 'var(--ink)', border: '1px solid var(--line)' }}>
+              <span className="text-xs font-medium block mb-1" style={{ color: 'var(--dim)' }}>Description</span>
+              <p className="text-sm">{description || 'No description'}</p>
+            </div>
+          )}
           <div className="rounded-xl p-4" style={{ background: 'var(--ink)', border: '1px solid var(--line)' }}>
             <span className="text-xs font-medium block mb-1" style={{ color: 'var(--dim)' }}>Scripture</span>
             <p className="text-sm">{scripture || 'No scripture reference'}</p>
