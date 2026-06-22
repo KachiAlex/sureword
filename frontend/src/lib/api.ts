@@ -30,7 +30,7 @@ export function useActiveBroadcast() {
   return useQuery<Broadcast | null>({ queryKey: ['broadcasts', 'active'], queryFn: async () => {
     const { data } = await api.get('/broadcasts/active')
     return data.broadcast as Broadcast | null
-  }, retry: 1 })
+  }, retry: 1, refetchInterval: 30000 })
 }
 
 export function useSermons(limit?: number) {

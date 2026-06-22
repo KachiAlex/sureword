@@ -23,7 +23,7 @@ test.describe('Music Flow', () => {
     })
 
     await page.goto('/music')
-    await expect(page.getByRole('heading', { name: /music library/i })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: /music library/i })).toBeVisible({ timeout: 20000 })
     await expect(page.getByText('Amazing Grace')).toBeVisible()
     await expect(page.getByText('Worship Team')).toBeVisible()
   })

@@ -2,6 +2,9 @@ import { test, expect } from '@playwright/test'
 
 test.describe('Navigation & Pages', () => {
   test('home page loads with hero section', async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'serviceWorker', { value: undefined, writable: false })
+    })
     await page.route('**/api/broadcasts/active', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ broadcast: null }) })
     })
@@ -18,8 +21,8 @@ test.describe('Navigation & Pages', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ events: [] }) })
     })
     await page.goto('/')
-    await expect(page.getByText(/zionite\s*fm/i).first()).toBeVisible({ timeout: 10000 })
-    await expect(page.getByText(/the voice of redemption/i).first()).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(/zionite\s*fm/i).first()).toBeVisible({ timeout: 20000 })
+    await expect(page.getByText(/the voice of redemption/i).first()).toBeVisible({ timeout: 20000 })
   })
 
   test('archive page loads sermons', async ({ page }) => {

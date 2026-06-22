@@ -194,6 +194,46 @@ export default function Home() {
         </div>
       </div>
 
+      {/* ====== LIVE BROADCAST BANNER ====== */}
+      {isLive && broadcast && (
+        <div className="max-w-[1440px] mx-auto px-4 md:px-6 py-3">
+          <Link to={`/live/${broadcast.id}`}
+            className="flex items-center gap-4 rounded-2xl p-4 md:p-5 transition-all hover:scale-[1.01] active:scale-[0.99]"
+            style={{ background: 'linear-gradient(135deg, #8a1a1a 0%, #1b1208 60%, #14141a 100%)', border: '1px solid rgba(239,68,68,0.3)' }}>
+            {/* Pulsing live dot */}
+            <div className="relative flex-shrink-0">
+              <span className="relative flex h-4 w-4">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#ef4444] opacity-75" />
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-[#ef4444]" />
+              </span>
+            </div>
+            {/* Thumbnail */}
+            {broadcast.thumbnail_url ? (
+              <img src={broadcast.thumbnail_url} alt="" className="w-12 h-12 rounded-xl object-cover flex-shrink-0 ring-2 ring-[#ef4444]/30" />
+            ) : (
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-[#ef4444]/10">
+                <Radio className="w-6 h-6 text-[#ef4444]" />
+              </div>
+            )}
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="text-[10px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded bg-[#ef4444] text-white">Live Now</span>
+                {broadcast.speaker && <span className="text-[10px] text-[#9c958a]">{broadcast.speaker}</span>}
+              </div>
+              <p className="text-sm font-semibold text-white truncate">{broadcast.title}</p>
+              {broadcast.description && (
+                <p className="text-[11px] text-[#9c958a] truncate mt-0.5">{broadcast.description}</p>
+              )}
+            </div>
+            {/* CTA */}
+            <div className="flex-shrink-0 flex items-center gap-2 bg-[#ef4444] hover:bg-[#ef4444]/90 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors">
+              <Headphones className="w-3.5 h-3.5" /> Join
+            </div>
+          </Link>
+        </div>
+      )}
+
       {/* ====== MAIN DASHBOARD GRID ====== */}
       <div className="max-w-[1440px] mx-auto px-4 md:px-6 pb-5 animate-slide-up">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
