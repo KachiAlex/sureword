@@ -21,11 +21,29 @@ test.describe('Authentication', () => {
 
 test.describe('Navigation', () => {
   test('home page loads', async ({ page }) => {
+    await page.route('**/api/broadcasts/active', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ broadcast: null }) })
+    })
+    await page.route('**/api/sermons', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sermons: [] }) })
+    })
+    await page.route('**/api/music', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ music: [] }) })
+    })
+    await page.route('**/api/guest-speakers', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ speakers: [] }) })
+    })
+    await page.route('**/api/events', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ events: [] }) })
+    })
     await page.goto('/')
     await expect(page.getByText(/zionite\s*fm/i).first()).toBeVisible({ timeout: 10000 })
   })
 
   test('archive page loads', async ({ page }) => {
+    await page.route('**/api/sermons', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sermons: [] }) })
+    })
     await page.goto('/archive')
     await expect(page.getByRole('heading', { name: /sermon archive/i })).toBeVisible()
   })

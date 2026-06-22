@@ -3,7 +3,7 @@ import axios from 'axios'
 import {
   Radio, Play, Square, Plus, Loader2, ArrowLeft,
   Mic, BookOpen, ExternalLink, AlertCircle, Monitor, ChevronDown, ChevronUp,
-  HardDrive, Folder
+  HardDrive, Folder, Download
 } from 'lucide-react'
 import { getRecordingConfig, setRecordingConfig } from '../../lib/recording'
 import RadioStudio from '../broadcast/RadioStudio'
@@ -21,6 +21,7 @@ interface Broadcast {
   stream_key?: string
   thumbnail_url?: string
   speaker?: string
+  recording_url?: string
 }
 
 type StudioView = 'list' | 'setup' | 'studio'
@@ -351,6 +352,13 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
                           <Square className="w-3.5 h-3.5" />
                         </button>
                       </>
+                    )}
+                    {b.status === 'ended' && b.recording_url && (
+                      <a href={b.recording_url} target="_blank" rel="noopener noreferrer"
+                        className="p-1.5 rounded-md bg-[#c9a227]/10 hover:bg-[#c9a227]/20 text-[#c9a227] transition-colors"
+                        title="Download / Listen to recording">
+                        <Download className="w-3.5 h-3.5" />
+                      </a>
                     )}
                   </div>
                 </div>

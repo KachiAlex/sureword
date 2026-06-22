@@ -27,6 +27,15 @@ const upload = multer({
   }
 })
 
+const uploadRecording = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 500 * 1024 * 1024 }, // 500 MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/mpeg', 'audio/mp3', 'video/webm']
+    cb(null, allowed.includes(file.mimetype))
+  }
+})
+
 const uploadImage = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
@@ -123,6 +132,7 @@ async function _doInitDb() {
   try { await dbQuery(`ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS stream_key TEXT`) } catch {}
   try { await dbQuery(`ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS thumbnail_url TEXT`) } catch {}
   try { await dbQuery(`ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS speaker TEXT`) } catch {}
+  try { await dbQuery(`ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS recording_url TEXT`) } catch {}
 
   // Add sermon columns if missing
   try { await dbQuery(`ALTER TABLE sermons ADD COLUMN IF NOT EXISTS video_url TEXT`) } catch {}
@@ -623,6 +633,26 @@ app.post('/uploads/audio', auth, requireRole('admin'), upload.single('audio'), a
     if (!req.file) { res.status(400).json({ error: 'Audio file required' }); return }
     const audio_url = await uploadToCloudinary(req.file.buffer, 'zionite/audio', 'video')
     res.json({ audio_url })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.post('/broadcasts/:id/recording', auth, requireRole('admin', 'broadcaster'), uploadRecording.single('recording'), async (req: AuthReq, res) => {
+  try {
+    if (!req.file) { res.status(400).json({ error: 'Recording file required' }); return }
+    await initDb()
+    const recording_url = await uploadToCloudinary(req.file.buffer, 'zionite/broadcasts', 'video')
+    await dbQuery(`UPDATE broadcasts SET recording_url=$1 WHERE id=$2`, [recording_url, req.params.id])
+    res.json({ recording_url })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.patch('/broadcasts/:id/recording', auth, requireRole('admin', 'broadcaster'), async (req: AuthReq, res) => {
+  try {
+    await initDb()
+    const { recording_url } = req.body
+    if (!recording_url) { res.status(400).json({ error: 'recording_url required' }); return }
+    await dbQuery(`UPDATE broadcasts SET recording_url=$1 WHERE id=$2`, [recording_url, req.params.id])
+    res.json({ success: true })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
