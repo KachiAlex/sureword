@@ -7,7 +7,7 @@ import { useBroadcasts, useSermons, useUsers, usePrayers, useMusic, useDashboard
 import {
   Users, Radio, Headphones, LayoutDashboard, MessageSquare, Settings, Music, Mic2, Heart, Calendar,
   Search, Bell, ChevronDown, BookOpen, DollarSign, Pause, StopCircle, BarChart3, Shield, Sparkles,
-  Menu, X, Loader2
+  Menu, X, Loader2, MapPin, Globe
 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 
@@ -65,6 +65,7 @@ export default function AdminDashboard() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [bcActionLoading, setBcActionLoading] = useState(false)
   const [liveElapsed, setLiveElapsed] = useState(0)
+  const [geoData, setGeoData] = useState<{ byCountry: {country:string;count:number}[]; locations: {country:string;region:string;city:string;count:number}[] }>({ byCountry: [], locations: [] })
 
   /* ── Live broadcast duration timer ── */
   useEffect(() => {
@@ -74,6 +75,22 @@ export default function AdminDashboard() {
     setLiveElapsed(Math.floor((Date.now() - start) / 1000))
     const id = setInterval(() => setLiveElapsed(Math.floor((Date.now() - start) / 1000)), 1000)
     return () => clearInterval(id)
+  }, [broadcasts])
+
+  // Fetch geo data for live broadcast
+  useEffect(() => {
+    const live = broadcasts.find(b => b.status === 'live')
+    if (!live) { setGeoData({ byCountry: [], locations: [] }); return }
+    const token = localStorage.getItem('token')
+    const fetchGeo = async () => {
+      try {
+        const { data } = await axios.get(`/api/stream/${live.id}/listeners/geo`, { headers: { Authorization: `Bearer ${token}` } })
+        setGeoData({ byCountry: data.byCountry || [], locations: data.locations || [] })
+      } catch {}
+    }
+    fetchGeo()
+    const iv = setInterval(fetchGeo, 15000)
+    return () => clearInterval(iv)
   }, [broadcasts])
 
   const dashboard = analytics?.stats ?? null
@@ -343,6 +360,63 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               </div>
+              {/* Listener Geography */}
+              <div className="p-4 rounded-xl bg-[#14141a] border border-[rgba(243,238,228,0.06)]">
+                <div className="flex items-center gap-2 mb-4">
+                  <Globe className="w-4 h-4 text-[#c9a227]" />
+                  <h3 className="text-xs font-semibold text-white tracking-wide">LISTENER GEOGRAPHY</h3>
+                  <span className="ml-auto text-[9px] text-[#9c958a] italic">Active listeners · last 5 min · refreshes every 15s</span>
+                </div>
+                {geoData.byCountry.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 gap-2">
+                    <MapPin className="w-8 h-8 text-[#9c958a]/30" />
+                    <p className="text-[11px] text-[#9c958a] text-center">No geo data yet.<br />Location data is captured when listeners join the stream.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Country breakdown */}
+                    <div className="sm:col-span-1">
+                      <p className="text-[10px] font-semibold text-[#9c958a] uppercase tracking-wider mb-2">By Country</p>
+                      <div className="space-y-1.5">
+                        {geoData.byCountry.slice(0, 8).map((c, i) => {
+                          const total = geoData.byCountry.reduce((a, b) => a + Number(b.count), 0) || 1
+                          const pct = Math.round(Number(c.count) / total * 100)
+                          const colors = ['#c9a227','#8b7cf8','#4ade80','#f87171','#60a5fa','#fb923c','#a78bfa','#34d399']
+                          return (
+                            <div key={c.country} className="flex items-center gap-2">
+                              <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: colors[i % colors.length] }} />
+                              <span className="text-[11px] text-[#f3eee4] flex-1 truncate">{c.country}</span>
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-16 h-1 rounded-full bg-[rgba(243,238,228,0.08)] overflow-hidden">
+                                  <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: colors[i % colors.length] }} />
+                                </div>
+                                <span className="text-[10px] text-[#9c958a] w-6 text-right">{c.count}</span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    {/* City / Region breakdown */}
+                    <div className="sm:col-span-1 lg:col-span-2">
+                      <p className="text-[10px] font-semibold text-[#9c958a] uppercase tracking-wider mb-2">City / Region Breakdown</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                        {geoData.locations.map((loc, i) => (
+                          <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg" style={{ background: 'rgba(243,238,228,0.03)', border: '1px solid rgba(243,238,228,0.06)' }}>
+                            <MapPin className="w-3 h-3 text-[#c9a227] flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11px] text-white truncate">{loc.city || loc.region || 'Unknown'}</p>
+                              <p className="text-[9px] text-[#9c958a] truncate">{loc.country}{loc.region && loc.city ? ` · ${loc.region}` : ''}</p>
+                            </div>
+                            <span className="text-[10px] font-bold text-[#c9a227] flex-shrink-0">{loc.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 <div className="p-4 rounded-xl bg-[#14141a] border border-[rgba(243,238,228,0.06)]">
                   <div className="flex items-center justify-between mb-3"><h3 className="text-xs font-semibold text-white tracking-wide">RECENT SERMONS</h3><button onClick={()=>setActiveTab('sermons')} className="text-[9px] text-[#c9a227] hover:underline">View All</button></div>

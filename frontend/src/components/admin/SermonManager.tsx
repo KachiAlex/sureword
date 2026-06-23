@@ -26,6 +26,9 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
   const [uploadStep, setUploadStep] = useState('')
   const token = localStorage.getItem('token')
 
+  const featuredSermons = sermons.filter(s => s.is_featured)
+  const featuredCount = featuredSermons.length
+
   function errMsg(err: any): string {
     if (typeof err === 'string') return err
     if (err?.response?.data?.error) return err.response.data.error
@@ -284,17 +287,63 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
         </form>
       </div>
 
+      {/* Featured Slots Preview */}
+      <div className="rounded-2xl p-5 mb-5" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Star className="w-4 h-4 fill-[#c9a227] text-[#c9a227]" />
+            Featured Sermons on Home Page
+          </h3>
+          <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+            style={{ background: featuredCount === 4 ? 'rgba(74,222,128,0.12)' : 'rgba(201,162,39,0.12)', color: featuredCount === 4 ? '#4ade80' : '#c9a227' }}>
+            {featuredCount}/4 slots filled
+          </span>
+        </div>
+        <div className="grid grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => {
+            const s = featuredSermons[i]
+            return (
+              <div key={i} className="rounded-xl overflow-hidden aspect-[4/3] relative flex items-center justify-center"
+                style={{ background: s ? 'var(--ink)' : 'rgba(243,238,228,0.03)', border: `1px solid ${s ? 'rgba(201,162,39,0.3)' : 'var(--line)'}` }}>
+                {s ? (
+                  <>
+                    {s.thumbnail_url
+                      ? <img src={s.thumbnail_url} alt={s.title} className="w-full h-full object-cover" />
+                      : <Headphones className="w-6 h-6" style={{ color: 'var(--dim)' }} />}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-1.5">
+                      <p className="text-[10px] font-medium text-white leading-tight line-clamp-2">{s.title}</p>
+                    </div>
+                    <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-[#c9a227] flex items-center justify-center">
+                      <Star className="w-2.5 h-2.5 fill-[#1b1208] text-[#1b1208]" />
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center">
+                    <div className="w-6 h-6 rounded-full border border-dashed mx-auto mb-1 flex items-center justify-center" style={{ borderColor: 'var(--line)' }}>
+                      <Star className="w-3 h-3" style={{ color: 'var(--dim)' }} />
+                    </div>
+                    <p className="text-[9px]" style={{ color: 'var(--dim)' }}>Empty slot</p>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        {featuredCount === 4 && (
+          <p className="text-[11px] mt-2 text-center" style={{ color: 'var(--dim)' }}>
+            All 4 slots filled. Starring a new sermon will automatically replace the oldest featured one.
+          </p>
+        )}
+      </div>
+
       {/* Sermon list */}
       <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
         <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--line)', background: 'rgba(243,238,228,0.03)' }}>
           <h3 className="font-semibold flex items-center gap-2">
             <Headphones className="w-4 h-4" style={{ color: 'var(--gold)' }} />
-            Sermons ({sermons.length})
+            All Sermons ({sermons.length})
           </h3>
-          <span className="text-[11px] flex items-center gap-1" style={{ color: 'var(--dim)' }}>
-            <Star className="w-3 h-3 fill-[#c9a227] text-[#c9a227]" />
-            {sermons.filter(s => s.is_featured).length} featured on home page
-          </span>
+          <span className="text-[11px]" style={{ color: 'var(--dim)' }}>Click ★ to feature/unfeature</span>
         </div>
         {sermons.length === 0 ? (
           <div className="p-8 text-center" style={{ color: 'var(--dim)' }}>No sermons yet</div>

@@ -134,6 +134,11 @@ async function _doInitDb() {
   try { await dbQuery(`UPDATE chat_messages SET is_private=FALSE WHERE is_private IS NULL`) } catch {}
   try { await dbQuery(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS reactions JSONB DEFAULT '{}'`) } catch {}
   try { await dbQuery(`UPDATE chat_messages SET reactions='{}' WHERE reactions IS NULL`) } catch {}
+  // Add geo columns to stream_listeners
+  try { await dbQuery(`ALTER TABLE stream_listeners ADD COLUMN IF NOT EXISTS country TEXT`) } catch {}
+  try { await dbQuery(`ALTER TABLE stream_listeners ADD COLUMN IF NOT EXISTS region TEXT`) } catch {}
+  try { await dbQuery(`ALTER TABLE stream_listeners ADD COLUMN IF NOT EXISTS city TEXT`) } catch {}
+  try { await dbQuery(`ALTER TABLE stream_listeners ADD COLUMN IF NOT EXISTS ip TEXT`) } catch {}
 
   // Add stream config columns if missing (safe for existing tables)
   try { await dbQuery(`ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS rtmp_url TEXT`) } catch {}
@@ -471,7 +476,18 @@ app.patch('/sermons/:id/featured', auth, requireRole('admin'), async (req: AuthR
   try {
     await initDb()
     const { is_featured } = req.body
-    await dbQuery(`UPDATE sermons SET is_featured=$1 WHERE id=$2`, [!!is_featured, req.params.id])
+    if (is_featured) {
+      // Enforce max 4: if already 4 featured, unfeature the oldest by date
+      const current = await dbQuery(`SELECT id FROM sermons WHERE is_featured=TRUE ORDER BY date DESC`)
+      if (current.length >= 4) {
+        // Unfeature the one with the oldest date (last in DESC order)
+        const oldest = current[current.length - 1]
+        await dbQuery(`UPDATE sermons SET is_featured=FALSE WHERE id=$1`, [oldest.id])
+      }
+      await dbQuery(`UPDATE sermons SET is_featured=TRUE WHERE id=$1`, [req.params.id])
+    } else {
+      await dbQuery(`UPDATE sermons SET is_featured=FALSE WHERE id=$1`, [req.params.id])
+    }
     res.json({ success: true, is_featured: !!is_featured })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
@@ -805,9 +821,40 @@ app.post('/stream/:id/join', async (req, res) => {
     await initDb()
     const { sessionId } = req.body
     if (!sessionId) { res.status(400).json({ error: 'Missing sessionId' }); return }
-    await dbQuery(`INSERT INTO stream_listeners (id, broadcast_id, session_id, last_seen) VALUES ($1,$2,$3,NOW())`,
-      [uuidv4(), req.params.id, sessionId])
+    // Get real IP (works behind Vercel/proxies)
+    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+               req.headers['x-real-ip'] as string ||
+               req.socket?.remoteAddress || ''
+    let country = '', region = '', city = ''
+    if (ip && ip !== '::1' && !ip.startsWith('127.') && !ip.startsWith('192.168.') && !ip.startsWith('10.')) {
+      try {
+        const geoRes = await fetch(`http://ip-api.com/json/${ip}?fields=country,regionName,city,status`)
+        const geo = await geoRes.json() as any
+        if (geo.status === 'success') { country = geo.country || ''; region = geo.regionName || ''; city = geo.city || '' }
+      } catch {}
+    }
+    await dbQuery(`INSERT INTO stream_listeners (id, broadcast_id, session_id, last_seen, ip, country, region, city) VALUES ($1,$2,$3,NOW(),$4,$5,$6,$7)`,
+      [uuidv4(), req.params.id, sessionId, ip, country, region, city])
     res.json({ success: true })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.get('/stream/:id/listeners/geo', auth, requireRole('admin'), async (req: AuthReq, res) => {
+  try {
+    await initDb()
+    const rows = await dbQuery(
+      `SELECT country, region, city, COUNT(*) as count FROM stream_listeners
+       WHERE broadcast_id=$1 AND last_seen > NOW() - INTERVAL '5 minutes'
+         AND country IS NOT NULL AND country != ''
+       GROUP BY country, region, city ORDER BY count DESC LIMIT 50`,
+      [req.params.id])
+    const byCountry = await dbQuery(
+      `SELECT country, COUNT(*) as count FROM stream_listeners
+       WHERE broadcast_id=$1 AND last_seen > NOW() - INTERVAL '5 minutes'
+         AND country IS NOT NULL AND country != ''
+       GROUP BY country ORDER BY count DESC LIMIT 20`,
+      [req.params.id])
+    res.json({ locations: rows, byCountry })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
