@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { Mic, Headphones, Volume2, AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react'
 import VUMeter from './VUMeter'
 

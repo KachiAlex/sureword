@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+﻿import { createContext, useContext, useState, useEffect } from 'react'
 import axios from 'axios'
+import { API_BASE } from '../lib/api'
 
 interface User {
   id: string
@@ -40,7 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try { setUser(JSON.parse(cachedUser)) } catch {}
       }
       try {
-        const { data } = await axios.get('/api/auth/verify', { timeout: 8000 })
+        const { data } = await axios.get('${API_BASE}auth/verify', { timeout: 8000 })
         setUser(data.user)
         localStorage.setItem('user', JSON.stringify(data.user))
       } catch {

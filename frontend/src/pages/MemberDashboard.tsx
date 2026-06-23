@@ -1,6 +1,7 @@
-import { memo, useEffect, useState } from 'react'
+﻿import { memo, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import { API_BASE } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { useNotifications } from '../contexts/NotificationContext'
 import { useAudioPlayer } from '../contexts/AudioPlayerContext'
@@ -258,7 +259,7 @@ export default function MemberDashboard() {
   async function fetchChatMessages(bid?: string) {
     if (!bid) return
     try {
-      const { data } = await axios.get(`/api/chat/${bid}`)
+      const { data } = await axios.get(`${API_BASE}/api/chat/${bid}`)
       setChatMessages(data.messages?.slice(-20) || [])
     } catch {}
   }
@@ -269,7 +270,7 @@ export default function MemberDashboard() {
     if (!text || !broadcast?.id) return
     const token = localStorage.getItem('token')
     try {
-      await axios.post(`/api/chat/${broadcast.id}`, { message: text }, {
+      await axios.post(`${API_BASE}/api/chat/${broadcast.id}`, { message: text }, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       })
       setChatInput('')
@@ -280,11 +281,11 @@ export default function MemberDashboard() {
   async function fetchData() {
     try {
       const [br, sr, pr, tr, gs] = await Promise.all([
-        axios.get('/api/broadcasts/active').catch(()=>({data:{broadcast:null}})),
-        axios.get('/api/sermons?limit=5').catch(()=>({data:{sermons:[]}})),
-        axios.get('/api/prayer?limit=3').catch(()=>({data:{prayers:[]}})),
-        axios.get('/api/testimonies?limit=1').catch(()=>({data:{testimonies:[]}})),
-        axios.get('/api/guest-speakers').catch(()=>({data:{speakers:[]}})),
+        axios.get('${API_BASE}broadcasts/active').catch(()=>({data:{broadcast:null}})),
+        axios.get('${API_BASE}sermons?limit=5').catch(()=>({data:{sermons:[]}})),
+        axios.get('${API_BASE}prayer?limit=3').catch(()=>({data:{prayers:[]}})),
+        axios.get('${API_BASE}testimonies?limit=1').catch(()=>({data:{testimonies:[]}})),
+        axios.get('${API_BASE}guest-speakers').catch(()=>({data:{speakers:[]}})),
       ])
       setBroadcast(br.data.broadcast)
       setSermons(sr.data.sermons||[])
@@ -292,14 +293,14 @@ export default function MemberDashboard() {
       setTestimonies(tr.data.testimonies||[])
       setGuestSpeaker((gs.data.speakers||[])[0]||null)
       if (br.data.broadcast?.id) {
-        const chat = await axios.get(`/api/chat/broadcast/${br.data.broadcast.id}`).catch(()=>({data:{messages:[]}}))
+        const chat = await axios.get(`${API_BASE}/api/chat/broadcast/${br.data.broadcast.id}`).catch(()=>({data:{messages:[]}}))
         setChatMessages(chat.data.messages?.slice(-10)||[])
       }
     } catch {}
   }
 
   async function handlePrayFor(id: string) {
-    try { await axios.post(`/api/prayer/${id}/pray`) } catch {}
+    try { await axios.post(`${API_BASE}/api/prayer/${id}/pray`) } catch {}
     setPrayers(prev=>prev.map(p=>p.id===id?{...p, prayers_count:(p.prayers_count||0)+1}:p))
   }
 

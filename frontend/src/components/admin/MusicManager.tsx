@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react'
+﻿import { useState, useRef } from 'react'
 import axios from 'axios'
+import { API_BASE } from '../../lib/api'
 import { Music, Plus, Loader2, Trash2, Link2, Upload, FileAudio, Image } from 'lucide-react'
 
 interface MusicTrack {
@@ -62,7 +63,7 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
       // ── Step 1: Upload files directly to Cloudinary (signed) ──
       // Use fetch (not axios) so the global Authorization header isn't sent to Cloudinary
       if (file) {
-        const { data: sig } = await axios.get('/api/music/signature?folder=zionite/music/audio', {
+        const { data: sig } = await axios.get('${API_BASE}music/signature?folder=zionite/music/audio', {
           headers: { Authorization: `Bearer ${token}` }
         })
         const fd = new FormData()
@@ -78,7 +79,7 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
       }
 
       if (coverFile) {
-        const { data: sig } = await axios.get('/api/music/signature?folder=zionite/music/covers', {
+        const { data: sig } = await axios.get('${API_BASE}music/signature?folder=zionite/music/covers', {
           headers: { Authorization: `Bearer ${token}` }
         })
         const fd = new FormData()
@@ -94,7 +95,7 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
       }
 
       // ── Step 2: Save metadata + Cloudinary URLs to backend ──
-      await axios.post('/api/music', {
+      await axios.post('${API_BASE}music', {
         title: form.title,
         artist: form.artist,
         album: form.album,
@@ -131,7 +132,7 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
     if (!confirm('Delete this track?')) return
     setDeleting(id)
     try {
-      await axios.delete(`/api/music/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+      await axios.delete(`${API_BASE}/api/music/${id}`, { headers: { Authorization: `Bearer ${token}` } })
       onRefresh()
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to delete')

@@ -1,11 +1,11 @@
-import { memo, useState, useCallback } from "react"
+﻿import { memo, useState, useCallback } from "react"
 import axios from "axios"
 import { downloadWithTags } from "../lib/downloadWithTags"
 import { Link } from "react-router-dom"
 import { useAuth } from "../contexts/AuthContext"
 import { usePageTitle } from "../hooks/usePageTitle"
 import { useAudioPlayer } from "../contexts/AudioPlayerContext"
-import { useActiveBroadcast, useFeaturedSermons, useMusic, useGuestSpeakers, useEvents } from "../lib/api"
+import { useActiveBroadcast, useFeaturedSermons, useMusic, useGuestSpeakers, useEvents , API_BASE } from "../lib/api"
 import type { Sermon, MusicTrack } from "../lib/api"
 import StructuredData from "../components/StructuredData"
 import {
@@ -144,7 +144,7 @@ export default function Home() {
     if (!subEmail) return
     setSubState('loading')
     try {
-      await axios.post('/api/newsletter/subscribe', { email: subEmail })
+      await axios.post('${API_BASE}newsletter/subscribe', { email: subEmail })
       setSubEmail('')
       setSubState('done')
     } catch {

@@ -1,9 +1,9 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+﻿import { lazy, Suspense, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../contexts/AuthContext'
-import { useBroadcasts, useSermons, useUsers, usePrayers, useMusic, useDashboardAnalytics } from '../lib/api'
+import { useBroadcasts, useSermons, useUsers, usePrayers, useMusic, useDashboardAnalytics , API_BASE } from '../lib/api'
 import {
   Users, Radio, Headphones, LayoutDashboard, MessageSquare, Settings, Music, Mic2, Heart, Calendar,
   Search, Bell, ChevronDown, BookOpen, DollarSign, Pause, StopCircle, BarChart3, Shield, Sparkles,
@@ -84,7 +84,7 @@ export default function AdminDashboard() {
     const token = localStorage.getItem('token')
     const fetchGeo = async () => {
       try {
-        const { data } = await axios.get(`/api/stream/${live.id}/listeners/geo`, { headers: { Authorization: `Bearer ${token}` } })
+        const { data } = await axios.get(`${API_BASE}/api/stream/${live.id}/listeners/geo`, { headers: { Authorization: `Bearer ${token}` } })
         setGeoData({ byCountry: data.byCountry || [], locations: data.locations || [] })
       } catch {}
     }
@@ -117,13 +117,13 @@ export default function AdminDashboard() {
 
   async function fetchChat() {
     try {
-      const res = await axios.get('/api/broadcasts')
+      const res = await axios.get('${API_BASE}broadcasts')
       const bcs = res.data.broadcasts as any[]
       const allMessages: ChatMessage[] = []
       for (const b of bcs.slice(0, 5)) {
-        try { const msgRes = await axios.get(`/api/chat/broadcast/${b.id}`); allMessages.push(...msgRes.data.messages) } catch {}
+        try { const msgRes = await axios.get(`${API_BASE}/api/chat/broadcast/${b.id}`); allMessages.push(...msgRes.data.messages) } catch {}
       }
-      try { const general = await axios.get('/api/chat/general'); allMessages.push(...general.data.messages) } catch {}
+      try { const general = await axios.get('${API_BASE}chat/general'); allMessages.push(...general.data.messages) } catch {}
       setChatMessages(allMessages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()))
     } catch (err) { console.error('Failed to fetch chat:', err) }
   }
@@ -135,7 +135,7 @@ export default function AdminDashboard() {
   async function updateUserRole(userId: string, newRole: string) {
     const token = localStorage.getItem('token')
     try {
-      await axios.patch(`/api/auth/users/${userId}/role`, { role: newRole }, { headers: { Authorization: `Bearer ${token}` } })
+      await axios.patch(`${API_BASE}/api/auth/users/${userId}/role`, { role: newRole }, { headers: { Authorization: `Bearer ${token}` } })
       queryClient.setQueryData(['users'], (old: any) => old?.map((u: any) => u.id === userId ? { ...u, role: newRole } : u))
     } catch (err: any) { alert(err.response?.data?.error || 'Failed to update role') }
   }
@@ -146,7 +146,7 @@ export default function AdminDashboard() {
     if (!live) return
     setBcActionLoading(true)
     try {
-      await axios.post(`/api/stream/${live.id}/stop`)
+      await axios.post(`${API_BASE}/api/stream/${live.id}/stop`)
       queryClient.invalidateQueries({ queryKey: ['broadcasts'] })
       queryClient.invalidateQueries({ queryKey: ['analytics'] })
     } catch (err: any) {
@@ -161,7 +161,7 @@ export default function AdminDashboard() {
     if (!live) return
     setBcActionLoading(true)
     try {
-      await axios.post(`/api/stream/${live.id}/pause`)
+      await axios.post(`${API_BASE}/api/stream/${live.id}/pause`)
       queryClient.invalidateQueries({ queryKey: ['broadcasts'] })
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to pause broadcast')

@@ -1,4 +1,4 @@
-// Minimal type declarations for File System Access API
+﻿// Minimal type declarations for File System Access API
 // (showDirectoryPicker, FileSystemDirectoryHandle, etc.)
 
 interface FileSystemDirectoryHandle {

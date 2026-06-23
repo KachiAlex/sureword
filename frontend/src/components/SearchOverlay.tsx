@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
+import { API_BASE } from '../lib/api'
 import { Search, X, BookOpen, Calendar, Music, User, Loader2 } from 'lucide-react'
 
 interface SearchResult {
@@ -28,7 +29,7 @@ export default function SearchOverlay({ open, onClose }: { open: boolean; onClos
       abortRef.current?.abort()
       abortRef.current = new AbortController()
       try {
-        const { data } = await axios.get(`/api/search?q=${encodeURIComponent(q)}`, { signal: abortRef.current.signal })
+        const { data } = await axios.get(`${API_BASE}/api/search?q=${encodeURIComponent(q)}`, { signal: abortRef.current.signal })
         setResults(data)
       } catch { /* ignore aborts */ }
       setLoading(false)

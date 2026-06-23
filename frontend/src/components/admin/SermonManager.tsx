@@ -1,5 +1,6 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import axios from 'axios'
+import { API_BASE } from '../../lib/api'
 import { Headphones, Plus, Loader2, Image, Upload, Cloud, Video, AudioLines, Star } from 'lucide-react'
 
 interface Sermon {
@@ -37,7 +38,7 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
   }
 
   async function uploadToCloudinary(file: File, folder: string): Promise<string> {
-    const { data: sig } = await axios.get(`/api/music/signature?folder=${folder}`, {
+    const { data: sig } = await axios.get(`${API_BASE}/api/music/signature?folder=${folder}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     const fd = new FormData()
@@ -55,7 +56,7 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
   async function toggleFeatured(s: Sermon) {
     setTogglingId(s.id)
     try {
-      await axios.patch(`/api/sermons/${s.id}/featured`, { is_featured: !s.is_featured }, {
+      await axios.patch(`${API_BASE}/api/sermons/${s.id}/featured`, { is_featured: !s.is_featured }, {
         headers: { Authorization: `Bearer ${token}` }
       })
       onRefresh()
@@ -105,7 +106,7 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
       }
 
       setUploadStep('Saving sermon...')
-      await axios.post('/api/sermons', {
+      await axios.post('${API_BASE}sermons', {
         title: form.title,
         speaker: form.speaker,
         scripture_reference: form.scripture_reference,

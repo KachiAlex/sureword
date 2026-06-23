@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
+import { API_BASE } from '../../lib/api'
 import {
   Radio, Pause, Play, Square, Mic, MicOff, Volume2, Volume1, VolumeX,
   Copy, CheckCircle, Activity, Share2, Headphones, Wifi, Zap, HardDrive,
@@ -16,7 +17,7 @@ function NetworkIndicator() {
     const interval = setInterval(async () => {
       const start = Date.now()
       try {
-        await fetch('/api/ping', { method: 'GET', cache: 'no-store' })
+        await fetch('${API_BASE}ping', { method: 'GET', cache: 'no-store' })
         const ms = Date.now() - start
         setLatency(ms)
         setStrength(ms < 100 ? 4 : ms < 200 ? 3 : ms < 400 ? 2 : 1)
@@ -263,7 +264,7 @@ export default function RadioStudio({
 
       statsIntervalRef.current = setInterval(async () => {
         try {
-          const { data } = await axios.get(`/api/stream/${broadcastId}/info`)
+          const { data } = await axios.get(`${API_BASE}/api/stream/${broadcastId}/info`)
           const times = chunkTimesRef.current
           let bitrate = 0
           if (times.length >= 2) {
@@ -292,7 +293,7 @@ export default function RadioStudio({
           chunkTimesRef.current.push(Date.now())
           if (chunkTimesRef.current.length > 10) chunkTimesRef.current.shift()
           try {
-            await axios.post(`/api/stream/${broadcastId}/chunk`, {
+            await axios.post(`${API_BASE}/api/stream/${broadcastId}/chunk`, {
               chunkIndex: chunkIndexRef.current++,
               chunkData: base64
             }, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
@@ -358,7 +359,7 @@ export default function RadioStudio({
       const blob = new Blob(cloudBlobsRef.current, { type: cloudMimeRef.current })
       const formData = new FormData()
       formData.append('recording', blob, `broadcast_${broadcastId}.webm`)
-      const { data } = await axios.post(`/api/broadcasts/${broadcastId}/recording`, formData, {
+      const { data } = await axios.post(`${API_BASE}/api/broadcasts/${broadcastId}/recording`, formData, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'multipart/form-data' }
       })
       setRecordingUrl(data.recording_url)
@@ -374,7 +375,7 @@ export default function RadioStudio({
   useEffect(() => {
     if (!broadcastId) return
     return () => {
-      axios.delete(`/api/stream/${broadcastId}`, {
+      axios.delete(`${API_BASE}/api/stream/${broadcastId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       }).catch(() => {})
     }
@@ -384,7 +385,7 @@ export default function RadioStudio({
     if (!isLive) return
     const interval = setInterval(async () => {
       try {
-        const { data } = await axios.get('/api/broadcasts/stats/overview')
+        const { data } = await axios.get('${API_BASE}broadcasts/stats/overview')
         setListenerCount(data.live || 0)
       } catch {}
     }, 5000)
@@ -496,7 +497,7 @@ export default function RadioStudio({
             style={{ background: 'rgba(34,197,94,0.1)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.2)' }}>
             <CheckCircle className="w-3.5 h-3.5" />
             Recording saved. Auto-deletes in 90 days.
-            <a href={`/api/broadcasts/${broadcastId}/recording/download`} download
+            <a href={`${API_BASE}/api/broadcasts/${broadcastId}/recording/download`} download
               className="ml-auto underline hover:opacity-80" style={{ color: '#c9a227' }}>
               Download
             </a>

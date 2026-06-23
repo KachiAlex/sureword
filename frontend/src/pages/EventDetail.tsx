@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import { API_BASE } from '../lib/api'
 import { usePageTitle } from '../hooks/usePageTitle'
 import {
   Calendar, MapPin, Clock, ArrowLeft, AlertCircle,
@@ -37,7 +38,7 @@ export default function EventDetail() {
   async function fetchEvent() {
     setLoading(true); setError('')
     try {
-      const { data } = await axios.get(`/api/events/${id}`, { timeout: 8000 })
+      const { data } = await axios.get(`${API_BASE}/api/events/${id}`, { timeout: 8000 })
       setEvent(data.event)
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to load event.')
@@ -46,7 +47,7 @@ export default function EventDetail() {
 
   async function fetchAttendees() {
     try {
-      const { data } = await axios.get(`/api/events/${id}/rsvps`, { timeout: 8000 })
+      const { data } = await axios.get(`${API_BASE}/api/events/${id}/rsvps`, { timeout: 8000 })
       setAttendeeCount(data.total || 0)
     } catch {
       setAttendeeCount(0)
@@ -58,7 +59,7 @@ export default function EventDetail() {
     if (!rsvpForm.name.trim() || !rsvpForm.email.trim()) return
     setRsvpLoading(true)
     try {
-      await axios.post(`/api/events/${id}/rsvp`, {
+      await axios.post(`${API_BASE}/api/events/${id}/rsvp`, {
         name: rsvpForm.name.trim(),
         email: rsvpForm.email.trim(),
         phone: rsvpForm.phone.trim(),

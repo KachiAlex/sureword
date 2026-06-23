@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import axios from 'axios'
+import { API_BASE } from '../lib/api'
 import { usePageTitle } from '../hooks/usePageTitle'
 import { Activity, CheckCircle, XCircle, Radio, Database, Server, Wifi, RefreshCw } from 'lucide-react'
 
@@ -23,7 +24,7 @@ export default function Status() {
 
   async function fetchStatus() {
     try {
-      const { data } = await axios.get('/api/status')
+      const { data } = await axios.get('${API_BASE}status')
       setData(data)
       setError(false)
     } catch {

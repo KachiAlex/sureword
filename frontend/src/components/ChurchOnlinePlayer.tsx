@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { Mic, MicOff, Radio, Users, BookOpen, Heart } from 'lucide-react'
 
 interface ChurchOnlinePlayerProps {

@@ -1,6 +1,7 @@
-import { useEffect, useState, useRef } from 'react'
+﻿import { useEffect, useState, useRef } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import axios from 'axios'
+import { API_BASE } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { usePageTitle } from '../hooks/usePageTitle'
 import {
@@ -81,7 +82,7 @@ function StreamPlayer({ broadcastId, title }: { broadcastId: string; title?: str
 
   async function fetchChunk(index: number): Promise<Blob | null> {
     try {
-      const res = await fetch(`/api/stream/${broadcastId}/chunk/${index}`)
+      const res = await fetch(`${API_BASE}/api/stream/${broadcastId}/chunk/${index}`)
       if (res.ok) return await res.blob()
     } catch {}
     return null
@@ -99,13 +100,13 @@ function StreamPlayer({ broadcastId, title }: { broadcastId: string; title?: str
   useEffect(() => {
     if (!started) return
     sessionIdRef.current = Math.random().toString(36).slice(2) + Date.now().toString(36)
-    fetch(`/api/stream/${broadcastId}/join`, {
+    fetch(`${API_BASE}/api/stream/${broadcastId}/join`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sessionId: sessionIdRef.current })
     }).catch(() => {})
 
     const heartbeat = setInterval(() => {
-      fetch(`/api/stream/${broadcastId}/heartbeat`, {
+      fetch(`${API_BASE}/api/stream/${broadcastId}/heartbeat`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId: sessionIdRef.current })
       }).catch(() => {})
@@ -113,7 +114,7 @@ function StreamPlayer({ broadcastId, title }: { broadcastId: string; title?: str
 
     fetchIntervalRef.current = setInterval(async () => {
       try {
-        const infoRes = await fetch(`/api/stream/${broadcastId}/info`)
+        const infoRes = await fetch(`${API_BASE}/api/stream/${broadcastId}/info`)
         if (!infoRes.ok) { setStatusText('Info error'); return }
         const info = await infoRes.json()
         setListenerCount(info.listenerCount || 0)
@@ -137,7 +138,7 @@ function StreamPlayer({ broadcastId, title }: { broadcastId: string; title?: str
     return () => {
       if (fetchIntervalRef.current) clearInterval(fetchIntervalRef.current)
       clearInterval(heartbeat)
-      fetch(`/api/stream/${broadcastId}/leave`, {
+      fetch(`${API_BASE}/api/stream/${broadcastId}/leave`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId: sessionIdRef.current })
       }).catch(() => {})
@@ -425,7 +426,7 @@ export default function Live() {
   async function reactToMessage(msgId: string, emoji: string) {
     setReactingTo(null)
     try {
-      const { data } = await axios.post(`/api/chat/${msgId}/react`, { emoji })
+      const { data } = await axios.post(`${API_BASE}/api/chat/${msgId}/react`, { emoji })
       setChatMessages(prev => prev.map(m => m.id === msgId ? { ...m, reactions: data.reactions } : m))
     } catch {}
   }
@@ -445,10 +446,10 @@ export default function Live() {
   async function fetchBroadcast() {
     try {
       if (broadcastId && broadcastId !== 'current') {
-        const { data } = await axios.get(`/api/broadcasts/${broadcastId}`)
+        const { data } = await axios.get(`${API_BASE}/api/broadcasts/${broadcastId}`)
         setBroadcast(data.broadcast)
       } else {
-        const { data } = await axios.get('/api/broadcasts/active')
+        const { data } = await axios.get(`${API_BASE}/api/broadcasts/active`)
         setBroadcast(data.broadcast)
       }
     } catch { setBroadcast(null) }
@@ -458,14 +459,14 @@ export default function Live() {
   async function fetchChatMessages() {
     const bid = broadcastId || broadcast?.id
     if (!bid) return
-    try { const { data } = await axios.get(`/api/chat/${bid}`); setChatMessages(data.messages || []) } catch {}
+    try { const { data } = await axios.get(`${API_BASE}/api/chat/${bid}`); setChatMessages(data.messages || []) } catch {}
   }
 
   async function fetchChatUsers() {
     const bid = broadcastId || broadcast?.id
     if (!bid) return
     try {
-      const { data } = await axios.get(`/api/chat/${bid}/users`)
+      const { data } = await axios.get(`${API_BASE}/api/chat/${bid}/users`)
       setChatUsers((data.users || []).filter((u: any) => u.user_id !== user?.id))
       setOnlineCount(data.users?.length || 0)
     } catch {}
@@ -480,9 +481,9 @@ export default function Live() {
       if (user) {
         const payload: any = { message: text }
         if (chatMode === 'private' && privateRecipient) payload.recipientId = privateRecipient.user_id
-        await axios.post(`/api/chat/${bid}`, payload, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+        await axios.post(`${API_BASE}/api/chat/${bid}`, payload, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
       } else {
-        await axios.post(`/api/chat/${bid}/guest`, { message: text, guestName: guestName.trim() || 'Guest' })
+        await axios.post(`${API_BASE}/api/chat/${bid}/guest`, { message: text, guestName: guestName.trim() || 'Guest' })
       }
       setNewMessage('')
       fetchChatMessages()

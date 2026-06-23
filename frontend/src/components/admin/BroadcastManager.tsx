@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import axios from 'axios'
+import { API_BASE } from '../../lib/api'
 import {
   Radio, Play, Square, Plus, Loader2, ArrowLeft,
   Mic, BookOpen, ExternalLink, AlertCircle, Monitor, ChevronDown, ChevronUp,
@@ -112,7 +113,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
       if (thumbnailFile) {
         thumbnail_url = await uploadThumbnail()
       }
-      const { data } = await axios.post('/api/broadcasts', {
+      const { data } = await axios.post('${API_BASE}broadcasts', {
         title, description, scripture_reference: scripture,
         church_online_url: churchOnlineUrl || undefined,
         rtmp_url: rtmpUrl || undefined,
@@ -120,7 +121,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
         thumbnail_url: thumbnail_url || undefined,
         speaker: speaker || undefined,
       }, { headers: { Authorization: `Bearer ${token}` } })
-      await axios.patch(`/api/broadcasts/${data.id}/start`, {}, { headers: { Authorization: `Bearer ${token}` } })
+      await axios.patch(`${API_BASE}/api/broadcasts/${data.id}/start`, {}, { headers: { Authorization: `Bearer ${token}` } })
       setBroadcastId(data.id)
       setThumbnailUrl(thumbnail_url || '')
       setStatus('live')
@@ -136,7 +137,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
   async function startBroadcast(id: string) {
     setActionLoading(true)
     try {
-      await axios.patch(`/api/broadcasts/${id}/start`, {}, { headers: { Authorization: `Bearer ${token}` } })
+      await axios.patch(`${API_BASE}/api/broadcasts/${id}/start`, {}, { headers: { Authorization: `Bearer ${token}` } })
       const b = broadcasts.find(x => x.id === id)
       if (b) {
         setBroadcastId(b.id)
@@ -160,7 +161,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     if (!broadcastId) return
     setActionLoading(true)
     try {
-      await axios.patch(`/api/broadcasts/${broadcastId}/pause`, {}, { headers: { Authorization: `Bearer ${token}` } })
+      await axios.patch(`${API_BASE}/api/broadcasts/${broadcastId}/pause`, {}, { headers: { Authorization: `Bearer ${token}` } })
       setStatus('paused')
       onRefresh()
     } catch (err: any) {
@@ -172,7 +173,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     if (!broadcastId) return
     setActionLoading(true)
     try {
-      await axios.patch(`/api/broadcasts/${broadcastId}/resume`, {}, { headers: { Authorization: `Bearer ${token}` } })
+      await axios.patch(`${API_BASE}/api/broadcasts/${broadcastId}/resume`, {}, { headers: { Authorization: `Bearer ${token}` } })
       setStatus('live')
       onRefresh()
     } catch (err: any) {
@@ -184,7 +185,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     if (!broadcastId) return
     setActionLoading(true)
     try {
-      await axios.patch(`/api/broadcasts/${broadcastId}/end`, {}, { headers: { Authorization: `Bearer ${token}` } })
+      await axios.patch(`${API_BASE}/api/broadcasts/${broadcastId}/end`, {}, { headers: { Authorization: `Bearer ${token}` } })
     } catch { /* ignore */ }
     setStatus('idle')
     setBroadcastId('')
@@ -244,7 +245,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     if (!thumbnailFile) return ''
     const formData = new FormData()
     formData.append('image', thumbnailFile)
-    const { data } = await axios.post('/api/uploads/image', formData, {
+    const { data } = await axios.post('${API_BASE}uploads/image', formData, {
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
     })
     return data.image_url || ''
@@ -356,7 +357,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
                     )}
                     {b.status === 'ended' && b.recording_url && (
                       <a
-                        href={`/api/broadcasts/${b.id}/recording/download`}
+                        href={`${API_BASE}/api/broadcasts/${b.id}/recording/download`}
                         className="p-1.5 rounded-md bg-[#c9a227]/10 hover:bg-[#c9a227]/20 text-[#c9a227] transition-colors"
                         title={`Download recording${b.recorded_at ? ` · expires ${new Date(new Date(b.recorded_at).getTime() + 90*24*60*60*1000).toLocaleDateString()}` : ''}`}
                         download

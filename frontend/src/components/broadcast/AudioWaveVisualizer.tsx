@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+﻿import { useEffect, useRef } from 'react'
 
 export default function AudioWaveVisualizer({ active, micMuted, stream: externalStream }: { active: boolean; micMuted: boolean; stream?: MediaStream }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)

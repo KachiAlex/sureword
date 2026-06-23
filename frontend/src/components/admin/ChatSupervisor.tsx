@@ -1,5 +1,6 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import axios from 'axios'
+import { API_BASE } from '../../lib/api'
 import { MessageSquare, Trash2, Loader2, RefreshCw } from 'lucide-react'
 
 interface ChatMessage {
@@ -18,7 +19,7 @@ export default function ChatSupervisor({ messages, onRefresh }: { messages: Chat
     if (!confirm('Delete this message?')) return
     setDeleting(id)
     try {
-      await axios.delete(`/api/chat/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+      await axios.delete(`${API_BASE}/api/chat/${id}`, { headers: { Authorization: `Bearer ${token}` } })
       onRefresh()
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to delete')

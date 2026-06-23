@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import axios from 'axios'
+import { API_BASE } from '../../lib/api'
 import { Star, Trash2, CheckCircle, Clock, User } from 'lucide-react'
 
 interface Testimony {
@@ -21,7 +22,7 @@ export default function TestimonyManager() {
   async function fetchTestimonies() {
     setLoading(true)
     try {
-      const res = await axios.get('/api/testimonies/admin/all', { headers: { Authorization: `Bearer ${token}` } })
+      const res = await axios.get('${API_BASE}testimonies/admin/all', { headers: { Authorization: `Bearer ${token}` } })
       setTestimonies(res.data.testimonies || [])
     } catch (err) {
       console.error('Failed to fetch testimonies:', err)
@@ -35,7 +36,7 @@ export default function TestimonyManager() {
   async function handleDelete(id: string) {
     if (!confirm('Delete this testimony?')) return
     try {
-      await axios.delete(`/api/testimonies/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+      await axios.delete(`${API_BASE}/api/testimonies/${id}`, { headers: { Authorization: `Bearer ${token}` } })
       fetchTestimonies()
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to delete')
@@ -44,7 +45,7 @@ export default function TestimonyManager() {
 
   async function handleStatus(id: string, status: string, is_featured: boolean) {
     try {
-      await axios.patch(`/api/testimonies/${id}`, { status, is_featured }, { headers: { Authorization: `Bearer ${token}` } })
+      await axios.patch(`${API_BASE}/api/testimonies/${id}`, { status, is_featured }, { headers: { Authorization: `Bearer ${token}` } })
       fetchTestimonies()
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to update')

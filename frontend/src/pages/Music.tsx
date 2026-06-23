@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback } from 'react'
+﻿import { useEffect, useState, useCallback } from 'react'
 import axios from 'axios'
+import { API_BASE } from '../lib/api'
 import { usePageTitle } from '../hooks/usePageTitle'
 import { useAudioPlayer } from '../contexts/AudioPlayerContext'
 import { useFavorites } from '../contexts/FavoritesContext'
@@ -49,7 +50,7 @@ export default function MusicPage() {
 
   async function fetchTracks() {
     try {
-      const { data } = await axios.get('/api/music')
+      const { data } = await axios.get('${API_BASE}music')
       setTracks(data.music || [])
     } catch (err) {
       console.error('Failed to fetch music:', err)

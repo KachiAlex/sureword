@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from 'react'
+﻿import { useEffect, useState, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import { API_BASE } from '../lib/api'
 import { usePageTitle } from '../hooks/usePageTitle'
 import { useAudioPlayer } from '../contexts/AudioPlayerContext'
 import { useFavorites } from '../contexts/FavoritesContext'
@@ -46,7 +47,7 @@ export default function SermonDetail() {
     setLoading(true)
     setError('')
     try {
-      const { data } = await axios.get(`/api/sermons/${id}`, { timeout: 8000 })
+      const { data } = await axios.get(`${API_BASE}/api/sermons/${id}`, { timeout: 8000 })
       setSermon(data.sermon)
       fetchRelated(data.sermon.id)
     } catch (err: any) {
@@ -58,7 +59,7 @@ export default function SermonDetail() {
 
   async function fetchRelated(excludeId: string) {
     try {
-      const { data } = await axios.get('/api/sermons', { timeout: 8000 })
+      const { data } = await axios.get('${API_BASE}sermons', { timeout: 8000 })
       const filtered = (data.sermons || [])
         .filter((s: Sermon) => s.id !== excludeId)
         .slice(0, 4)

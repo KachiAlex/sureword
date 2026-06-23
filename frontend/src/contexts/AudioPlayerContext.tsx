@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from 'react'
+﻿import { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from 'react'
 
 export interface Track {
   id: string
@@ -63,7 +63,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
   const trackPlay = useCallback((track: Track) => {
     if (!track.trackType) return
-    const endpoint = track.trackType === 'music' ? `/api/music/${track.id}/play` : `/api/sermons/${track.id}/play`
+    const endpoint = track.trackType === 'music' ? `${API_BASE}/api/music/${track.id}/play` : `${API_BASE}/api/sermons/${track.id}/play`
     fetch(endpoint, { method: 'POST' }).catch(() => {})
   }, [])
 

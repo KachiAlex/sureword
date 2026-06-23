@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import axios from 'axios'
+import { API_BASE } from '../../lib/api'
 import { Mic2, Plus, X, Save, Trash2 } from 'lucide-react'
 
 interface GuestSpeaker {
@@ -22,7 +23,7 @@ export default function GuestSpeakerManager() {
   async function fetchSpeakers() {
     setLoading(true)
     try {
-      const res = await axios.get('/api/guest-speakers')
+      const res = await axios.get('${API_BASE}guest-speakers')
       setSpeakers(res.data.speakers || [])
     } catch (err) {
       console.error('Failed to fetch guest speakers:', err)
@@ -36,7 +37,7 @@ export default function GuestSpeakerManager() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     try {
-      await axios.post('/api/guest-speakers', form, { headers: { Authorization: `Bearer ${token}` } })
+      await axios.post('${API_BASE}guest-speakers', form, { headers: { Authorization: `Bearer ${token}` } })
       setShowForm(false)
       setForm({ name: '', bio: '', photo_url: '', topic: '', date: '', is_active: true })
       fetchSpeakers()
@@ -48,7 +49,7 @@ export default function GuestSpeakerManager() {
   async function handleDelete(id: string) {
     if (!confirm('Delete this speaker?')) return
     try {
-      await axios.delete(`/api/guest-speakers/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+      await axios.delete(`${API_BASE}/api/guest-speakers/${id}`, { headers: { Authorization: `Bearer ${token}` } })
       fetchSpeakers()
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to delete')
@@ -57,7 +58,7 @@ export default function GuestSpeakerManager() {
 
   async function toggleActive(speaker: GuestSpeaker) {
     try {
-      await axios.patch(`/api/guest-speakers/${speaker.id}`, { is_active: !speaker.is_active }, { headers: { Authorization: `Bearer ${token}` } })
+      await axios.patch(`${API_BASE}/api/guest-speakers/${speaker.id}`, { is_active: !speaker.is_active }, { headers: { Authorization: `Bearer ${token}` } })
       fetchSpeakers()
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to update')

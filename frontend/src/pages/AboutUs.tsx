@@ -1,4 +1,4 @@
-import { Cross, Radio, Heart, Users, Mic2, Globe } from 'lucide-react'
+﻿import { Cross, Radio, Heart, Users, Mic2, Globe } from 'lucide-react'
 import { usePageTitle } from '../hooks/usePageTitle'
 
 export default function AboutUs() {

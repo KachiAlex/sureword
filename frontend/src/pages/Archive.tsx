@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
+import { API_BASE } from '../lib/api'
 import { usePageTitle } from '../hooks/usePageTitle'
 import { useAudioPlayer } from '../contexts/AudioPlayerContext'
 import { useFavorites } from '../contexts/FavoritesContext'
@@ -42,7 +43,7 @@ export default function Archive() {
     setLoading(true)
     setError('')
     try {
-      const { data } = await axios.get('/api/sermons', { timeout: 8000 })
+      const { data } = await axios.get('${API_BASE}sermons', { timeout: 8000 })
       setSermons(data.sermons || [])
     } catch (err: any) {
       console.error('Failed to fetch sermons:', err)

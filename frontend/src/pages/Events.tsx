@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import axios from 'axios'
+import { API_BASE } from '../lib/api'
 import { usePageTitle } from '../hooks/usePageTitle'
 import { Link } from 'react-router-dom'
 import { Calendar, MapPin, Clock, AlertCircle, Tag } from 'lucide-react'
@@ -28,7 +29,7 @@ export default function Events() {
     setLoading(true)
     setError('')
     try {
-      const { data } = await axios.get('/api/events', { timeout: 8000 })
+      const { data } = await axios.get('${API_BASE}events', { timeout: 8000 })
       setEvents(data.events || [])
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to load events.')

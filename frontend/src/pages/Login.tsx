@@ -1,6 +1,7 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
+import { API_BASE } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { usePageTitle } from '../hooks/usePageTitle'
 import { loginSchema, registerSchema } from '../lib/validation'
@@ -33,7 +34,7 @@ export default function Login() {
 
     setLoading(true)
     try {
-      const endpoint = isRegister ? '/api/auth/register' : '/api/auth/login'
+      const endpoint = isRegister ? '${API_BASE}auth/register' : '${API_BASE}auth/login'
       console.log('[AUTH] calling', endpoint, 'with', JSON.stringify(Object.keys(payload)))
       const { data } = await axios.post(endpoint, payload, { timeout: 15000 })
       console.log('[AUTH] success, role:', data.user?.role)

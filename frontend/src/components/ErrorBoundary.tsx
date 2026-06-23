@@ -1,4 +1,4 @@
-import { Component, type ReactNode } from 'react'
+﻿import { Component, type ReactNode } from 'react'
 import { Radio, RefreshCw, Home } from 'lucide-react'
 import { Link } from 'react-router-dom'
 

@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import axios from 'axios'
+import { API_BASE } from '../../lib/api'
 import { Heart, Trash2, CheckCircle2 } from 'lucide-react'
 
 interface Prayer {
@@ -20,7 +21,7 @@ export default function PrayerManager() {
   async function fetchPrayers() {
     setLoading(true)
     try {
-      const res = await axios.get('/api/prayer/admin/all', { headers: { Authorization: `Bearer ${token}` } })
+      const res = await axios.get('${API_BASE}prayer/admin/all', { headers: { Authorization: `Bearer ${token}` } })
       setPrayers(res.data.prayers || [])
     } catch (err) {
       console.error('Failed to fetch prayers:', err)
@@ -34,7 +35,7 @@ export default function PrayerManager() {
   async function handleDelete(id: string) {
     if (!confirm('Delete this prayer request?')) return
     try {
-      await axios.delete(`/api/prayer/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+      await axios.delete(`${API_BASE}/api/prayer/${id}`, { headers: { Authorization: `Bearer ${token}` } })
       fetchPrayers()
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to delete')

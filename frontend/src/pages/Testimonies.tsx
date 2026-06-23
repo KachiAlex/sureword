@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import axios from 'axios'
+import { API_BASE } from '../lib/api'
 import { usePageTitle } from '../hooks/usePageTitle'
 import { useAuth } from '../contexts/AuthContext'
 import { Send, AlertCircle, Clock, Star } from 'lucide-react'
@@ -32,7 +33,7 @@ export default function Testimonies() {
     setLoading(true)
     setError('')
     try {
-      const { data } = await axios.get('/api/testimonies', { timeout: 8000 })
+      const { data } = await axios.get('${API_BASE}testimonies', { timeout: 8000 })
       setTestimonies(data.testimonies || [])
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to load testimonies.')
@@ -54,7 +55,7 @@ export default function Testimonies() {
     }
     setSubmitting(true)
     try {
-      await axios.post('/api/testimonies', { name: name.trim(), email: email.trim() || null, content: content.trim(), is_anonymous: isAnonymous })
+      await axios.post('${API_BASE}testimonies', { name: name.trim(), email: email.trim() || null, content: content.trim(), is_anonymous: isAnonymous })
       setContent('')
       setIsAnonymous(false)
       fetchTestimonies()

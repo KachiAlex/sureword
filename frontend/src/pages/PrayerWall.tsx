@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import axios from 'axios'
+import { API_BASE } from '../lib/api'
 import { usePageTitle } from '../hooks/usePageTitle'
 import { useAuth } from '../contexts/AuthContext'
 import { prayerRequestSchema } from '../lib/validation'
@@ -35,7 +36,7 @@ export default function PrayerWall() {
     setLoading(true)
     setError('')
     try {
-      const { data } = await axios.get('/api/prayer', { timeout: 8000 })
+      const { data } = await axios.get('${API_BASE}prayer', { timeout: 8000 })
       setPrayers(data.prayers || [])
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to load prayer requests.')
@@ -54,7 +55,7 @@ export default function PrayerWall() {
     }
     setSubmitting(true)
     try {
-      await axios.post('/api/prayer', { name: name.trim() || 'Anonymous', request: request.trim(), is_anonymous: isAnonymous })
+      await axios.post('${API_BASE}prayer', { name: name.trim() || 'Anonymous', request: request.trim(), is_anonymous: isAnonymous })
       setName('')
       setRequest('')
       setIsAnonymous(false)
@@ -69,7 +70,7 @@ export default function PrayerWall() {
   async function handlePray(id: string) {
     if (!user) return
     try {
-      await axios.post(`/api/prayer/${id}/pray`)
+      await axios.post(`${API_BASE}/api/prayer/${id}/pray`)
       setPrayers(prayers.map(p => p.id === id ? { ...p, prayers_count: (p.prayers_count || 0) + 1, has_prayed: true } : p))
     } catch (err: any) {
       if (err.response?.status === 409) {
@@ -84,7 +85,7 @@ export default function PrayerWall() {
   async function handleAnswered(id: string, answered: boolean) {
     if (!user) return
     try {
-      await axios.patch(`/api/prayer/${id}/answered`, { is_answered: answered })
+      await axios.patch(`${API_BASE}/api/prayer/${id}/answered`, { is_answered: answered })
       setPrayers(prayers.map(p => p.id === id ? { ...p, is_answered: answered } : p))
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to update answered status.')

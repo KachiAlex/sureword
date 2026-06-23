@@ -1,4 +1,4 @@
-import * as ID3WriterNS from 'browser-id3-writer'
+﻿import * as ID3WriterNS from 'browser-id3-writer'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ID3Writer: any = (ID3WriterNS as any).default ?? ID3WriterNS
 

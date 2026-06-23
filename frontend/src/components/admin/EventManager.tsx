@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import axios from 'axios'
+import { API_BASE } from '../../lib/api'
 import {
   Calendar, Plus, X, Save, Trash2, Pencil, Users,
   Image, Loader2, Upload
@@ -46,7 +47,7 @@ export default function EventManager() {
   async function fetchEvents() {
     setLoading(true)
     try {
-      const res = await axios.get('/api/events')
+      const res = await axios.get('${API_BASE}events')
       setEvents(res.data.events || [])
     } catch (err) {
       console.error('Failed to fetch events:', err)
@@ -89,7 +90,7 @@ export default function EventManager() {
   }
 
   async function uploadToCloudinary(file: File): Promise<string> {
-    const { data: sig } = await axios.get(`/api/music/signature?folder=events`, {
+    const { data: sig } = await axios.get(`${API_BASE}/api/music/signature?folder=events`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     const fd = new FormData()
@@ -116,9 +117,9 @@ export default function EventManager() {
       }
       const payload = { ...form, image_url: imageUrl }
       if (editingId) {
-        await axios.patch(`/api/events/${editingId}`, payload, { headers: { Authorization: `Bearer ${token}` } })
+        await axios.patch(`${API_BASE}/api/events/${editingId}`, payload, { headers: { Authorization: `Bearer ${token}` } })
       } else {
-        await axios.post('/api/events', payload, { headers: { Authorization: `Bearer ${token}` } })
+        await axios.post('${API_BASE}events', payload, { headers: { Authorization: `Bearer ${token}` } })
       }
       setShowForm(false)
       resetForm()
@@ -134,7 +135,7 @@ export default function EventManager() {
   async function handleDelete(id: string) {
     if (!confirm('Delete this event?')) return
     try {
-      await axios.delete(`/api/events/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+      await axios.delete(`${API_BASE}/api/events/${id}`, { headers: { Authorization: `Bearer ${token}` } })
       fetchEvents()
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to delete')
@@ -143,7 +144,7 @@ export default function EventManager() {
 
   async function toggleActive(evt: Event) {
     try {
-      await axios.patch(`/api/events/${evt.id}`, { is_active: !evt.is_active }, { headers: { Authorization: `Bearer ${token}` } })
+      await axios.patch(`${API_BASE}/api/events/${evt.id}`, { is_active: !evt.is_active }, { headers: { Authorization: `Bearer ${token}` } })
       fetchEvents()
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to update')
@@ -154,7 +155,7 @@ export default function EventManager() {
     setViewRsvps(eventId)
     setShowForm(false)
     try {
-      const { data } = await axios.get(`/api/events/${eventId}/rsvps`, { headers: { Authorization: `Bearer ${token}` } })
+      const { data } = await axios.get(`${API_BASE}/api/events/${eventId}/rsvps`, { headers: { Authorization: `Bearer ${token}` } })
       setRsvps(data.rsvps || [])
       setRsvpStats({ total: data.total || 0, guestTotal: data.guestTotal || 0 })
     } catch (err: any) {
