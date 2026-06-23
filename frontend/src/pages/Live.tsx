@@ -70,6 +70,8 @@ function StreamPlayer({ broadcastId, title }: { broadcastId: string; title?: str
   const userPausedRef = useRef(false)
   const ctxRef = useRef<AudioContext | null>(null)
   const gainRef = useRef<GainNode | null>(null)
+  const streamDestRef = useRef<MediaStreamAudioDestinationNode | null>(null)
+  const keepAliveAudioRef = useRef<HTMLAudioElement | null>(null)
   const sessionIdRef = useRef('')
   const titleRef = useRef('')
 
@@ -142,11 +144,19 @@ function StreamPlayer({ broadcastId, title }: { broadcastId: string; title?: str
     if (gainRef.current) gainRef.current.gain.value = volume / 100
   }, [volume])
 
-  // Resume AudioContext when tab becomes visible again (browser may suspend it)
+  // Resume AudioContext on visibility restore (belt-and-suspenders alongside the keep-alive audio)
   useEffect(() => {
     function onVisible() {
-      if (document.visibilityState === 'visible' && ctxRef.current?.state === 'suspended' && !userPausedRef.current) {
-        ctxRef.current.resume().catch(() => {})
+      if (document.visibilityState !== 'visible') return
+      const ctx = ctxRef.current
+      if (!ctx || userPausedRef.current) return
+      if (ctx.state === 'suspended') {
+        ctx.resume().then(() => {
+          // Restart keep-alive audio if it stopped
+          keepAliveAudioRef.current?.play().catch(() => {})
+          // Re-kick playback if queue has items but nothing is playing
+          if (!playingRef.current && decodedRef.current.length > 0) scheduleNext()
+        }).catch(() => {})
       }
     }
     document.addEventListener('visibilitychange', onVisible)
@@ -154,7 +164,12 @@ function StreamPlayer({ broadcastId, title }: { broadcastId: string; title?: str
   }, [])
 
   useEffect(() => {
-    return () => { if (ctxRef.current) { ctxRef.current.close().catch(() => {}); ctxRef.current = null } }
+    return () => {
+      keepAliveAudioRef.current?.pause()
+      keepAliveAudioRef.current = null
+      streamDestRef.current = null
+      if (ctxRef.current) { ctxRef.current.close().catch(() => {}); ctxRef.current = null }
+    }
   }, [])
 
   function updateMediaSession(playing: boolean) {
@@ -243,6 +258,20 @@ function StreamPlayer({ broadcastId, title }: { broadcastId: string; title?: str
       g.gain.value = volume / 100
       g.connect(ctx.destination)
       gainRef.current = g
+
+      // Wire a MediaStreamDestination → hidden <audio> so the browser
+      // treats this as a media stream and won't suspend the AudioContext
+      // when the tab is minimised or screen is locked.
+      try {
+        const dest = ctx.createMediaStreamDestination()
+        streamDestRef.current = dest
+        g.connect(dest)
+        const audio = new Audio()
+        audio.srcObject = dest.stream
+        audio.volume = 0.001  // near-silent; real audio comes from ctx.destination
+        audio.play().catch(() => {})
+        keepAliveAudioRef.current = audio
+      } catch {}
     }
     titleRef.current = broadcastTitle || title || 'Live Broadcast'
     setupMediaSession(titleRef.current)

@@ -1,9 +1,6 @@
 import { test, expect } from '@playwright/test'
 
 test('debug home page', async ({ page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'serviceWorker', { value: undefined, writable: false })
-  })
   await page.route('**/api/broadcasts/active', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ broadcast: null }) })
   })
@@ -25,25 +22,27 @@ test('debug home page', async ({ page }) => {
   page.on('requestfailed', req => console.log(`[REQUEST FAILED] ${req.url()} - ${req.failure()?.errorText}`))
 
   await page.goto('/')
-  await page.waitForTimeout(3000)
+  await page.waitForTimeout(5000)
 
   const html = await page.content()
-  console.log('=== PAGE HTML (first 3000 chars) ===')
-  console.log(html.substring(0, 3000))
-  console.log('=== END PAGE HTML ===')
+  const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
+  console.log('=== BODY HTML ===')
+  console.log(bodyMatch ? bodyMatch[1].substring(0, 2000) : 'NO BODY FOUND')
+  console.log('=== END BODY HTML ===')
 
   const text = await page.locator('body').innerText()
   console.log('=== PAGE TEXT ===')
   console.log(text)
   console.log('=== END PAGE TEXT ===')
 
-  await page.screenshot({ path: 'c:/zionite/debug-home.png', fullPage: true })
+  // Check if root div exists
+  const rootHtml = await page.locator('#root').innerHTML().catch(() => 'ROOT NOT FOUND')
+  console.log('=== ROOT HTML ===')
+  console.log(rootHtml)
+  console.log('=== END ROOT HTML ===')
 })
 
 test('debug music page', async ({ page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'serviceWorker', { value: undefined, writable: false })
-  })
   await page.route('**/api/music', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ music: [] }) })
   })
@@ -53,17 +52,21 @@ test('debug music page', async ({ page }) => {
   page.on('requestfailed', req => console.log(`[REQUEST FAILED] ${req.url()} - ${req.failure()?.errorText}`))
 
   await page.goto('/music')
-  await page.waitForTimeout(3000)
+  await page.waitForTimeout(5000)
 
   const html = await page.content()
-  console.log('=== PAGE HTML (first 3000 chars) ===')
-  console.log(html.substring(0, 3000))
-  console.log('=== END PAGE HTML ===')
+  const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
+  console.log('=== BODY HTML ===')
+  console.log(bodyMatch ? bodyMatch[1].substring(0, 2000) : 'NO BODY FOUND')
+  console.log('=== END BODY HTML ===')
 
   const text = await page.locator('body').innerText()
   console.log('=== PAGE TEXT ===')
   console.log(text)
   console.log('=== END PAGE TEXT ===')
 
-  await page.screenshot({ path: 'c:/zionite/debug-music.png', fullPage: true })
+  const rootHtml = await page.locator('#root').innerHTML().catch(() => 'ROOT NOT FOUND')
+  console.log('=== ROOT HTML ===')
+  console.log(rootHtml)
+  console.log('=== END ROOT HTML ===')
 })
