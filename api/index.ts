@@ -163,6 +163,8 @@ async function _doInitDb() {
   try { await dbQuery(`ALTER TABLE sermons ADD COLUMN IF NOT EXISTS thumbnail_url TEXT`) } catch {}
   try { await dbQuery(`ALTER TABLE sermons ADD COLUMN IF NOT EXISTS play_count INTEGER DEFAULT 0`) } catch {}
   try { await dbQuery(`UPDATE sermons SET play_count = 0 WHERE play_count IS NULL`) } catch {}
+  try { await dbQuery(`ALTER TABLE sermons ADD COLUMN IF NOT EXISTS is_featured BOOLEAN DEFAULT FALSE`) } catch {}
+  try { await dbQuery(`UPDATE sermons SET is_featured=FALSE WHERE is_featured IS NULL`) } catch {}
 
   // Add music columns if missing
   try { await dbQuery(`ALTER TABLE music ADD COLUMN IF NOT EXISTS play_count INTEGER DEFAULT 0`) } catch {}
@@ -442,12 +444,33 @@ app.get('/broadcasts/stats/overview', async (_req, res) => {
 })
 
 // ── Sermon routes ──────────────────────────────────────────────
+app.get('/sermons/featured', async (_req, res) => {
+  try {
+    await initDb()
+    // Return explicitly featured sermons; if none, fall back to the 4 newest
+    let rows = await dbQuery(`SELECT * FROM sermons WHERE is_featured=TRUE ORDER BY date DESC`)
+    if (!rows || rows.length === 0) {
+      rows = await dbQuery(`SELECT * FROM sermons ORDER BY date DESC LIMIT 4`)
+    }
+    res.json({ sermons: rows })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
 app.get('/sermons', async (req, res) => {
   try {
     await initDb()
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 50
     const rows = await dbQuery('SELECT * FROM sermons ORDER BY date DESC LIMIT $1', [limit])
     res.json({ sermons: rows })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.patch('/sermons/:id/featured', auth, requireRole('admin'), async (req: AuthReq, res) => {
+  try {
+    await initDb()
+    const { is_featured } = req.body
+    await dbQuery(`UPDATE sermons SET is_featured=$1 WHERE id=$2`, [!!is_featured, req.params.id])
+    res.json({ success: true, is_featured: !!is_featured })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 

@@ -5,7 +5,7 @@ import { Link } from "react-router-dom"
 import { useAuth } from "../contexts/AuthContext"
 import { usePageTitle } from "../hooks/usePageTitle"
 import { useAudioPlayer } from "../contexts/AudioPlayerContext"
-import { useActiveBroadcast, useSermons, useMusic, useGuestSpeakers, useEvents } from "../lib/api"
+import { useActiveBroadcast, useFeaturedSermons, useMusic, useGuestSpeakers, useEvents } from "../lib/api"
 import type { Sermon, MusicTrack } from "../lib/api"
 import StructuredData from "../components/StructuredData"
 import {
@@ -130,7 +130,7 @@ const MusicCard = memo(function MusicCard({ track }: { track: MusicTrack }) {
 export default function Home() {
   usePageTitle('The Voice of Redemption')
   const { data: broadcast } = useActiveBroadcast()
-  const { data: sermons = [] } = useSermons(4)
+  const { data: sermons = [] } = useFeaturedSermons()
   const { data: musicTracks = [] } = useMusic()
   const { data: guestSpeakers = [] } = useGuestSpeakers()
   const { data: events = [] } = useEvents()
@@ -247,9 +247,16 @@ export default function Home() {
               <section className="rounded-2xl border border-[rgba(243,238,228,0.08)] bg-[#1c1d24] p-5 hover-lift">
                 <SectionHeader title="Featured Sermons" action="View All" to="/archive" />
                 {sermons.length > 0 ? (
-                  <div className="flex flex-wrap gap-3">
-                    {sermons.slice(0, 2).map(s => <SermonCard key={s.id} s={s} />)}
-                  </div>
+                  <>
+                    <div className="flex flex-wrap gap-3">
+                      {sermons.slice(0, 4).map(s => <SermonCard key={s.id} s={s} />)}
+                    </div>
+                    <Link to="/archive"
+                      className="mt-4 w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold transition-colors hover:text-[#c9a227]"
+                      style={{ border: '1px solid var(--line)', color: 'var(--dim)' }}>
+                      <BookOpen className="w-3.5 h-3.5" /> View All Sermons
+                    </Link>
+                  </>
                 ) : (
                   <div className="text-center py-6">
                     <BookOpen className="w-8 h-8 mx-auto mb-2 text-[#9c958a]/40" />

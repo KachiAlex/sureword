@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 export const api = axios.create({ baseURL: '/api', timeout: 15000 })
 
 export interface Broadcast { id: string; title: string; description?: string; scripture_reference?: string; status: string; started_at?: string; broadcaster_id: string; speaker?: string; thumbnail_url?: string }
-export interface Sermon { id: string; title: string; scripture_reference?: string; speaker?: string; series?: string; duration?: number; date: string; audio_url?: string; video_url?: string; thumbnail_url?: string }
+export interface Sermon { id: string; title: string; scripture_reference?: string; speaker?: string; series?: string; duration?: number; date: string; audio_url?: string; video_url?: string; thumbnail_url?: string; is_featured?: boolean }
 export interface GuestSpeaker { id: string; name: string; bio: string; photo_url: string; topic: string; date: string; is_active: boolean }
 export interface EventItem { id: string; title: string; description: string; date: string; time: string; location: string; image_url: string; category?: string }
 export interface MusicTrack { id: string; title: string; artist: string; album: string; genre: string; audio_url: string; cover_url: string; duration: number; lyrics: string }
@@ -36,6 +36,13 @@ export function useActiveBroadcast() {
 export function useSermons(limit?: number) {
   return useQuery<Sermon[]>({ queryKey: ['sermons', limit], queryFn: async () => {
     const { data } = await api.get(`/sermons${limit ? `?limit=${limit}` : ''}`)
+    return data.sermons as Sermon[]
+  }})
+}
+
+export function useFeaturedSermons() {
+  return useQuery<Sermon[]>({ queryKey: ['sermons', 'featured'], queryFn: async () => {
+    const { data } = await api.get('/sermons/featured')
     return data.sermons as Sermon[]
   }})
 }

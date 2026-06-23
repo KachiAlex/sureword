@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import axios from 'axios'
-import { Headphones, Plus, Loader2, Image, Upload, Cloud, Video, AudioLines } from 'lucide-react'
+import { Headphones, Plus, Loader2, Image, Upload, Cloud, Video, AudioLines, Star } from 'lucide-react'
 
 interface Sermon {
   id: string
@@ -10,11 +10,13 @@ interface Sermon {
   video_url: string
   thumbnail_url: string
   date: string
+  is_featured?: boolean
 }
 
 type UploadMode = 'audio' | 'video'
 
 export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[]; onRefresh: () => void }) {
+  const [togglingId, setTogglingId] = useState<string | null>(null)
   const [mode, setMode] = useState<UploadMode>('audio')
   const [form, setForm] = useState({ title: '', speaker: '', video_url: '', scripture_reference: '', series: '', description: '', duration: '' })
   const [audioFile, setAudioFile] = useState<File | null>(null)
@@ -45,6 +47,17 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
     const up = await res.json()
     if (!res.ok) throw new Error(up.error?.message || 'Cloudinary upload failed')
     return up.secure_url
+  }
+
+  async function toggleFeatured(s: Sermon) {
+    setTogglingId(s.id)
+    try {
+      await axios.patch(`/api/sermons/${s.id}/featured`, { is_featured: !s.is_featured }, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      onRefresh()
+    } catch {}
+    finally { setTogglingId(null) }
   }
 
   function resetForm() {
@@ -273,11 +286,15 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
 
       {/* Sermon list */}
       <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
-        <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--line)', background: 'rgba(243,238,228,0.03)' }}>
+        <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--line)', background: 'rgba(243,238,228,0.03)' }}>
           <h3 className="font-semibold flex items-center gap-2">
             <Headphones className="w-4 h-4" style={{ color: 'var(--gold)' }} />
             Sermons ({sermons.length})
           </h3>
+          <span className="text-[11px] flex items-center gap-1" style={{ color: 'var(--dim)' }}>
+            <Star className="w-3 h-3 fill-[#c9a227] text-[#c9a227]" />
+            {sermons.filter(s => s.is_featured).length} featured on home page
+          </span>
         </div>
         {sermons.length === 0 ? (
           <div className="p-8 text-center" style={{ color: 'var(--dim)' }}>No sermons yet</div>
@@ -300,15 +317,26 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
                     </p>
                   </div>
                 </div>
-                <a
-                  href={s.video_url || s.audio_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs px-3 py-1.5 rounded-lg border transition-colors hover:border-yellow-500"
-                  style={{ borderColor: 'var(--line)', color: 'var(--parchment)' }}
-                >
-                  {s.video_url ? 'Watch' : 'Listen'}
-                </a>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => toggleFeatured(s)}
+                    disabled={togglingId === s.id}
+                    title={s.is_featured ? 'Remove from featured' : 'Feature on home page'}
+                    className="p-1.5 rounded-lg transition-colors disabled:opacity-40"
+                    style={{ background: s.is_featured ? 'rgba(201,162,39,0.15)' : 'var(--ink)', border: '1px solid var(--line)' }}
+                  >
+                    <Star className="w-3.5 h-3.5" fill={s.is_featured ? '#c9a227' : 'none'} style={{ color: s.is_featured ? '#c9a227' : 'var(--dim)' }} />
+                  </button>
+                  <a
+                    href={s.video_url || s.audio_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs px-3 py-1.5 rounded-lg border transition-colors hover:border-yellow-500"
+                    style={{ borderColor: 'var(--line)', color: 'var(--parchment)' }}
+                  >
+                    {s.video_url ? 'Watch' : 'Listen'}
+                  </a>
+                </div>
               </div>
             ))}
           </div>
