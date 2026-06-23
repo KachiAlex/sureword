@@ -34,7 +34,7 @@ export default function Login() {
 
     setLoading(true)
     try {
-      const endpoint = isRegister ? '${API_BASE}auth/register' : '${API_BASE}auth/login'
+      const endpoint = isRegister ? `${API_BASE}auth/register` : `${API_BASE}auth/login`
       console.log('[AUTH] calling', endpoint, 'with', JSON.stringify(Object.keys(payload)))
       const { data } = await axios.post(endpoint, payload, { timeout: 15000 })
       console.log('[AUTH] success, role:', data.user?.role)

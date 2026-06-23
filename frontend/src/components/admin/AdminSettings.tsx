@@ -27,9 +27,9 @@ export default function AdminSettings() {
 
   useEffect(() => {
     if (!token) return
-    axios.get('${API_BASE}push/subscribers/count', { headers: { Authorization: `Bearer ${token}` } })
+    axios.get(`${API_BASE}push/subscribers/count`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => setSubCount(r.data.count)).catch(() => {})
-    axios.get('${API_BASE}newsletter/subscribers', { headers: { Authorization: `Bearer ${token}` } })
+    axios.get(`${API_BASE}newsletter/subscribers`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => setNewsletterCount(r.data.total)).catch(() => {})
   }, [token])
 
@@ -40,7 +40,7 @@ export default function AdminSettings() {
     setChanging(true)
     setPwdSuccess(false)
     try {
-      await axios.post('${API_BASE}auth/change-password', { currentPassword: pwdForm.current, newPassword: pwdForm.newPass },
+      await axios.post(`${API_BASE}auth/change-password`, { currentPassword: pwdForm.current, newPassword: pwdForm.newPass },
         { headers: { Authorization: `Bearer ${token}` } })
       setPwdForm({ current: '', newPass: '', confirm: '' })
       setPwdSuccess(true)
@@ -55,7 +55,7 @@ export default function AdminSettings() {
     setSending(true)
     setSendResult(null)
     try {
-      const r = await axios.post('${API_BASE}push/broadcast', pushForm, { headers: { Authorization: `Bearer ${token}` } })
+      const r = await axios.post(`${API_BASE}push/broadcast`, pushForm, { headers: { Authorization: `Bearer ${token}` } })
       setSendResult(r.data.message || 'Sent!')
       setPushForm({ title: '', body: '', url: '' })
     } catch (err: any) {

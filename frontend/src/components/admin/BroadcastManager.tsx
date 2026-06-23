@@ -113,7 +113,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
       if (thumbnailFile) {
         thumbnail_url = await uploadThumbnail()
       }
-      const { data } = await axios.post('${API_BASE}broadcasts', {
+      const { data } = await axios.post(`${API_BASE}broadcasts`, {
         title, description, scripture_reference: scripture,
         church_online_url: churchOnlineUrl || undefined,
         rtmp_url: rtmpUrl || undefined,
@@ -245,7 +245,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     if (!thumbnailFile) return ''
     const formData = new FormData()
     formData.append('image', thumbnailFile)
-    const { data } = await axios.post('${API_BASE}uploads/image', formData, {
+    const { data } = await axios.post(`${API_BASE}uploads/image`, formData, {
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
     })
     return data.image_url || ''

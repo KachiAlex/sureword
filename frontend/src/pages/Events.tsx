@@ -29,7 +29,7 @@ export default function Events() {
     setLoading(true)
     setError('')
     try {
-      const { data } = await axios.get('${API_BASE}events', { timeout: 8000 })
+      const { data } = await axios.get(`${API_BASE}events`, { timeout: 8000 })
       setEvents(data.events || [])
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to load events.')

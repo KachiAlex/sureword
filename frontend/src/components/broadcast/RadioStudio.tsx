@@ -17,7 +17,7 @@ function NetworkIndicator() {
     const interval = setInterval(async () => {
       const start = Date.now()
       try {
-        await fetch('${API_BASE}ping', { method: 'GET', cache: 'no-store' })
+        await fetch(`${API_BASE}ping`, { method: 'GET', cache: 'no-store' })
         const ms = Date.now() - start
         setLatency(ms)
         setStrength(ms < 100 ? 4 : ms < 200 ? 3 : ms < 400 ? 2 : 1)
@@ -385,7 +385,7 @@ export default function RadioStudio({
     if (!isLive) return
     const interval = setInterval(async () => {
       try {
-        const { data } = await axios.get('${API_BASE}broadcasts/stats/overview')
+        const { data } = await axios.get(`${API_BASE}broadcasts/stats/overview`)
         setListenerCount(data.live || 0)
       } catch {}
     }, 5000)

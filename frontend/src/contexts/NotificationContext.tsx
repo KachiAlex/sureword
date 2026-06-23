@@ -63,7 +63,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const token = localStorage.getItem('token')
     if (!token || !biometricSupported) return
-    fetch('${API_BASE}auth/webauthn/credentials', { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${API_BASE}auth/webauthn/credentials`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(data => {
         const creds = data.credentials || []
@@ -94,7 +94,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const userData = localStorage.getItem('user')
       const userId = userData ? JSON.parse(userData).id : undefined
 
-      await fetch('${API_BASE}push/subscribe', {
+      await fetch(`${API_BASE}push/subscribe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({
@@ -120,7 +120,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const reg = await navigator.serviceWorker.ready
       const sub = await reg.pushManager.getSubscription()
       if (sub) {
-        await fetch('${API_BASE}push/unsubscribe', {
+        await fetch(`${API_BASE}push/unsubscribe`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ endpoint: sub.endpoint })
@@ -167,7 +167,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         ? 'iPhone / iPad' : navigator.userAgent.includes('Android') ? 'Android Device' : 'This Device'
 
       const token = localStorage.getItem('token')
-      const res = await fetch('${API_BASE}auth/webauthn/register', {
+      const res = await fetch(`${API_BASE}auth/webauthn/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ credential_id: credentialId, public_key: publicKey, device_name: deviceName })

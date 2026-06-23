@@ -23,7 +23,7 @@ export default function GuestSpeakerManager() {
   async function fetchSpeakers() {
     setLoading(true)
     try {
-      const res = await axios.get('${API_BASE}guest-speakers')
+      const res = await axios.get(`${API_BASE}guest-speakers`)
       setSpeakers(res.data.speakers || [])
     } catch (err) {
       console.error('Failed to fetch guest speakers:', err)
@@ -37,7 +37,7 @@ export default function GuestSpeakerManager() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     try {
-      await axios.post('${API_BASE}guest-speakers', form, { headers: { Authorization: `Bearer ${token}` } })
+      await axios.post(`${API_BASE}guest-speakers`, form, { headers: { Authorization: `Bearer ${token}` } })
       setShowForm(false)
       setForm({ name: '', bio: '', photo_url: '', topic: '', date: '', is_active: true })
       fetchSpeakers()

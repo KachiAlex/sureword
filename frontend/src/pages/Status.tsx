@@ -24,7 +24,7 @@ export default function Status() {
 
   async function fetchStatus() {
     try {
-      const { data } = await axios.get('${API_BASE}status')
+      const { data } = await axios.get(`${API_BASE}status`)
       setData(data)
       setError(false)
     } catch {
