@@ -24,7 +24,21 @@ const queryClient = new QueryClient({
 // Register PWA service worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js?v=3').catch(console.error)
+    navigator.serviceWorker.register('/sw.js?v=5')
+      .then((registration) => {
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing
+          // Only reload on update (existing SW active), not on first install
+          if (!newWorker || !registration.active) return
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'activated') {
+              // New build deployed — reload to get fresh assets
+              window.location.reload()
+            }
+          })
+        })
+      })
+      .catch(console.error)
   })
 }
 

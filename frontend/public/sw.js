@@ -1,4 +1,4 @@
-const CACHE_NAME = 'zionite-v4'
+const CACHE_NAME = 'zionite-v5'
 const STATIC_ASSETS = ['/', '/index.html']
 
 self.addEventListener('install', (event) => {
@@ -21,31 +21,59 @@ self.addEventListener('fetch', (event) => {
   const { request } = event
   const url = new URL(request.url)
 
-  // Navigation: serve index.html from cache, fallback to network
+  // Navigation: network-first so users always get the latest index.html after a deploy
   if (request.mode === 'navigate') {
     event.respondWith(
-      caches.match('/index.html').then((r) => r || fetch(request).catch(() => caches.match('/')))
+      fetch(request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = networkResponse.clone()
+            caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', clone))
+          }
+          return networkResponse
+        })
+        .catch(() => {
+          return caches.match('/index.html').then((cached) => {
+            if (cached) return cached
+            return caches.match('/').then((fallback) => {
+              if (fallback) return fallback
+              return new Response('<!DOCTYPE html><html><body>Offline</body></html>', {
+                headers: { 'Content-Type': 'text/html' }
+              })
+            })
+          })
+        })
     )
     return
   }
 
-  // API calls: network first, no cache
+  // API calls: network only
   if (url.pathname.startsWith('/api/')) {
-    event.respondWith(fetch(request).catch(() => caches.match(request)))
+    event.respondWith(
+      fetch(request).catch(() => new Response(JSON.stringify({ error: 'Network error' }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' }
+      }))
+    )
     return
   }
 
   // Static assets (JS, CSS, images): cache first, stale-while-revalidate
-  if (['GET'].includes(request.method)) {
+  // Guard against caching HTML responses (happens when Vercel catch-all serves index.html for missing chunks)
+  if (request.method === 'GET') {
     event.respondWith(
       caches.match(request).then((cached) => {
-        const fetchPromise = fetch(request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-            const clone = networkResponse.clone()
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
-          }
-          return networkResponse
-        }).catch(() => cached)
+        const fetchPromise = fetch(request)
+          .then((networkResponse) => {
+            if (!networkResponse) return cached
+            const contentType = networkResponse.headers.get('content-type') || ''
+            if (networkResponse.status === 200 && networkResponse.type === 'basic' && !contentType.includes('text/html')) {
+              const clone = networkResponse.clone()
+              caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
+            }
+            return networkResponse
+          })
+          .catch(() => cached)
         return cached || fetchPromise
       })
     )
