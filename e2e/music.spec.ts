@@ -2,10 +2,6 @@ import { test, expect } from '@playwright/test'
 
 test.describe('Music Flow', () => {
   test('music page displays tracks from API', async ({ page }) => {
-    await page.addInitScript(() => {
-      Object.defineProperty(navigator, 'serviceWorker', { value: undefined, writable: false })
-    })
-
     const mockTrack = {
       id: 'track-123',
       title: 'Amazing Grace',

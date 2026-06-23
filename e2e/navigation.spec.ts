@@ -2,9 +2,6 @@ import { test, expect } from '@playwright/test'
 
 test.describe('Navigation & Pages', () => {
   test('home page loads with hero section', async ({ page }) => {
-    await page.addInitScript(() => {
-      Object.defineProperty(navigator, 'serviceWorker', { value: undefined, writable: false })
-    })
     await page.route('**/api/broadcasts/active', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ broadcast: null }) })
     })
@@ -42,9 +39,6 @@ test.describe('Navigation & Pages', () => {
   })
 
   test('music page loads', async ({ page }) => {
-    await page.addInitScript(() => {
-      Object.defineProperty(navigator, 'serviceWorker', { value: undefined, writable: false })
-    })
     await page.route('**/api/music', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ music: [] }) })
     })

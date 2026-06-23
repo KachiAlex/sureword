@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { usePageTitle } from '../hooks/usePageTitle'
 import {
   ArrowLeft, Send, Users, Radio, BookOpen, Play, Pause, Volume2, Volume1, VolumeX,
-  Lock, Globe, MessageSquare, Clock, User, ChevronDown, Headphones, X
+  Lock, Globe, MessageSquare, Clock, User, ChevronDown, Headphones, X, ArrowDown
 } from 'lucide-react'
 
 interface Broadcast {
@@ -28,7 +28,10 @@ interface ChatMessage {
   message: string
   is_private: boolean
   created_at: string
+  reactions?: Record<string, number>
 }
+
+const REACTION_EMOJIS = ['👍','❤️','🙏','😂','🔥','😮']
 
 /* ── AudioBars (visualizer) ───────────────────────── */
 function AudioBars({ active }: { active: boolean }) {
@@ -348,8 +351,12 @@ export default function Live() {
   })
 
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const chatScrollRef = useRef<HTMLDivElement>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const chatPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [showScrollBtn, setShowScrollBtn] = useState(false)
+  const [reactingTo, setReactingTo] = useState<string | null>(null)
+  const isAtBottomRef = useRef(true)
 
   useEffect(() => {
     fetchBroadcast(); fetchChatMessages(); fetchChatUsers()
@@ -361,7 +368,45 @@ export default function Live() {
     }
   }, [broadcastId])
 
-  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [chatMessages])
+  // Smart scroll: only auto-scroll when already at bottom
+  useEffect(() => {
+    if (isAtBottomRef.current) {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [chatMessages])
+
+  function handleChatScroll(e: React.UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60
+    isAtBottomRef.current = atBottom
+    setShowScrollBtn(!atBottom)
+  }
+
+  function scrollToBottom() {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    isAtBottomRef.current = true
+    setShowScrollBtn(false)
+  }
+
+  async function reactToMessage(msgId: string, emoji: string) {
+    setReactingTo(null)
+    try {
+      const { data } = await axios.post(`/api/chat/${msgId}/react`, { emoji })
+      setChatMessages(prev => prev.map(m => m.id === msgId ? { ...m, reactions: data.reactions } : m))
+    } catch {}
+  }
+
+  useEffect(() => {
+    if (!reactingTo) return
+    function dismiss(e: MouseEvent) {
+      const target = e.target as HTMLElement
+      if (!target.closest('[data-reaction-picker]') && !target.closest('[data-reaction-btn]')) {
+        setReactingTo(null)
+      }
+    }
+    document.addEventListener('click', dismiss, true)
+    return () => document.removeEventListener('click', dismiss, true)
+  }, [reactingTo])
 
   async function fetchBroadcast() {
     try {
@@ -572,34 +617,78 @@ export default function Live() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {chatMessages.map((msg, idx) => (
-                <div key={msg.id} className={`flex flex-col animate-slide-up ${isOwnMessage(msg) ? 'items-end' : 'items-start'}`} style={{ animationDelay: `${Math.min(idx * 0.03, 0.3)}s` }}>
-                  <div className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${isOwnMessage(msg) ? 'rounded-br-sm' : 'rounded-bl-sm'}`}
-                    style={{
-                      background: isOwnMessage(msg) ? (msg.is_private ? '#4a3b2a' : '#c9a227') : (msg.is_private ? '#2a2a3a' : '#0f1016'),
-                      color: isOwnMessage(msg) && !msg.is_private ? '#1b1208' : '#f3eee4',
-                      border: msg.is_private ? '1px solid rgba(243,238,228,0.08)' : 'none'
-                    }}>
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className="font-mono text-[10px] font-medium" style={{ color: isOwnMessage(msg) && !msg.is_private ? '#1b1208' : '#c9a227' }}>{displayName(msg)}</span>
-                      {msg.is_private && <Lock className="w-2.5 h-2.5 opacity-60" />}
-                      {msg.guest_name && <span className="text-[9px] px-1 rounded bg-[rgba(243,238,228,0.08)] text-[#9c958a]">guest</span>}
+            <div className="relative flex-1 overflow-hidden">
+              <div ref={chatScrollRef} onScroll={handleChatScroll} className="h-full overflow-y-auto p-4 space-y-3">
+                {chatMessages.map((msg, idx) => {
+                  const reactionEntries = Object.entries(msg.reactions || {}).filter(([,c]) => (c as number) > 0)
+                  return (
+                    <div key={msg.id} className={`flex flex-col ${isOwnMessage(msg) ? 'items-end' : 'items-start'}`}
+                      style={{ animationDelay: `${Math.min(idx * 0.03, 0.3)}s` }}>
+                      <div className="relative group">
+                        <div className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${isOwnMessage(msg) ? 'rounded-br-sm' : 'rounded-bl-sm'}`}
+                          style={{
+                            background: isOwnMessage(msg) ? (msg.is_private ? '#4a3b2a' : '#c9a227') : (msg.is_private ? '#2a2a3a' : '#0f1016'),
+                            color: isOwnMessage(msg) && !msg.is_private ? '#1b1208' : '#f3eee4',
+                            border: msg.is_private ? '1px solid rgba(243,238,228,0.08)' : '1px solid rgba(243,238,228,0.05)'
+                          }}>
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="font-mono text-[10px] font-medium" style={{ color: isOwnMessage(msg) && !msg.is_private ? '#1b1208' : '#c9a227' }}>{displayName(msg)}</span>
+                            {msg.is_private && <Lock className="w-2.5 h-2.5 opacity-60" />}
+                            {msg.guest_name && <span className="text-[9px] px-1 rounded bg-[rgba(243,238,228,0.08)] text-[#9c958a]">guest</span>}
+                          </div>
+                          <p className="text-[13px] leading-relaxed">{msg.message}</p>
+                          <span className="text-[9px] mt-0.5 block opacity-50 flex items-center gap-0.5">
+                            <Clock className="w-2 h-2" /> {formatTime(msg.created_at)}
+                          </span>
+                        </div>
+                        {/* Reaction trigger button — visible on hover */}
+                        <button
+                          onClick={() => setReactingTo(reactingTo === msg.id ? null : msg.id)}
+                          className={`absolute -bottom-1 ${isOwnMessage(msg) ? '-left-6' : '-right-6'} opacity-0 group-hover:opacity-100 transition-opacity text-sm leading-none p-0.5 rounded-full bg-[#1c1d24] border border-[rgba(243,238,228,0.08)]`}
+                          title="React"
+                          data-reaction-btn="1"
+                        >😊</button>
+                        {/* Reaction picker */}
+                        {reactingTo === msg.id && (
+                          <div data-reaction-picker="1" className={`absolute bottom-6 ${isOwnMessage(msg) ? 'right-0' : 'left-0'} flex gap-1 bg-[#1c1d24] border border-[rgba(243,238,228,0.1)] rounded-full px-2 py-1 shadow-xl z-20`}>
+                            {REACTION_EMOJIS.map(e => (
+                              <button key={e} onClick={() => reactToMessage(msg.id, e)}
+                                className="text-lg leading-none hover:scale-125 transition-transform">{e}</button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {/* Reaction counts */}
+                      {reactionEntries.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {reactionEntries.map(([emoji, count]) => (
+                            <button key={emoji} onClick={() => reactToMessage(msg.id, emoji)}
+                              className="flex items-center gap-0.5 text-[11px] px-1.5 py-0.5 rounded-full transition-colors hover:bg-[rgba(201,162,39,0.2)]"
+                              style={{ background: 'rgba(243,238,228,0.07)', border: '1px solid rgba(243,238,228,0.08)' }}>
+                              <span>{emoji}</span><span className="text-[#9c958a]">{count as number}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <p className="text-[13px] leading-relaxed">{msg.message}</p>
-                    <span className="text-[9px] mt-0.5 block opacity-50 flex items-center gap-0.5">
-                      <Clock className="w-2 h-2" /> {formatTime(msg.created_at)}
-                    </span>
+                  )
+                })}
+                {chatMessages.length === 0 && (
+                  <div className="text-center py-8 text-xs text-[#9c958a]">
+                    <MessageSquare className="w-6 h-6 mx-auto mb-2 opacity-30" />
+                    No messages yet.<br />Be the first to say something!
                   </div>
-                </div>
-              ))}
-              {chatMessages.length === 0 && (
-                <div className="text-center py-8 text-xs text-[#9c958a]">
-                  <MessageSquare className="w-6 h-6 mx-auto mb-2 opacity-30" />
-                  No messages yet.<br />Be the first to say something!
-                </div>
+                )}
+                <div ref={chatEndRef} />
+              </div>
+              {/* Scroll-to-bottom arrow */}
+              {showScrollBtn && (
+                <button onClick={scrollToBottom}
+                  className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-semibold shadow-lg transition-all animate-bounce-slow"
+                  style={{ background: '#c9a227', color: '#1b1208' }}>
+                  <ArrowDown className="w-3 h-3" /> New messages
+                </button>
               )}
-              <div ref={chatEndRef} />
             </div>
 
             {/* Input */}

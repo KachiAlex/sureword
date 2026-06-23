@@ -132,6 +132,8 @@ async function _doInitDb() {
   try { await dbQuery(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS recipient_id TEXT`) } catch {}
   try { await dbQuery(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS is_private BOOLEAN DEFAULT FALSE`) } catch {}
   try { await dbQuery(`UPDATE chat_messages SET is_private=FALSE WHERE is_private IS NULL`) } catch {}
+  try { await dbQuery(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS reactions JSONB DEFAULT '{}'`) } catch {}
+  try { await dbQuery(`UPDATE chat_messages SET reactions='{}' WHERE reactions IS NULL`) } catch {}
 
   // Add stream config columns if missing (safe for existing tables)
   try { await dbQuery(`ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS rtmp_url TEXT`) } catch {}
@@ -581,6 +583,21 @@ app.get('/chat/:broadcastId/users', async (req, res) => {
        ORDER BY user_name`,
       [req.params.broadcastId])
     res.json({ users: rows })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.post('/chat/:id/react', async (req, res) => {
+  try {
+    await initDb()
+    const { emoji } = req.body
+    const allowed = ['👍','❤️','🙏','😂','🔥','😮']
+    if (!emoji || !allowed.includes(emoji)) { res.status(400).json({ error: 'Invalid emoji' }); return }
+    const msg = await dbGet('SELECT reactions FROM chat_messages WHERE id=$1', [req.params.id])
+    if (!msg) { res.status(404).json({ error: 'Not found' }); return }
+    const reactions = typeof msg.reactions === 'string' ? JSON.parse(msg.reactions) : (msg.reactions || {})
+    reactions[emoji] = (reactions[emoji] || 0) + 1
+    await dbQuery(`UPDATE chat_messages SET reactions=$1 WHERE id=$2`, [JSON.stringify(reactions), req.params.id])
+    res.json({ reactions })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
