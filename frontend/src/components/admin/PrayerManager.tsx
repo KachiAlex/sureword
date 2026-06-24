@@ -21,7 +21,7 @@ export default function PrayerManager() {
   async function fetchPrayers() {
     setLoading(true)
     try {
-      const res = await axios.get(`${API_BASE}prayer/admin/all`, { headers: { Authorization: `Bearer ${token}` } })
+      const res = await axios.get(`${API_BASE}/api/prayer/admin/all`, { headers: { Authorization: `Bearer ${token}` } })
       setPrayers(res.data.prayers || [])
     } catch (err) {
       console.error('Failed to fetch prayers:', err)

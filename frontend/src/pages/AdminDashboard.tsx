@@ -117,13 +117,13 @@ export default function AdminDashboard() {
 
   async function fetchChat() {
     try {
-      const res = await axios.get(`${API_BASE}broadcasts`)
+      const res = await axios.get(`${API_BASE}/api/broadcasts`)
       const bcs = res.data.broadcasts as any[]
       const allMessages: ChatMessage[] = []
       for (const b of bcs.slice(0, 5)) {
         try { const msgRes = await axios.get(`${API_BASE}/api/chat/broadcast/${b.id}`); allMessages.push(...msgRes.data.messages) } catch {}
       }
-      try { const general = await axios.get(`${API_BASE}chat/general`); allMessages.push(...general.data.messages) } catch {}
+      try { const general = await axios.get(`${API_BASE}/api/chat/general`); allMessages.push(...general.data.messages) } catch {}
       setChatMessages(allMessages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()))
     } catch (err) { console.error('Failed to fetch chat:', err) }
   }

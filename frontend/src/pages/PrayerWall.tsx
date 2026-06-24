@@ -36,7 +36,7 @@ export default function PrayerWall() {
     setLoading(true)
     setError('')
     try {
-      const { data } = await axios.get(`${API_BASE}prayer`, { timeout: 8000 })
+      const { data } = await axios.get(`${API_BASE}/api/prayer`, { timeout: 8000 })
       setPrayers(data.prayers || [])
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to load prayer requests.')
@@ -55,7 +55,7 @@ export default function PrayerWall() {
     }
     setSubmitting(true)
     try {
-      await axios.post(`${API_BASE}prayer`, { name: name.trim() || 'Anonymous', request: request.trim(), is_anonymous: isAnonymous })
+      await axios.post(`${API_BASE}/api/prayer`, { name: name.trim() || 'Anonymous', request: request.trim(), is_anonymous: isAnonymous })
       setName('')
       setRequest('')
       setIsAnonymous(false)

@@ -50,7 +50,7 @@ export default function MusicPage() {
 
   async function fetchTracks() {
     try {
-      const { data } = await axios.get(`${API_BASE}music`)
+      const { data } = await axios.get(`${API_BASE}/api/music`)
       setTracks(data.music || [])
     } catch (err) {
       console.error('Failed to fetch music:', err)

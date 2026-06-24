@@ -22,7 +22,7 @@ export default function TestimonyManager() {
   async function fetchTestimonies() {
     setLoading(true)
     try {
-      const res = await axios.get(`${API_BASE}testimonies/admin/all`, { headers: { Authorization: `Bearer ${token}` } })
+      const res = await axios.get(`${API_BASE}/api/testimonies/admin/all`, { headers: { Authorization: `Bearer ${token}` } })
       setTestimonies(res.data.testimonies || [])
     } catch (err) {
       console.error('Failed to fetch testimonies:', err)

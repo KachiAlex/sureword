@@ -144,7 +144,7 @@ export default function Home() {
     if (!subEmail) return
     setSubState('loading')
     try {
-      await axios.post(`${API_BASE}newsletter/subscribe`, { email: subEmail })
+      await axios.post(`${API_BASE}/api/newsletter/subscribe`, { email: subEmail })
       setSubEmail('')
       setSubState('done')
     } catch {

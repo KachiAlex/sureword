@@ -281,11 +281,11 @@ export default function MemberDashboard() {
   async function fetchData() {
     try {
       const [br, sr, pr, tr, gs] = await Promise.all([
-        axios.get(`${API_BASE}broadcasts/active`).catch(()=>({data:{broadcast:null}})),
-        axios.get(`${API_BASE}sermons?limit=5`).catch(()=>({data:{sermons:[]}})),
-        axios.get(`${API_BASE}prayer?limit=3`).catch(()=>({data:{prayers:[]}})),
-        axios.get(`${API_BASE}testimonies?limit=1`).catch(()=>({data:{testimonies:[]}})),
-        axios.get(`${API_BASE}guest-speakers`).catch(()=>({data:{speakers:[]}})),
+        axios.get(`${API_BASE}/api/broadcasts/active`).catch(()=>({data:{broadcast:null}})),
+        axios.get(`${API_BASE}/api/sermons?limit=5`).catch(()=>({data:{sermons:[]}})),
+        axios.get(`${API_BASE}/api/prayer?limit=3`).catch(()=>({data:{prayers:[]}})),
+        axios.get(`${API_BASE}/api/testimonies?limit=1`).catch(()=>({data:{testimonies:[]}})),
+        axios.get(`${API_BASE}/api/guest-speakers`).catch(()=>({data:{speakers:[]}})),
       ])
       setBroadcast(br.data.broadcast)
       setSermons(sr.data.sermons||[])

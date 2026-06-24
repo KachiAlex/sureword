@@ -59,7 +59,7 @@ export default function SermonDetail() {
 
   async function fetchRelated(excludeId: string) {
     try {
-      const { data } = await axios.get(`${API_BASE}sermons`, { timeout: 8000 })
+      const { data } = await axios.get(`${API_BASE}/api/sermons`, { timeout: 8000 })
       const filtered = (data.sermons || [])
         .filter((s: Sermon) => s.id !== excludeId)
         .slice(0, 4)

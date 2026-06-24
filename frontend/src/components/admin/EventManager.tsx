@@ -47,7 +47,7 @@ export default function EventManager() {
   async function fetchEvents() {
     setLoading(true)
     try {
-      const res = await axios.get(`${API_BASE}events`)
+      const res = await axios.get(`${API_BASE}/api/events`)
       setEvents(res.data.events || [])
     } catch (err) {
       console.error('Failed to fetch events:', err)
@@ -119,7 +119,7 @@ export default function EventManager() {
       if (editingId) {
         await axios.patch(`${API_BASE}/api/events/${editingId}`, payload, { headers: { Authorization: `Bearer ${token}` } })
       } else {
-        await axios.post(`${API_BASE}events`, payload, { headers: { Authorization: `Bearer ${token}` } })
+        await axios.post(`${API_BASE}/api/events`, payload, { headers: { Authorization: `Bearer ${token}` } })
       }
       setShowForm(false)
       resetForm()

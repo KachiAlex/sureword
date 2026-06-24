@@ -33,7 +33,7 @@ export default function Testimonies() {
     setLoading(true)
     setError('')
     try {
-      const { data } = await axios.get(`${API_BASE}testimonies`, { timeout: 8000 })
+      const { data } = await axios.get(`${API_BASE}/api/testimonies`, { timeout: 8000 })
       setTestimonies(data.testimonies || [])
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to load testimonies.')
@@ -55,7 +55,7 @@ export default function Testimonies() {
     }
     setSubmitting(true)
     try {
-      await axios.post(`${API_BASE}testimonies`, { name: name.trim(), email: email.trim() || null, content: content.trim(), is_anonymous: isAnonymous })
+      await axios.post(`${API_BASE}/api/testimonies`, { name: name.trim(), email: email.trim() || null, content: content.trim(), is_anonymous: isAnonymous })
       setContent('')
       setIsAnonymous(false)
       fetchTestimonies()

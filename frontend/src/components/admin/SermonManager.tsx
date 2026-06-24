@@ -106,7 +106,7 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
       }
 
       setUploadStep('Saving sermon...')
-      await axios.post(`${API_BASE}sermons`, {
+      await axios.post(`${API_BASE}/api/sermons`, {
         title: form.title,
         speaker: form.speaker,
         scripture_reference: form.scripture_reference,
