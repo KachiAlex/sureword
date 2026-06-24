@@ -1,7 +1,7 @@
 ﻿import { useState } from 'react'
 import axios from 'axios'
 import { API_BASE } from '../../lib/api'
-import { Headphones, Plus, Loader2, Image, Upload, Cloud, Video, AudioLines, Star } from 'lucide-react'
+import { Headphones, Plus, Loader2, Image, Upload, Cloud, Video, AudioLines, Star, Pencil, X, Save } from 'lucide-react'
 
 interface Sermon {
   id: string
@@ -12,12 +12,22 @@ interface Sermon {
   thumbnail_url: string
   date: string
   is_featured?: boolean
+  scripture_reference?: string
+  series?: string
+  description?: string
+  duration?: number
 }
 
 type UploadMode = 'audio' | 'video'
 
 export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[]; onRefresh: () => void }) {
   const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [editingSermon, setEditingSermon] = useState<Sermon | null>(null)
+  const [editForm, setEditForm] = useState({ title: '', speaker: '', scripture_reference: '', series: '', description: '', duration: '', date: '', video_url: '', audio_url: '', thumbnail_url: '' })
+  const [editThumbnailFile, setEditThumbnailFile] = useState<File | null>(null)
+  const [editThumbnailPreview, setEditThumbnailPreview] = useState('')
+  const [editSubmitting, setEditSubmitting] = useState(false)
+  const [editStep, setEditStep] = useState('')
   const [mode, setMode] = useState<UploadMode>('audio')
   const [form, setForm] = useState({ title: '', speaker: '', video_url: '', scripture_reference: '', series: '', description: '', duration: '' })
   const [audioFile, setAudioFile] = useState<File | null>(null)
@@ -62,6 +72,69 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
       onRefresh()
     } catch {}
     finally { setTogglingId(null) }
+  }
+
+  function openEdit(s: Sermon) {
+    setEditingSermon(s)
+    setEditForm({
+      title: s.title || '',
+      speaker: s.speaker || '',
+      scripture_reference: s.scripture_reference || '',
+      series: s.series || '',
+      description: s.description || '',
+      duration: s.duration ? String(s.duration) : '',
+      date: s.date || '',
+      video_url: s.video_url || '',
+      audio_url: s.audio_url || '',
+      thumbnail_url: s.thumbnail_url || '',
+    })
+    setEditThumbnailFile(null)
+    setEditThumbnailPreview('')
+  }
+
+  function closeEdit() {
+    setEditingSermon(null)
+    setEditThumbnailFile(null)
+    setEditThumbnailPreview('')
+    setEditStep('')
+  }
+
+  function handleEditThumbnailChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] || null
+    setEditThumbnailFile(file)
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => setEditThumbnailPreview(reader.result as string)
+      reader.readAsDataURL(file)
+    } else {
+      setEditThumbnailPreview('')
+    }
+  }
+
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editingSermon) return
+    setEditSubmitting(true)
+    try {
+      let thumbnail_url = editForm.thumbnail_url
+      if (editThumbnailFile) {
+        setEditStep('Uploading thumbnail...')
+        thumbnail_url = await uploadToCloudinary(editThumbnailFile, 'zionite/sermons/thumbnails')
+      }
+      setEditStep('Saving...')
+      await axios.patch(`${API_BASE}/api/sermons/${editingSermon.id}`, {
+        ...editForm,
+        thumbnail_url,
+        duration: editForm.duration || undefined,
+      }, { headers: { Authorization: `Bearer ${token}` } })
+      closeEdit()
+      onRefresh()
+    } catch (err: any) {
+      alert(errMsg(err))
+    } finally {
+      setEditSubmitting(false)
+      setEditStep('')
+    }
   }
 
   function resetForm() {
@@ -142,6 +215,122 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
 
   return (
     <div className="space-y-6">
+      {/* Edit modal */}
+      {editingSermon && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: 'rgba(0,0,0,0.75)' }}>
+          <div className="w-full sm:max-w-lg max-h-[90vh] flex flex-col rounded-t-2xl sm:rounded-2xl overflow-hidden" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
+            <div className="flex items-center justify-between px-5 py-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--line)' }}>
+              <h3 className="font-semibold flex items-center gap-2 text-sm">
+                <Pencil className="w-4 h-4" style={{ color: 'var(--gold)' }} /> Edit Sermon
+              </h3>
+              <button onClick={closeEdit} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--dim)' }}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-5">
+              <form onSubmit={saveEdit} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <input
+                  placeholder="Title *"
+                  value={editForm.title}
+                  onChange={e => setEditForm({ ...editForm, title: e.target.value })}
+                  required
+                  className="w-full rounded-xl px-4 py-2.5 text-sm sm:col-span-2"
+                  style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--parchment)' }}
+                />
+                <input
+                  placeholder="Speaker"
+                  value={editForm.speaker}
+                  onChange={e => setEditForm({ ...editForm, speaker: e.target.value })}
+                  className="w-full rounded-xl px-4 py-2.5 text-sm"
+                  style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--parchment)' }}
+                />
+                <input
+                  placeholder="Scripture reference"
+                  value={editForm.scripture_reference}
+                  onChange={e => setEditForm({ ...editForm, scripture_reference: e.target.value })}
+                  className="w-full rounded-xl px-4 py-2.5 text-sm"
+                  style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--parchment)' }}
+                />
+                <input
+                  placeholder="Series"
+                  value={editForm.series}
+                  onChange={e => setEditForm({ ...editForm, series: e.target.value })}
+                  className="w-full rounded-xl px-4 py-2.5 text-sm"
+                  style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--parchment)' }}
+                />
+                <input
+                  placeholder="Duration (minutes)"
+                  value={editForm.duration}
+                  onChange={e => setEditForm({ ...editForm, duration: e.target.value })}
+                  type="number"
+                  min="0"
+                  className="w-full rounded-xl px-4 py-2.5 text-sm"
+                  style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--parchment)' }}
+                />
+                <input
+                  placeholder="Date"
+                  value={editForm.date}
+                  onChange={e => setEditForm({ ...editForm, date: e.target.value })}
+                  type="date"
+                  className="w-full rounded-xl px-4 py-2.5 text-sm"
+                  style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--parchment)' }}
+                />
+                <input
+                  placeholder="Video URL (YouTube / Vimeo embed)"
+                  value={editForm.video_url}
+                  onChange={e => setEditForm({ ...editForm, video_url: e.target.value })}
+                  className="w-full rounded-xl px-4 py-2.5 text-sm sm:col-span-2"
+                  style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--parchment)' }}
+                />
+                <textarea
+                  placeholder="Description"
+                  value={editForm.description}
+                  onChange={e => setEditForm({ ...editForm, description: e.target.value })}
+                  rows={2}
+                  className="w-full rounded-xl px-4 py-2.5 text-sm sm:col-span-2"
+                  style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--parchment)' }}
+                />
+                {/* Thumbnail */}
+                <div className="sm:col-span-2">
+                  <label className="block text-xs mb-1 flex items-center gap-1" style={{ color: 'var(--dim)' }}>
+                    <Image className="w-3 h-3" /> Thumbnail
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleEditThumbnailChange}
+                      className="flex-1 rounded-xl px-4 py-2 text-sm"
+                      style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--parchment)' }}
+                    />
+                    {(editThumbnailPreview || editForm.thumbnail_url) && (
+                      <img
+                        src={editThumbnailPreview || editForm.thumbnail_url}
+                        alt="Preview"
+                        className="w-10 h-10 rounded-lg object-cover"
+                        style={{ border: '1px solid var(--line)' }}
+                      />
+                    )}
+                  </div>
+                </div>
+                <div className="sm:col-span-2 flex gap-2 pt-1">
+                  <button type="button" onClick={closeEdit} disabled={editSubmitting}
+                    className="flex-1 rounded-xl py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
+                    style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--parchment)' }}>
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={editSubmitting || !editForm.title.trim()}
+                    className="flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
+                    style={{ background: 'var(--gold)', color: '#0a0a0a' }}>
+                    {editSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    {editSubmitting ? editStep || 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Add sermon form */}
       <div className="rounded-2xl p-6" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
         <h3 className="font-semibold mb-4 flex items-center gap-2">
@@ -368,6 +557,13 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => openEdit(s)}
+                    title="Edit sermon"
+                    className="p-1.5 rounded-lg transition-colors"
+                    style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--dim)' }}>
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
                   <button
                     onClick={() => toggleFeatured(s)}
                     disabled={togglingId === s.id}

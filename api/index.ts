@@ -492,6 +492,30 @@ app.patch('/sermons/:id/featured', auth, requireRole('admin'), async (req: AuthR
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
+app.patch('/sermons/:id', auth, requireRole('admin'), async (req: AuthReq, res) => {
+  try {
+    await initDb()
+    const { title, speaker, scripture_reference, series, description, duration, video_url, audio_url, thumbnail_url, date } = req.body
+    await dbQuery(
+      `UPDATE sermons SET
+        title = COALESCE($1, title),
+        speaker = COALESCE($2, speaker),
+        scripture_reference = COALESCE($3, scripture_reference),
+        series = COALESCE($4, series),
+        description = COALESCE($5, description),
+        duration = COALESCE($6, duration),
+        video_url = COALESCE($7, video_url),
+        audio_url = COALESCE($8, audio_url),
+        thumbnail_url = COALESCE($9, thumbnail_url),
+        date = COALESCE($10, date)
+      WHERE id=$11`,
+      [title||null, speaker||null, scripture_reference||null, series||null, description||null,
+       duration ? parseInt(duration) : null, video_url||null, audio_url||null, thumbnail_url||null, date||null, req.params.id]
+    )
+    res.json({ success: true })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
 app.get('/sermons/:id', async (req, res) => {
   try {
     await initDb()
