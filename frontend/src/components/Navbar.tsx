@@ -115,9 +115,9 @@ export default function Navbar() {
             )}
           </div>
 
-          <button className="hidden lg:flex items-center gap-1.5 bg-[#c9a227] hover:bg-[#e0bd5a] text-[#1b1208] text-xs font-medium px-4 py-1.5 rounded-full transition-colors">
+          <Link to="/donate" className="hidden lg:flex items-center gap-1.5 bg-[#c9a227] hover:bg-[#e0bd5a] text-[#1b1208] text-xs font-medium px-4 py-1.5 rounded-full transition-colors">
             <HandHeart className="w-3.5 h-3.5" /> Donate
-          </button>
+          </Link>
 
           {/* Hamburger — tablet & mobile (< lg) */}
           <button className="lg:hidden p-2 text-[#9c958a] hover:text-white transition-colors" onClick={() => setMenuOpen(!menuOpen)}
@@ -170,9 +170,10 @@ export default function Navbar() {
                 <LogIn className="w-4 h-4" /> Sign In
               </Link>
             )}
-            <button className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-[#c9a227] text-[#1b1208]">
+            <Link to="/donate" onClick={() => setMenuOpen(false)}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-[#c9a227] text-[#1b1208]">
               <HandHeart className="w-4 h-4" /> Donate
-            </button>
+            </Link>
           </div>
         </div>
       )}

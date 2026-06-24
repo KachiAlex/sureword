@@ -24,6 +24,7 @@ const Testimonies = lazy(() => import('./pages/Testimonies'))
 const Events = lazy(() => import('./pages/Events'))
 const EventDetail = lazy(() => import('./pages/EventDetail'))
 const AboutUs = lazy(() => import('./pages/AboutUs'))
+const Donate = lazy(() => import('./pages/Donate'))
 
 function PageLoader() {
   return (
@@ -51,6 +52,7 @@ function AnimatedRoutes() {
         <Route path="/events" element={<Events />} />
         <Route path="/events/:id" element={<EventDetail />} />
         <Route path="/about" element={<AboutUs />} />
+        <Route path="/donate" element={<Donate />} />
         <Route
           path="/dashboard"
           element={

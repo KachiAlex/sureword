@@ -342,7 +342,7 @@ export default function Home() {
                     )
                   })}
                 </div>
-                <button className="btn-gold w-full text-xs"><Heart className="w-3.5 h-3.5" /> Give Now</button>
+                <Link to="/donate" className="btn-gold w-full text-xs"><Heart className="w-3.5 h-3.5" /> Give Now</Link>
               </section>
             </div>
           </div>

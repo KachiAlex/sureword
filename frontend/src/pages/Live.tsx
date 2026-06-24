@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { usePageTitle } from '../hooks/usePageTitle'
 import {
   ArrowLeft, Send, Users, Radio, BookOpen, Play, Pause, Volume2, Volume1, VolumeX,
-  Lock, Globe, MessageSquare, Clock, User, ChevronDown, Headphones, X, ArrowDown
+  Lock, Globe, MessageSquare, Clock, User, ChevronDown, Headphones, X, ArrowDown, HandHeart
 } from 'lucide-react'
 
 interface Broadcast {
@@ -653,6 +653,11 @@ export default function Live() {
                   <MessageSquare className="w-3.5 h-3.5 text-[#c9a227]" /> Chat
                 </h3>
                 <div className="flex items-center gap-2">
+                  <Link to="/donate"
+                    className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-md transition-colors"
+                    style={{ background: 'rgba(201,162,39,0.12)', color: 'var(--gold)' }}>
+                    <HandHeart className="w-3 h-3" /> Give
+                  </Link>
                   <span className="text-[10px] font-mono text-[#9c958a]">{onlineCount} active</span>
                   <button onClick={() => setChatOpen(false)} className="md:hidden text-[#9c958a] p-0.5"><X className="w-4 h-4" /></button>
                 </div>
