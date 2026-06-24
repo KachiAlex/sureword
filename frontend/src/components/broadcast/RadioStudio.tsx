@@ -4,7 +4,8 @@ import { API_BASE } from '../../lib/api'
 import {
   Radio, Pause, Play, Square, Mic, MicOff, Volume2, Volume1, VolumeX,
   Copy, CheckCircle, Activity, Share2, Headphones, Wifi, Zap, HardDrive,
-  Disc, Loader2, Music2, Upload, RotateCcw, StopCircle
+  Disc, Loader2, Music2, Upload, RotateCcw, StopCircle,
+  MessageSquare, Send, User, Clock
 } from 'lucide-react'
 import { getRecordingConfig } from '../../lib/recording'
 import AudioWaveVisualizer from './AudioWaveVisualizer'
@@ -157,6 +158,15 @@ export default function RadioStudio({
   const [musicName, setMusicName] = useState('')
   const [musicLoading, setMusicLoading] = useState(false)
 
+  /* ── Chat state ── */
+  const [chatMessages, setChatMessages] = useState<any[]>([])
+  const [chatUsers, setChatUsers] = useState<{ user_id: string; user_name: string }[]>([])
+  const [chatInput, setChatInput] = useState('')
+  const [chatSending, setChatSending] = useState(false)
+  const [newMsgCount, setNewMsgCount] = useState(0)
+  const chatScrollRef = useRef<HTMLDivElement>(null)
+  const prevMsgLenRef = useRef(0)
+
   /* ── Mixer Audio graph refs ── */
   const mixerCtxRef = useRef<AudioContext | null>(null)
   const mixerDestRef = useRef<MediaStreamAudioDestinationNode | null>(null)
@@ -234,6 +244,61 @@ export default function RadioStudio({
     if (shouldRecordRef.current) { startStreaming() } else { stopStreaming() }
     return () => stopStreaming()
   }, [isLive, activeDeviceId, broadcastId])
+
+  // Poll chat messages + active users for this broadcast
+  useEffect(() => {
+    if (!broadcastId) return
+    const token = localStorage.getItem('token')
+    async function fetchChat() {
+      try {
+        const { data } = await axios.get(`${API_BASE}/api/chat/${broadcastId}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        })
+        const messages = data.messages || []
+        setChatMessages(messages)
+        if (messages.length > prevMsgLenRef.current) {
+          setNewMsgCount(c => c + (messages.length - prevMsgLenRef.current))
+        }
+        prevMsgLenRef.current = messages.length
+      } catch {}
+    }
+    async function fetchUsers() {
+      try {
+        const { data } = await axios.get(`${API_BASE}/api/chat/${broadcastId}/users`)
+        setChatUsers(data.users || [])
+      } catch {}
+    }
+    fetchChat(); fetchUsers()
+    const msgInterval = setInterval(fetchChat, 2000)
+    const userInterval = setInterval(fetchUsers, 5000)
+    return () => { clearInterval(msgInterval); clearInterval(userInterval) }
+  }, [broadcastId])
+
+  // Auto-scroll chat to bottom on new messages
+  useEffect(() => {
+    chatScrollRef.current?.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: 'smooth' })
+  }, [chatMessages])
+
+  async function sendChatMessage(e: React.FormEvent) {
+    e.preventDefault()
+    if (!chatInput.trim() || !broadcastId) return
+    const token = localStorage.getItem('token')
+    if (!token) return
+    setChatSending(true)
+    try {
+      await axios.post(`${API_BASE}/api/chat/${broadcastId}`, { message: chatInput.trim() }, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      setChatInput('')
+      // Refresh immediately
+      const { data } = await axios.get(`${API_BASE}/api/chat/${broadcastId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      setChatMessages(data.messages || [])
+      prevMsgLenRef.current = data.messages?.length || 0
+    } catch { setUploadError('Chat send failed') }
+    finally { setChatSending(false) }
+  }
 
   /* ── Mixer helpers ── */
   function getOrCreateMixer(): { ctx: AudioContext; dest: MediaStreamAudioDestinationNode; micGain: GainNode; musicGain: GainNode } {
@@ -804,6 +869,81 @@ export default function RadioStudio({
               Upload a track and press Play — it will be mixed into your live stream.
             </p>
           )}
+        </div>
+
+        {/* Live Chat Panel — broadcaster can see and reply to listeners */}
+        <div className="rounded-xl p-4 flex flex-col" style={{ background: 'var(--ink)', border: '1px solid var(--line)' }}>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium flex items-center gap-2">
+              <MessageSquare className="w-4 h-4" style={{ color: 'var(--gold)' }} /> Live Chat
+              {newMsgCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
+                  style={{ background: 'var(--gold)', color: '#1b1208' }}>
+                  {newMsgCount}
+                </span>
+              )}
+            </span>
+            <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--dim)' }}>
+              <User className="w-3.5 h-3.5" />
+              <span>{chatUsers.length} active</span>
+              <button
+                onClick={() => setNewMsgCount(0)}
+                className="ml-2 px-2 py-0.5 rounded text-[10px] transition-colors"
+                style={{ background: 'var(--ink-2)', color: 'var(--dim)', border: '1px solid var(--line)' }}>
+                Clear badge
+              </button>
+            </div>
+          </div>
+
+          <div ref={chatScrollRef}
+            className="flex-1 overflow-y-auto space-y-2 mb-3 pr-1"
+            style={{ maxHeight: 360, minHeight: 180 }}>
+            {chatMessages.length === 0 ? (
+              <div className="text-center py-8 text-xs" style={{ color: 'var(--dim)' }}>
+                No messages yet. Listeners will appear here as they chat.
+              </div>
+            ) : (
+              chatMessages.map((msg, idx) => {
+                const isBroadcaster = msg.user_id && msg.user_name === 'Broadcaster'
+                return (
+                  <div key={msg.id || idx} className="rounded-lg px-3 py-2"
+                    style={{
+                      background: isBroadcaster ? 'rgba(201,162,39,0.12)' : 'var(--ink-2)',
+                      border: '1px solid var(--line)',
+                      borderLeft: isBroadcaster ? '2px solid var(--gold)' : '1px solid var(--line)'
+                    }}>
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-xs font-medium" style={{ color: isBroadcaster ? 'var(--gold)' : 'var(--parchment)' }}>
+                        {msg.user_name || msg.guest_name || 'Anonymous'}
+                        {msg.is_private && <span className="ml-1.5 text-[9px]" style={{ color: 'var(--gold)' }}>(private)</span>}
+                      </span>
+                      <span className="text-[10px] font-mono flex items-center gap-0.5" style={{ color: 'var(--dim)' }}>
+                        <Clock className="w-2.5 h-2.5" /> {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <p className="text-sm leading-relaxed" style={{ color: 'var(--parchment)' }}>{msg.message}</p>
+                  </div>
+                )
+              })
+            )}
+          </div>
+
+          <form onSubmit={sendChatMessage} className="flex gap-2">
+            <input
+              type="text"
+              value={chatInput}
+              onChange={e => setChatInput(e.target.value)}
+              placeholder="Reply to listeners..."
+              className="flex-1 rounded-lg px-3 py-2 text-sm outline-none"
+              style={{ background: 'var(--ink-2)', border: '1px solid var(--line)', color: 'var(--parchment)' }}
+            />
+            <button type="submit" disabled={!chatInput.trim() || chatSending}
+              className="px-3 py-2 rounded-lg flex items-center gap-1 text-sm font-medium transition-colors disabled:opacity-40"
+              style={{ background: 'var(--gold)', color: '#1b1208' }}>
+              {chatSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              Send
+            </button>
+          </form>
         </div>
 
         {/* Stream URL */}

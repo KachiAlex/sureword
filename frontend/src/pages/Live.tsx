@@ -412,12 +412,16 @@ export default function Live() {
   const chatPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [showScrollBtn, setShowScrollBtn] = useState(false)
   const [reactingTo, setReactingTo] = useState<string | null>(null)
+  const [newMsgCount, setNewMsgCount] = useState(0)
   const isAtBottomRef = useRef(true)
+  const lastMsgCountRef = useRef(0)
+  const chatOpenRef = useRef(chatOpen)
+  useEffect(() => { chatOpenRef.current = chatOpen }, [chatOpen])
 
   useEffect(() => {
     fetchBroadcast(); fetchChatMessages(); fetchChatUsers()
     const broadcastPoll = setInterval(() => { fetchBroadcast(); fetchChatUsers() }, 8000)
-    chatPollRef.current = setInterval(() => { fetchChatMessages() }, 4000)
+    chatPollRef.current = setInterval(() => { fetchChatMessages() }, 2000)
     return () => {
       clearInterval(broadcastPoll)
       if (chatPollRef.current) clearInterval(chatPollRef.current)
@@ -480,7 +484,18 @@ export default function Live() {
   async function fetchChatMessages() {
     const bid = broadcastId || broadcast?.id
     if (!bid) return
-    try { const { data } = await axios.get(`${API_BASE}/api/chat/${bid}`); setChatMessages(data.messages || []) } catch {}
+    try {
+      const { data } = await axios.get(`${API_BASE}/api/chat/${bid}`)
+      const messages = data.messages || []
+      if (messages.length > lastMsgCountRef.current) {
+        // Only count as new if not the initial load and chat is closed
+        if (lastMsgCountRef.current > 0 && !chatOpenRef.current) {
+          setNewMsgCount(c => c + (messages.length - lastMsgCountRef.current))
+        }
+        lastMsgCountRef.current = messages.length
+      }
+      setChatMessages(messages)
+    } catch {}
   }
 
   async function fetchChatUsers() {
@@ -568,10 +583,21 @@ export default function Live() {
             <div className="text-xs font-medium text-white max-w-[200px] sm:max-w-xs truncate">{broadcast.title}</div>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => setChatOpen(o => !o)} className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-md bg-[rgba(243,238,228,0.06)] hover:bg-[rgba(243,238,228,0.1)] text-white transition-colors">
+            <button
+              onClick={() => {
+                setChatOpen(o => !o)
+                setNewMsgCount(0)
+              }}
+              className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-md bg-[rgba(243,238,228,0.06)] hover:bg-[rgba(243,238,228,0.1)] text-white transition-colors relative">
               <MessageSquare className="w-3.5 h-3.5 text-[#c9a227]" />
               <span className="hidden sm:inline">{chatOpen ? 'Hide Chat' : 'Open Chat'}</span>
               <span className="sm:hidden">Chat</span>
+              {newMsgCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full text-[10px] font-semibold"
+                  style={{ background: '#c9a227', color: '#1b1208' }}>
+                  {newMsgCount > 9 ? '9+' : newMsgCount}
+                </span>
+              )}
             </button>
             <span className="text-[11px] font-mono flex items-center gap-1 text-[#9c958a]"><Users className="w-3.5 h-3.5" /> {onlineCount}</span>
           </div>
