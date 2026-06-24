@@ -5,6 +5,27 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
 import './index.css'
 
+// Keep all audio playing when app is backgrounded on Android
+;(async () => {
+  const isNative = typeof (window as any).Capacitor !== 'undefined' && (window as any).Capacitor?.isNativePlatform?.()
+  if (isNative) {
+    try {
+      const { App: CapApp } = await import('@capacitor/app')
+      CapApp.addListener('appStateChange', ({ isActive }) => {
+        if (!isActive) {
+          // App went to background — resume any suspended AudioContexts
+          const win = window as any
+          if (win.__audioContexts) {
+            win.__audioContexts.forEach((ctx: AudioContext) => {
+              if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+            })
+          }
+        }
+      })
+    } catch {}
+  }
+})()
+
 // Sentry error tracking
 if (import.meta.env.VITE_SENTRY_DSN) {
   Sentry.init({

@@ -149,23 +149,26 @@ function StreamPlayer({ broadcastId, title }: { broadcastId: string; title?: str
     if (gainRef.current) gainRef.current.gain.value = volume / 100
   }, [volume])
 
-  // Resume AudioContext on visibility restore (belt-and-suspenders alongside the keep-alive audio)
+  // Resume AudioContext on visibility change (both background and foreground)
   useEffect(() => {
-    function onVisible() {
-      if (document.visibilityState !== 'visible') return
+    function onVisibilityChange() {
       const ctx = ctxRef.current
       if (!ctx || userPausedRef.current) return
-      if (ctx.state === 'suspended') {
-        ctx.resume().then(() => {
-          // Restart keep-alive audio if it stopped
-          keepAliveAudioRef.current?.play().catch(() => {})
-          // Re-kick playback if queue has items but nothing is playing
-          if (!playingRef.current && decodedRef.current.length > 0) scheduleNext()
-        }).catch(() => {})
+      if (document.visibilityState === 'hidden') {
+        // Going to background — ensure keep-alive audio is looping
+        keepAliveAudioRef.current?.play().catch(() => {})
+      } else {
+        // Returning to foreground — resume suspended context
+        if (ctx.state === 'suspended') {
+          ctx.resume().then(() => {
+            keepAliveAudioRef.current?.play().catch(() => {})
+            if (!playingRef.current && decodedRef.current.length > 0) scheduleNext()
+          }).catch(() => {})
+        }
       }
     }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
   }, [])
 
   useEffect(() => {
@@ -259,6 +262,10 @@ function StreamPlayer({ broadcastId, title }: { broadcastId: string; title?: str
     if (!ctxRef.current) {
       const ctx = new AudioContext()
       ctxRef.current = ctx
+      // Register globally so background keepalive in main.tsx can resume it
+      const win = window as any
+      win.__audioContexts = win.__audioContexts || []
+      win.__audioContexts.push(ctx)
       const g = ctx.createGain()
       g.gain.value = volume / 100
       g.connect(ctx.destination)
@@ -274,6 +281,7 @@ function StreamPlayer({ broadcastId, title }: { broadcastId: string; title?: str
         const audio = new Audio()
         audio.srcObject = dest.stream
         audio.volume = 0.001  // near-silent; real audio comes from ctx.destination
+        audio.loop = true
         audio.play().catch(() => {})
         keepAliveAudioRef.current = audio
       } catch {}
