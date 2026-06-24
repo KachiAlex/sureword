@@ -1,10 +1,10 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import { API_BASE } from '../../lib/api'
 import {
   Radio, Play, Square, Plus, Loader2, ArrowLeft,
   Mic, BookOpen, ExternalLink, AlertCircle, Monitor, ChevronDown, ChevronUp,
-  HardDrive, Folder, Download
+  HardDrive, Folder, Download, Pause, X, MessageSquare, Calendar, Clock, User
 } from 'lucide-react'
 import { getRecordingConfig, setRecordingConfig } from '../../lib/recording'
 import RadioStudio from '../broadcast/RadioStudio'
@@ -24,6 +24,16 @@ interface Broadcast {
   speaker?: string
   recording_url?: string
   recorded_at?: string
+  ended_at?: string
+}
+
+interface ChatMsg {
+  id: string
+  user_name?: string
+  guest_name?: string
+  message: string
+  created_at: string
+  is_private?: boolean
 }
 
 type StudioView = 'list' | 'setup' | 'studio'
@@ -31,6 +41,31 @@ type StudioView = 'list' | 'setup' | 'studio'
 export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts: Broadcast[]; onRefresh: () => void }) {
   const token = localStorage.getItem('token')
   const [view, setView] = useState<StudioView>('list')
+  const [selectedBroadcast, setSelectedBroadcast] = useState<Broadcast | null>(null)
+  const [chatHistory, setChatHistory] = useState<ChatMsg[]>([])
+  const [chatLoading, setChatLoading] = useState(false)
+  const [audioPlaying, setAudioPlaying] = useState(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  async function openBroadcastDetail(b: Broadcast) {
+    setSelectedBroadcast(b)
+    setChatHistory([])
+    setChatLoading(true)
+    try {
+      const { data } = await axios.get(`${API_BASE}/api/chat/${b.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      setChatHistory(data.messages || [])
+    } catch {}
+    finally { setChatLoading(false) }
+  }
+
+  function closeBroadcastDetail() {
+    setSelectedBroadcast(null)
+    setChatHistory([])
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
+    setAudioPlaying(false)
+  }
 
   /* ── Setup form state ── */
   const [title, setTitle] = useState('')
@@ -57,6 +92,151 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
   const [actionLoading, setActionLoading] = useState(false)
   const [creating, setCreating] = useState(false)
 
+  /* ── Broadcast detail panel ── */
+  function BroadcastDetailPanel({ b }: { b: Broadcast }) {
+    const duration = b.started_at && b.ended_at
+      ? Math.round((new Date(b.ended_at).getTime() - new Date(b.started_at).getTime()) / 60000)
+      : null
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+        <div className="w-full sm:max-w-lg max-h-[90vh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-[#14141a] border border-[rgba(243,238,228,0.08)] overflow-hidden">
+
+          {/* Header */}
+          <div className="flex items-start justify-between px-4 py-3.5 border-b border-[rgba(243,238,228,0.06)] flex-shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              {b.thumbnail_url
+                ? <img src={b.thumbnail_url} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" alt="" />
+                : <div className="w-10 h-10 rounded-lg bg-[#1c1d24] flex items-center justify-center flex-shrink-0"><Radio className="w-5 h-5 text-[#c9a227]/40" /></div>
+              }
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-white truncate">{b.title}</p>
+                {b.speaker && <p className="text-[10px] text-[#c9a227] mt-0.5 flex items-center gap-1"><User className="w-3 h-3" />{b.speaker}</p>}
+              </div>
+            </div>
+            <button onClick={closeBroadcastDetail} className="p-1.5 rounded-md hover:bg-[rgba(243,238,228,0.06)] text-[#9c958a] transition-colors flex-shrink-0 ml-2">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="overflow-y-auto flex-1">
+            {/* Meta info */}
+            <div className="px-4 py-3 flex items-center gap-4 border-b border-[rgba(243,238,228,0.04)]">
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                b.status === 'live' ? 'bg-[#4ade80]/10 text-[#4ade80]' :
+                b.status === 'ended' ? 'bg-[rgba(243,238,228,0.06)] text-[#9c958a]' :
+                'bg-[#eab308]/10 text-[#eab308]'
+              }`}>{b.status}</span>
+              {b.started_at && (
+                <span className="text-[10px] text-[#9c958a] flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />{new Date(b.started_at).toLocaleDateString()}
+                </span>
+              )}
+              {duration !== null && (
+                <span className="text-[10px] text-[#9c958a] flex items-center gap-1">
+                  <Clock className="w-3 h-3" />{duration}m
+                </span>
+              )}
+            </div>
+
+            {b.description && (
+              <div className="px-4 py-3 border-b border-[rgba(243,238,228,0.04)]">
+                <p className="text-[11px] text-[#9c958a] leading-relaxed">{b.description}</p>
+              </div>
+            )}
+
+            {/* Recording player */}
+            {b.recording_url ? (
+              <div className="px-4 py-4 border-b border-[rgba(243,238,228,0.04)]">
+                <p className="text-[10px] font-semibold text-[#9c958a] uppercase tracking-wider mb-3">Recording</p>
+                <audio
+                  controls
+                  src={b.recording_url}
+                  className="w-full h-10"
+                  style={{ accentColor: '#c9a227' }}
+                  onPlay={() => setAudioPlaying(true)}
+                  onPause={() => setAudioPlaying(false)}
+                />
+                {b.recorded_at && (
+                  <p className="text-[10px] text-[#9c958a] mt-2">
+                    Saved {new Date(b.recorded_at).toLocaleDateString()} · expires {new Date(new Date(b.recorded_at).getTime() + 90*24*60*60*1000).toLocaleDateString()}
+                  </p>
+                )}
+                <a
+                  href={`${API_BASE}/api/broadcasts/${b.id}/recording/download`}
+                  className="mt-3 flex items-center gap-1.5 w-fit text-[11px] font-medium text-[#c9a227] hover:text-[#e0bd5a] transition-colors"
+                  download
+                >
+                  <Download className="w-3.5 h-3.5" /> Download recording
+                </a>
+              </div>
+            ) : b.status === 'ended' ? (
+              <div className="px-4 py-4 border-b border-[rgba(243,238,228,0.04)]">
+                <p className="text-[10px] font-semibold text-[#9c958a] uppercase tracking-wider mb-2">Recording</p>
+                <p className="text-[11px] text-[#9c958a]/60">No recording available for this broadcast.</p>
+              </div>
+            ) : null}
+
+            {/* Chat history */}
+            <div className="px-4 py-4">
+              <p className="text-[10px] font-semibold text-[#9c958a] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <MessageSquare className="w-3.5 h-3.5" /> Chat Replay
+                {chatHistory.length > 0 && <span className="text-[#c9a227]">{chatHistory.length}</span>}
+              </p>
+              {chatLoading ? (
+                <div className="flex items-center gap-2 text-[11px] text-[#9c958a]">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading chat...
+                </div>
+              ) : chatHistory.length === 0 ? (
+                <p className="text-[11px] text-[#9c958a]/60">No chat messages for this broadcast.</p>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {chatHistory.map(msg => (
+                    <div key={msg.id} className="flex gap-2">
+                      <div className="w-5 h-5 rounded-full bg-[#1c1d24] flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <User className="w-3 h-3 text-[#9c958a]" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-medium text-[#c9a227]">
+                          {msg.user_name || msg.guest_name || 'Guest'}
+                        </span>
+                        {msg.is_private && <span className="ml-1 text-[9px] text-[#9c958a]">(private)</span>}
+                        <p className="text-[11px] text-[rgba(243,238,228,0.8)] break-words">{msg.message}</p>
+                        <p className="text-[9px] text-[#9c958a]/50 mt-0.5">{new Date(msg.created_at).toLocaleTimeString()}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Footer actions */}
+          {b.status === 'live' && (
+            <div className="px-4 py-3 border-t border-[rgba(243,238,228,0.06)] flex gap-2 flex-shrink-0">
+              <button onClick={() => { closeBroadcastDetail(); openStudio(b) }}
+                className="flex-1 flex items-center justify-center gap-1.5 bg-[#4ade80]/10 hover:bg-[#4ade80]/20 text-[#4ade80] text-[11px] font-medium py-2 rounded-lg transition-colors">
+                <Monitor className="w-3.5 h-3.5" /> Open Studio
+              </button>
+              <button onClick={() => { closeBroadcastDetail(); stopBroadcast() }} disabled={actionLoading}
+                className="flex items-center justify-center gap-1.5 bg-[#ef4444]/10 hover:bg-[#ef4444]/20 text-[#ef4444] text-[11px] font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50">
+                <Square className="w-3.5 h-3.5" /> End
+              </button>
+            </div>
+          )}
+          {b.status === 'scheduled' && (
+            <div className="px-4 py-3 border-t border-[rgba(243,238,228,0.06)] flex-shrink-0">
+              <button onClick={() => { closeBroadcastDetail(); startBroadcast(b.id) }} disabled={actionLoading}
+                className="w-full flex items-center justify-center gap-1.5 bg-[#4ade80]/10 hover:bg-[#4ade80]/20 text-[#4ade80] text-[11px] font-medium py-2 rounded-lg transition-colors disabled:opacity-50">
+                <Play className="w-3.5 h-3.5" /> Go Live
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   /* ── Enumerate audio devices for setup form ── */
   useEffect(() => {
     async function loadDevices() {
@@ -72,6 +252,8 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     navigator.mediaDevices.addEventListener('devicechange', loadDevices)
     return () => navigator.mediaDevices.removeEventListener('devicechange', loadDevices)
   }, [])
+
+  /* ── Refs for detail panel audio ── */
 
   /* ── Load recording config on mount ── */
   useEffect(() => {
@@ -269,6 +451,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
   if (view === 'list') {
     return (
       <div className="space-y-5">
+        {selectedBroadcast && <BroadcastDetailPanel b={selectedBroadcast} />}
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -310,7 +493,9 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
           ) : (
             <div className="divide-y divide-[rgba(243,238,228,0.04)]">
               {broadcasts.map(b => (
-                <div key={b.id} className="px-4 py-3 flex items-center justify-between hover:bg-[rgba(243,238,228,0.02)] transition-colors">
+                <div key={b.id}
+                  className="px-4 py-3 flex items-center justify-between hover:bg-[rgba(243,238,228,0.04)] transition-colors cursor-pointer"
+                  onClick={() => openBroadcastDetail(b)}>
                   <div className="min-w-0 flex items-center gap-3">
                     {b.thumbnail_url ? (
                       <img src={b.thumbnail_url} alt="" className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
@@ -334,36 +519,13 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
                     }`}>
                       {b.status}
                     </span>
-                    {b.status === 'scheduled' && (
-                      <button onClick={() => startBroadcast(b.id)} disabled={actionLoading}
-                        className="p-1.5 rounded-md bg-[#4ade80]/10 hover:bg-[#4ade80]/20 text-[#4ade80] transition-colors"
-                        title="Go Live">
-                        <Play className="w-3.5 h-3.5" />
-                      </button>
-                    )}
                     {b.status === 'live' && (
-                      <>
-                        <button onClick={() => openStudio(b)}
-                          className="p-1.5 rounded-md bg-[#4ade80]/10 hover:bg-[#4ade80]/20 text-[#4ade80] transition-colors"
-                          title="Open Studio">
-                          <Monitor className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => stopBroadcast()} disabled={actionLoading}
-                          className="p-1.5 rounded-md bg-[#ef4444]/10 hover:bg-[#ef4444]/20 text-[#ef4444] transition-colors"
-                          title="End Broadcast">
-                          <Square className="w-3.5 h-3.5" />
-                        </button>
-                      </>
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] animate-pulse flex-shrink-0" />
                     )}
                     {b.status === 'ended' && b.recording_url && (
-                      <a
-                        href={`${API_BASE}/api/broadcasts/${b.id}/recording/download`}
-                        className="p-1.5 rounded-md bg-[#c9a227]/10 hover:bg-[#c9a227]/20 text-[#c9a227] transition-colors"
-                        title={`Download recording${b.recorded_at ? ` · expires ${new Date(new Date(b.recorded_at).getTime() + 90*24*60*60*1000).toLocaleDateString()}` : ''}`}
-                        download
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                      </a>
+                      <span title="Recording available" className="p-1 rounded-md bg-[#c9a227]/10 text-[#c9a227]">
+                        <Download className="w-3 h-3" />
+                      </span>
                     )}
                   </div>
                 </div>
