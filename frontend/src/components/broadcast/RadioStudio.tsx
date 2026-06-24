@@ -594,7 +594,8 @@ export default function RadioStudio({
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const streamUrl = `${window.location.origin}/live${broadcastId ? `/${broadcastId}` : ''}`
+  const isNative = typeof (window as any).Capacitor !== 'undefined' && (window as any).Capacitor?.isNativePlatform?.()
+  const streamUrl = `${isNative ? 'https://www.zionite.online' : window.location.origin}/live${broadcastId ? `/${broadcastId}` : ''}`
 
   return (
     <div>
@@ -825,15 +826,17 @@ export default function RadioStudio({
             )}
           </div>
 
-          {/* File picker */}
-          <label className="flex items-center gap-2 cursor-pointer mb-3 px-3 py-2 rounded-lg transition-colors"
+          {/* File picker — use an invisible overlay instead of display:none so Android WebView triggers it reliably */}
+          <label className="relative flex items-center gap-2 cursor-pointer mb-3 px-3 py-2 rounded-lg transition-colors"
             style={{ background: 'var(--ink-2)', border: '1px dashed var(--line)' }}>
             <Upload className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--gold)' }} />
             <span className="text-xs truncate" style={{ color: musicName ? 'var(--parchment)' : 'var(--dim)' }}>
               {musicLoading ? 'Decoding audio...' : musicName || 'Upload background music (MP3, WAV, OGG…)'}
             </span>
             {musicLoading && <Loader2 className="w-3.5 h-3.5 animate-spin ml-auto flex-shrink-0" style={{ color: 'var(--gold)' }} />}
-            <input type="file" accept="audio/*" className="hidden"
+            <input type="file" accept="audio/*"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              style={{ zIndex: 10 }}
               onChange={async e => {
                 const file = e.target.files?.[0]
                 if (!file) return
