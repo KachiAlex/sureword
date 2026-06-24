@@ -7,6 +7,8 @@ import { v4 as uuidv4 } from 'uuid'
 import multer from 'multer'
 import { v2 as cloudinary } from 'cloudinary'
 import crypto from 'crypto'
+import webpush from 'web-push'
+import nodemailer from 'nodemailer'
 
 // Cloudinary auto-configures from CLOUDINARY_URL env var
 // Parse URL so we can expose cloud_name + api_key to clients for signed uploads
@@ -245,6 +247,40 @@ async function _doInitDb() {
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`)
 
+  // Notification tables
+  await dbQuery(`CREATE TABLE IF NOT EXISTS fcm_tokens (
+    token TEXT PRIMARY KEY,
+    user_id TEXT,
+    platform TEXT DEFAULT 'android',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`)
+  await dbQuery(`CREATE TABLE IF NOT EXISTS notification_preferences (
+    user_id TEXT PRIMARY KEY,
+    email_enabled BOOLEAN DEFAULT TRUE,
+    push_enabled BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`)
+  await dbQuery(`CREATE TABLE IF NOT EXISTS notification_log (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    url TEXT,
+    push_count INTEGER DEFAULT 0,
+    email_count INTEGER DEFAULT 0,
+    fcm_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`)
+  await dbQuery(`CREATE TABLE IF NOT EXISTS spiritual_health (
+    id TEXT PRIMARY KEY,
+    scripture TEXT NOT NULL,
+    message TEXT,
+    created_by TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`)
+
   // Migrations for existing tables
   try { await dbQuery(`ALTER TABLE stream_listeners ADD COLUMN IF NOT EXISTS platform TEXT DEFAULT 'web'`) } catch {}
   try { await dbQuery(`ALTER TABLE donations ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'completed'`) } catch {}
@@ -311,6 +347,112 @@ function requireRole(...roles: string[]) {
     if (!req.user || !roles.includes(req.user.role)) { res.status(403).json({ error: 'Forbidden' }); return }
     next()
   }
+}
+
+// ── Notification helpers ───────────────────────────────────────
+let _vapidConfigured = false
+function configureVapid() {
+  if (_vapidConfigured) return
+  const vapidPublic = process.env.VAPID_PUBLIC_KEY || 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U'
+  const vapidPrivate = process.env.VAPID_PRIVATE_KEY || ''
+  const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:admin@zionite.online'
+  if (vapidPrivate) {
+    webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate)
+    _vapidConfigured = true
+  }
+}
+
+let _emailTransporter: nodemailer.Transporter | null = null
+function getEmailTransporter() {
+  if (_emailTransporter) return _emailTransporter
+  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) return null
+  _emailTransporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+  })
+  return _emailTransporter
+}
+
+async function sendWebPush(title: string, body: string, url: string) {
+  configureVapid()
+  if (!_vapidConfigured) return { sent: 0, failed: 0 }
+  const subs = await dbQuery('SELECT endpoint, p256dh, auth FROM push_subscriptions')
+  let sent = 0, failed = 0
+  for (const sub of subs) {
+    try {
+      await webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+        JSON.stringify({ title, body, url, icon: '/logo.png', badge: '/logo.png' })
+      )
+      sent++
+    } catch (e: any) {
+      failed++
+      if (e.statusCode === 404 || e.statusCode === 410) {
+        try { await dbQuery('DELETE FROM push_subscriptions WHERE endpoint=$1', [sub.endpoint]) } catch {}
+      }
+    }
+  }
+  return { sent, failed }
+}
+
+async function sendEmailNotifications(subject: string, body: string, _url: string) {
+  const transporter = getEmailTransporter()
+  if (!transporter) return { sent: 0, failed: 0 }
+  const users = await dbQuery('SELECT email FROM users WHERE email IS NOT NULL')
+  const from = process.env.FROM_EMAIL || process.env.SMTP_USER
+  let sent = 0, failed = 0
+  for (const user of users) {
+    try {
+      await transporter.sendMail({ from, to: user.email, subject, text: body + '\n\nVisit ZioniteFM: https://www.zionite.online' + _url })
+      sent++
+    } catch { failed++ }
+  }
+  return { sent, failed }
+}
+
+async function sendFcmNotifications(title: string, body: string, url: string) {
+  if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_CLIENT_EMAIL || !process.env.FIREBASE_PRIVATE_KEY) {
+    return { sent: 0, failed: 0 }
+  }
+  try {
+    const { default: admin } = await import('firebase-admin')
+    if (admin.apps.length === 0) {
+      admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
+        })
+      })
+    }
+    const tokens = await dbQuery('SELECT token FROM fcm_tokens')
+    if (tokens.length === 0) return { sent: 0, failed: 0 }
+    const messages = tokens.map((t: any) => ({
+      token: t.token,
+      notification: { title, body },
+      data: { url, title, body }
+    }))
+    const response = await admin.messaging().sendEach(messages)
+    return { sent: response.successCount, failed: response.failureCount }
+  } catch (e: any) {
+    console.error('FCM send error:', e.message)
+    return { sent: 0, failed: 0 }
+  }
+}
+
+async function broadcastNotification(type: string, title: string, body: string, url: string) {
+  await initDb()
+  const push = await sendWebPush(title, body, url)
+  const email = await sendEmailNotifications(title, body, url)
+  const fcm = await sendFcmNotifications(title, body, url)
+  const id = uuidv4()
+  await dbQuery(
+    `INSERT INTO notification_log (id, type, title, body, url, push_count, email_count, fcm_count) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+    [id, type, title, body, url, push.sent, email.sent, fcm.sent]
+  )
+  return { id, push, email, fcm }
 }
 
 // ── Auth routes ────────────────────────────────────────────────
@@ -420,8 +562,11 @@ app.patch('/broadcasts/:id/end', auth, requireRole('admin', 'broadcaster'), asyn
 app.patch('/broadcasts/:id/start', auth, requireRole('admin', 'broadcaster'), async (req, res) => {
   try {
     await initDb()
+    const broadcast = await dbGet('SELECT title FROM broadcasts WHERE id=$1', [req.params.id])
     await dbQuery("UPDATE broadcasts SET status='live', started_at=NOW() WHERE id=$1", [req.params.id])
     res.json({ success: true })
+    // Notify subscribers asynchronously
+    broadcastNotification('broadcast_live', broadcast?.title || 'Live Broadcast', 'A broadcast is now live on ZioniteFM', `/live/${req.params.id}`).catch(() => {})
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
@@ -544,6 +689,7 @@ app.post('/sermons', auth, requireRole('admin'), async (req: AuthReq, res) => {
       [id, title, description || null, scripture_reference || null, speaker || null, series || null,
        audio_url || null, video_url || null, thumbnail_url || null, sermonDate, duration || 0])
     res.status(201).json({ sermon: { id, title, description, scripture_reference, speaker, series, audio_url, video_url, thumbnail_url, date: sermonDate, duration } })
+    broadcastNotification('sermon', 'New Sermon Available', `${title} by ${speaker || 'ZioniteFM'}`, `/sermons/${id}`).catch(() => {})
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
@@ -721,6 +867,7 @@ app.post('/music', auth, requireRole('admin'), upload.fields([{ name: 'audio', m
     await dbQuery(`INSERT INTO music (id, title, artist, album, genre, audio_url, cover_url, duration, lyrics, file_format, file_size) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [id, title, artist || '', album || '', genre || '', audio_url, finalCoverUrl || '', parseInt(duration) || 0, lyrics || '', file_format, file_size])
     res.status(201).json({ id, title })
+    broadcastNotification('music', 'New Music on ZioniteFM', `${title} by ${artist || 'ZioniteFM'}`, `/music`).catch(() => {})
   } catch (e: any) { res.status(500).json({ error: e.message || 'Upload failed' }) }
 })
 
@@ -1341,11 +1488,10 @@ app.delete('/push/unsubscribe', async (req, res) => {
 // Admin: broadcast a push notification to all subscribers
 app.post('/push/broadcast', auth, requireRole('admin'), async (req, res) => {
   try {
-    await initDb()
     const { title, body, url } = req.body
     if (!title || !body) { res.status(400).json({ error: 'title and body required' }); return }
-    const subs = await dbQuery('SELECT endpoint, p256dh, auth FROM push_subscriptions')
-    res.json({ ok: true, sent: subs.length, message: `Push queued for ${subs.length} subscribers`, payload: { title, body, url: url || '/' } })
+    const result = await broadcastNotification('admin_broadcast', title, body, url || '/')
+    res.json({ ok: true, ...result, payload: { title, body, url: url || '/' } })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
@@ -1354,6 +1500,60 @@ app.get('/push/subscribers/count', auth, requireRole('admin'), async (_req, res)
     await initDb()
     const row = await dbGet('SELECT COUNT(*) as count FROM push_subscriptions')
     res.json({ count: Number(row?.count || 0) })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+// FCM tokens for native Android push
+app.post('/push/fcm-token', async (req, res) => {
+  try {
+    await initDb()
+    const { token, user_id, platform } = req.body
+    if (!token) { res.status(400).json({ error: 'token required' }); return }
+    const existing = await dbGet('SELECT token FROM fcm_tokens WHERE token=$1', [token])
+    if (existing) {
+      await dbQuery('UPDATE fcm_tokens SET user_id=$1, platform=$2, updated_at=NOW() WHERE token=$3', [user_id || null, platform || 'android', token])
+    } else {
+      await dbQuery('INSERT INTO fcm_tokens (token, user_id, platform) VALUES ($1,$2,$3)', [token, user_id || null, platform || 'android'])
+    }
+    res.json({ ok: true })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.delete('/push/fcm-token', async (req, res) => {
+  try {
+    await initDb()
+    const { token } = req.body
+    if (!token) { res.status(400).json({ error: 'token required' }); return }
+    await dbQuery('DELETE FROM fcm_tokens WHERE token=$1', [token])
+    res.json({ ok: true })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+// ── Spiritual Health Monitor ───────────────────────────────────
+app.post('/spiritual-health', auth, requireRole('admin'), async (req: AuthReq, res) => {
+  try {
+    const { scripture, message } = req.body
+    if (!scripture?.trim()) { res.status(400).json({ error: 'Scripture is required' }); return }
+    const id = uuidv4()
+    await dbQuery('INSERT INTO spiritual_health (id, scripture, message, created_by) VALUES ($1,$2,$3,$4)', [id, scripture.trim(), message || null, req.user!.id])
+    const result = await broadcastNotification('spiritual_health', 'Spiritual Health Monitor', `${scripture.trim()} — ${message || 'Daily scripture for you'}`, '/')
+    res.json({ ok: true, id, ...result })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.get('/spiritual-health', auth, async (_req, res) => {
+  try {
+    await initDb()
+    const rows = await dbQuery('SELECT * FROM spiritual_health ORDER BY created_at DESC LIMIT 50')
+    res.json({ entries: rows })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.delete('/spiritual-health/:id', auth, requireRole('admin'), async (req, res) => {
+  try {
+    await initDb()
+    await dbQuery('DELETE FROM spiritual_health WHERE id=$1', [req.params.id])
+    res.json({ ok: true })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 

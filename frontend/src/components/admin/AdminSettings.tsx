@@ -3,9 +3,48 @@ import axios from 'axios'
 import { API_BASE } from '../../lib/api'
 import {
   Lock, Loader2, Bell, BellOff, Fingerprint, Trash2,
-  Mail, Users, Send, CheckCircle, Smartphone, ShieldCheck
+  Mail, Users, Send, CheckCircle, Smartphone, ShieldCheck, BookOpen
 } from 'lucide-react'
 import { useNotifications } from '../../contexts/NotificationContext'
+
+function SpiritualHealthForm() {
+  const token = localStorage.getItem('token')
+  const [scripture, setScripture] = useState('')
+  const [message, setMessage] = useState('')
+  const [sending, setSending] = useState(false)
+  const [result, setResult] = useState<string | null>(null)
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!scripture.trim()) { alert('Scripture is required'); return }
+    setSending(true)
+    setResult(null)
+    try {
+      const r = await axios.post(`${API_BASE}/api/spiritual-health`, { scripture: scripture.trim(), message: message.trim() || null }, { headers: { Authorization: `Bearer ${token}` } })
+      const counts = r.data
+      setResult(`Sent! Push: ${counts.push?.sent || 0}, Email: ${counts.email?.sent || 0}, FCM: ${counts.fcm?.sent || 0}`)
+      setScripture('')
+      setMessage('')
+    } catch (err: any) {
+      setResult(err.response?.data?.error || 'Failed to send')
+    } finally { setSending(false) }
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-3">
+      <input className="w-full rounded-xl px-4 py-2.5 text-sm outline-none" style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--parchment)' }}
+        placeholder="Scripture reference (e.g. Psalm 23:1-4)" value={scripture} onChange={e => setScripture(e.target.value)} />
+      <textarea className="w-full rounded-xl px-4 py-2.5 text-sm outline-none" style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--parchment)' }}
+        placeholder="Optional message / reflection" rows={3} value={message} onChange={e => setMessage(e.target.value)} />
+      <button type="submit" disabled={sending}
+        className="flex items-center gap-2 bg-[#c9a227] hover:bg-[#e0bd5a] text-[#1b1208] text-sm font-semibold px-5 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
+        {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+        Send Scripture to Everyone
+      </button>
+      {result && <p className={`text-sm flex items-center gap-2 ${result.includes('Failed') ? 'text-red-400' : 'text-green-400'}`}><CheckCircle className="w-4 h-4" /> {result}</p>}
+    </form>
+  )
+}
 
 export default function AdminSettings() {
   const token = localStorage.getItem('token')
@@ -121,6 +160,15 @@ export default function AdminSettings() {
             </p>
           )}
         </form>
+      </div>
+
+      {/* ── Spiritual Health Monitor ── */}
+      <div className={card} style={cardStyle}>
+        <h3 className="font-semibold flex items-center gap-2 text-sm text-white">
+          <BookOpen className="w-4 h-4 text-[#c9a227]" /> Spiritual Health Monitor
+        </h3>
+        <p className="text-xs text-[#9c958a]">Send a daily scripture to everyone via push notification and email.</p>
+        <SpiritualHealthForm />
       </div>
 
       {/* ── Your Push Notification Toggle ── */}

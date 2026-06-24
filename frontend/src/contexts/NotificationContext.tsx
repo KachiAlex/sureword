@@ -43,6 +43,15 @@ async function arrayBufferToBase64(buffer: ArrayBuffer) {
   return btoa(String.fromCharCode(...new Uint8Array(buffer)))
 }
 
+function getUserId() {
+  try {
+    const userData = localStorage.getItem('user')
+    return userData ? JSON.parse(userData).id : undefined
+  } catch { return undefined }
+}
+
+const isNative = typeof window !== 'undefined' && !!(window as any).Capacitor?.isNativePlatform?.()
+
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [pushEnabled, setPushEnabled] = useState(false)
   const [loadingPush, setLoadingPush] = useState(false)
@@ -50,16 +59,57 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [credentials, setCredentials] = useState<BiometricCred[]>([])
   const [biometricRegistered, setBiometricRegistered] = useState(false)
 
-  const pushSupported = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window
+  const pushSupported = typeof window !== 'undefined' && (isNative || ('serviceWorker' in navigator && 'PushManager' in window))
   const biometricSupported = typeof window !== 'undefined' && !!window.PublicKeyCredential
 
   useEffect(() => {
     if (!pushSupported) return
-    navigator.serviceWorker.ready.then(async (reg) => {
-      const sub = await reg.pushManager.getSubscription()
-      setPushEnabled(!!sub)
-    }).catch(() => {})
+    if (isNative) {
+      // Register FCM token for native apps
+      registerFcmToken().then(setPushEnabled).catch(() => {})
+    } else {
+      navigator.serviceWorker.ready.then(async (reg) => {
+        const sub = await reg.pushManager.getSubscription()
+        setPushEnabled(!!sub)
+      }).catch(() => {})
+    }
   }, [pushSupported])
+
+  async function registerFcmToken(): Promise<boolean> {
+    try {
+      const { PushNotifications } = await import('@capacitor/push-notifications')
+      const perm = await PushNotifications.requestPermissions()
+      if (perm.receive !== 'granted') return false
+      await PushNotifications.register()
+      return new Promise((resolve) => {
+        const handler = (event: any) => {
+          const token = event.value
+          fetch(`${API_BASE}/api/push/fcm-token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, user_id: getUserId(), platform: 'android' })
+          }).catch(() => {})
+          PushNotifications.removeAllListeners()
+          resolve(true)
+        }
+        PushNotifications.addListener('registration', handler)
+        PushNotifications.addListener('registrationError', () => { PushNotifications.removeAllListeners(); resolve(false) })
+        setTimeout(() => { PushNotifications.removeAllListeners(); resolve(false) }, 10000)
+      })
+    } catch (e: any) {
+      console.error('FCM register error:', e)
+      return false
+    }
+  }
+
+  async function unregisterFcmToken() {
+    try {
+      const { PushNotifications } = await import('@capacitor/push-notifications')
+      const result = await PushNotifications.getDeliveredNotifications()
+      // Best effort: we cannot read the token after unregister, but we can try to remove from server
+      await PushNotifications.unregister()
+    } catch (e: any) { console.error('FCM unregister error:', e) }
+  }
 
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -78,6 +128,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     if (!pushSupported) return
     setLoadingPush(true)
     try {
+      if (isNative) {
+        const ok = await registerFcmToken()
+        if (!ok) { alert('Notification permission denied.'); return }
+        setPushEnabled(true)
+        return
+      }
+
       const perm = await Notification.requestPermission()
       if (perm !== 'granted') { alert('Notification permission denied.'); return }
 
@@ -92,8 +149,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
       const subJson = sub.toJSON()
       const token = localStorage.getItem('token')
-      const userData = localStorage.getItem('user')
-      const userId = userData ? JSON.parse(userData).id : undefined
+      const userId = getUserId()
 
       await fetch(`${API_BASE}/api/push/subscribe`, {
         method: 'POST',
@@ -118,6 +174,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     if (!pushSupported) return
     setLoadingPush(true)
     try {
+      if (isNative) {
+        await unregisterFcmToken()
+        setPushEnabled(false)
+        return
+      }
+
       const reg = await navigator.serviceWorker.ready
       const sub = await reg.pushManager.getSubscription()
       if (sub) {
