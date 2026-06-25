@@ -4,7 +4,8 @@ import { API_BASE } from '../../lib/api'
 import {
   Radio, Play, Square, Plus, Loader2, ArrowLeft,
   Mic, BookOpen, ExternalLink, AlertCircle, Monitor, ChevronDown, ChevronUp,
-  HardDrive, Folder, Download, Pause, X, MessageSquare, Calendar, Clock, User
+  HardDrive, Folder, Download, X, MessageSquare, Calendar, Clock, User,
+  Music, Upload
 } from 'lucide-react'
 import { getRecordingConfig, setRecordingConfig } from '../../lib/recording'
 import RadioStudio from '../broadcast/RadioStudio'
@@ -37,6 +38,61 @@ interface ChatMsg {
 }
 
 type StudioView = 'list' | 'setup' | 'studio'
+
+/* ── Real-time mic level meter ── */
+function MicMeter({ stream }: { stream: MediaStream | null }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const animRef = useRef<number>(0)
+
+  useEffect(() => {
+    if (!stream) return
+    const ctx = new AudioContext()
+    const src = ctx.createMediaStreamSource(stream)
+    const analyser = ctx.createAnalyser()
+    analyser.fftSize = 64
+    src.connect(analyser)
+
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const c = canvas.getContext('2d')
+    if (!c) return
+
+    const data = new Uint8Array(analyser.frequencyBinCount)
+    const barCount = 16
+
+    function draw() {
+      if (!c || !canvas) return
+      analyser.getByteFrequencyData(data)
+      c.clearRect(0, 0, canvas.width, canvas.height)
+
+      const w = canvas.width / barCount
+      for (let i = 0; i < barCount; i++) {
+        const idx = Math.floor((i / barCount) * data.length)
+        const val = data[idx] || 0
+        const pct = val / 255
+        const h = pct * canvas.height
+        const x = i * w + 2
+        const y = canvas.height - h
+
+        c.fillStyle = pct > 0.7 ? '#ef4444' : pct > 0.4 ? '#eab308' : '#4ade80'
+        c.fillRect(x, y, w - 4, h)
+      }
+      animRef.current = requestAnimationFrame(draw)
+    }
+
+    draw()
+    return () => {
+      cancelAnimationFrame(animRef.current)
+      src.disconnect()
+      analyser.disconnect()
+      ctx.close().catch(() => {})
+    }
+  }, [stream])
+
+  return (
+    <canvas ref={canvasRef} width={320} height={48} className="w-full rounded-lg bg-[#14141a]" />
+  )
+}
 
 export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts: Broadcast[]; onRefresh: () => void }) {
   const token = localStorage.getItem('token')
@@ -104,6 +160,15 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [recordEnabled, setRecordEnabled] = useState(false)
   const [recordDirName, setRecordDirName] = useState('')
+
+  /* ── 2-page setup modal state ── */
+  const [setupPage, setSetupPage] = useState<1 | 2>(1)
+  const [musicBuffer, setMusicBuffer] = useState<AudioBuffer | null>(null)
+  const [musicName, setMusicName] = useState('')
+  const [musicVolume, setMusicVolume] = useState(25)
+  const [musicLoading, setMusicLoading] = useState(false)
+  const [micTestStream, setMicTestStream] = useState<MediaStream | null>(null)
+  const [micTestActive, setMicTestActive] = useState(false)
 
   /* ── Studio state ── */
   const [broadcastId, setBroadcastId] = useState('')
@@ -315,10 +380,15 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     }
   }, [broadcasts])
 
-  /* ── Create & go live (setup flow) ── */
-  async function createAndGoLive(e: React.FormEvent) {
-    e.preventDefault()
+  /* ── Page 1 → Page 2 validation ── */
+  function goToPage2() {
     if (!title.trim()) { setSetupError('Please enter a broadcast title'); return }
+    setSetupError('')
+    setSetupPage(2)
+  }
+
+  /* ── Create & go live (Page 2) ── */
+  async function createAndGoLive() {
     setSetupError('')
     setCreating(true)
     try {
@@ -412,6 +482,41 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     onRefresh()
   }
 
+  async function loadMusicFile(file: File) {
+    setMusicLoading(true)
+    setMusicName(file.name)
+    try {
+      const arrayBuf = await file.arrayBuffer()
+      const ctx = new AudioContext()
+      const decoded = await ctx.decodeAudioData(arrayBuf)
+      setMusicBuffer(decoded)
+      setMusicLoading(false)
+    } catch {
+      setMusicLoading(false)
+      setSetupError('Could not decode audio file. Try a different format.')
+    }
+  }
+
+  async function startMicTest() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: selectedDevice ? { deviceId: { exact: selectedDevice } } : true
+      })
+      setMicTestStream(stream)
+      setMicTestActive(true)
+    } catch {
+      setSetupError('Could not access microphone for testing.')
+    }
+  }
+
+  function stopMicTest() {
+    if (micTestStream) {
+      micTestStream.getTracks().forEach(t => t.stop())
+    }
+    setMicTestStream(null)
+    setMicTestActive(false)
+  }
+
   function openSetup() {
     setTitle('')
     setDescription('')
@@ -424,6 +529,12 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     setThumbnailPreview('')
     setThumbnailUrl('')
     setSetupError('')
+    setSetupPage(1)
+    setMusicBuffer(null)
+    setMusicName('')
+    setMusicVolume(25)
+    setMusicLoading(false)
+    stopMicTest()
     setView('setup')
   }
 
@@ -586,158 +697,245 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
             <h3 className="text-xs font-bold text-white flex items-center gap-2">
               <Radio className="w-4 h-4 text-[#c9a227]" /> New Broadcast
             </h3>
-            <p className="text-[10px] text-[#9c958a] mt-1">Enter a title, upload a thumbnail, and go live.</p>
+            <p className="text-[10px] text-[#9c958a] mt-1">
+              {setupPage === 1 ? 'Step 1 of 2: Enter broadcast details.' : 'Step 2 of 2: Test audio and upload soundtrack.'}
+            </p>
           </div>
 
-          <form onSubmit={createAndGoLive} className="p-5 space-y-5">
+          <div className="p-5 space-y-5">
             {setupError && (
               <div className="p-3 rounded-lg bg-[#ef4444]/10 border border-[#ef4444]/20 text-[#fca5a5] text-[11px] flex items-center gap-2">
                 <AlertCircle className="w-4 h-4" /> {setupError}
               </div>
             )}
 
-            <div>
-              <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider mb-1.5">Broadcast Title *</label>
-              <input type="text" value={title} onChange={e => setTitle(e.target.value)}
-                placeholder="e.g., Sunday Morning Service"
-                className="w-full rounded-lg px-3 py-2.5 text-xs bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors"
-              />
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider mb-1.5">Broadcast Thumbnail</label>
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] text-[#9c958a] text-xs cursor-pointer hover:border-[#c9a227]/40 transition-colors">
-                    <Plus className="w-3 h-3" /> Upload Image
-                    <input type="file" accept="image/*" onChange={handleThumbnailChange} className="hidden" />
-                  </label>
-                  {thumbnailPreview && (
-                    <div className="w-12 h-12 rounded-lg overflow-hidden border border-[rgba(243,238,228,0.08)]">
-                      <img src={thumbnailPreview} alt="Thumbnail preview" className="w-full h-full object-cover" />
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div>
-                <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                  <BookOpen className="w-3 h-3" /> Scripture Reference
-                </label>
-                <input type="text" value={scripture} onChange={e => setScripture(e.target.value)}
-                  placeholder="e.g., Romans 8:1-17"
-                  className="w-full rounded-lg px-3 py-2.5 text-xs bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors"
-                />
-              </div>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                  <Mic className="w-3 h-3" /> Speaker
-                </label>
-                <input type="text" value={speaker} onChange={e => setSpeaker(e.target.value)}
-                  placeholder="e.g., Pastor Daniel Akins"
-                  className="w-full rounded-lg px-3 py-2.5 text-xs bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider mb-1.5">Description</label>
-                <textarea value={description} onChange={e => setDescription(e.target.value)} rows={1}
-                  placeholder="Optional description..."
-                  className="w-full rounded-lg px-3 py-2.5 text-xs bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors resize-none"
-                />
-              </div>
-            </div>
-
-            {audioDevices.length > 0 && (
-              <div>
-                <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                  <Mic className="w-3 h-3" /> Microphone Device
-                </label>
-                <select value={selectedDevice} onChange={e => setSelectedDevice(e.target.value)}
-                  className="w-full rounded-lg px-3 py-2.5 text-xs bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors">
-                  <option value="">Default microphone</option>
-                  {audioDevices.map(d => (
-                    <option key={d.deviceId} value={d.deviceId}>
-                      {d.label || `Microphone (${d.deviceId.slice(0, 8)})`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <button type="button" onClick={() => setShowAdvanced(!showAdvanced)}
-              className="flex items-center gap-1.5 text-[11px] text-[#9c958a] hover:text-white transition-colors">
-              {showAdvanced ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-              Advanced Settings
-            </button>
-
-            {showAdvanced && (
-              <div className="rounded-xl bg-[#1c1d24] border border-[rgba(243,238,228,0.06)] p-4 space-y-3">
-                <h4 className="text-[11px] font-semibold text-white flex items-center gap-1.5">
-                  <ExternalLink className="w-3.5 h-3.5 text-[#c9a227]" /> Stream Configuration
-                </h4>
-                <div className="grid md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] text-[#9c958a] mb-1">Church Online URL</label>
-                    <input type="text" value={churchOnlineUrl} onChange={e => setChurchOnlineUrl(e.target.value)}
-                      placeholder="https://online.church/your-church"
-                      className="w-full rounded-lg px-3 py-2 text-xs bg-[#14141a] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-[#9c958a] mb-1">RTMP Ingest URL</label>
-                    <input type="text" value={rtmpUrl} onChange={e => setRtmpUrl(e.target.value)}
-                      placeholder="rtmp://live.churchonline.com/live"
-                      className="w-full rounded-lg px-3 py-2 text-xs bg-[#14141a] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors"
-                    />
-                  </div>
-                </div>
+            {setupPage === 1 ? (
+              /* ── PAGE 1: Broadcast Details ── */
+              <>
                 <div>
-                  <label className="block text-[10px] text-[#9c958a] mb-1">Stream Key</label>
-                  <input type="password" value={streamKey} onChange={e => setStreamKey(e.target.value)}
-                    placeholder="Your stream key"
-                    className="w-full rounded-lg px-3 py-2 text-xs bg-[#14141a] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors"
+                  <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider mb-1.5">Broadcast Title *</label>
+                  <input type="text" value={title} onChange={e => setTitle(e.target.value)}
+                    placeholder="e.g., Sunday Morning Service"
+                    className="w-full rounded-lg px-3 py-2.5 text-xs bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors"
                   />
                 </div>
-                <div className="border-t border-[rgba(243,238,228,0.06)] pt-3 mt-1 md:col-span-2">
-                  <h4 className="text-[11px] font-semibold text-white flex items-center gap-1.5 mb-2">
-                    <HardDrive className="w-3.5 h-3.5 text-[#c9a227]" /> Local Recording
-                  </h4>
-                  <label className="flex items-center gap-2 mb-2 cursor-pointer">
-                    <input type="checkbox" checked={recordEnabled} onChange={e => toggleRecordEnabled(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border-[rgba(243,238,228,0.2)] bg-[#14141a] text-[#c9a227] focus:ring-[#c9a227]" />
-                    <span className="text-[11px] text-[#9c958a]">Auto-record broadcasts to local folder</span>
-                  </label>
-                  {recordEnabled && (
-                    <div className="flex items-center gap-2">
-                      {recordDirName ? (
-                        <span className="text-[11px] text-[#9c958a]">Folder: <span className="text-white">{recordDirName}</span></span>
-                      ) : (
-                        <span className="text-[11px] text-[#fca5a5]">No folder selected</span>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider mb-1.5">Broadcast Thumbnail</label>
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] text-[#9c958a] text-xs cursor-pointer hover:border-[#c9a227]/40 transition-colors">
+                        <Plus className="w-3 h-3" /> Upload Image
+                        <input type="file" accept="image/*" onChange={handleThumbnailChange} className="hidden" />
+                      </label>
+                      {thumbnailPreview && (
+                        <div className="w-12 h-12 rounded-lg overflow-hidden border border-[rgba(243,238,228,0.08)]">
+                          <img src={thumbnailPreview} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                        </div>
                       )}
-                      <button type="button" onClick={pickRecordDirectory}
-                        className="text-[11px] text-[#c9a227] hover:text-[#e0bd5a] transition-colors flex items-center gap-1">
-                        <Folder className="w-3 h-3" /> {recordDirName ? 'Change' : 'Choose Folder'}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                      <BookOpen className="w-3 h-3" /> Scripture Reference
+                    </label>
+                    <input type="text" value={scripture} onChange={e => setScripture(e.target.value)}
+                      placeholder="e.g., Romans 8:1-17"
+                      className="w-full rounded-lg px-3 py-2.5 text-xs bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                      <Mic className="w-3 h-3" /> Speaker
+                    </label>
+                    <input type="text" value={speaker} onChange={e => setSpeaker(e.target.value)}
+                      placeholder="e.g., Pastor Daniel Akins"
+                      className="w-full rounded-lg px-3 py-2.5 text-xs bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider mb-1.5">Description</label>
+                    <textarea value={description} onChange={e => setDescription(e.target.value)} rows={1}
+                      placeholder="Optional description..."
+                      className="w-full rounded-lg px-3 py-2.5 text-xs bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors resize-none"
+                    />
+                  </div>
+                </div>
+
+                {audioDevices.length > 0 && (
+                  <div>
+                    <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                      <Mic className="w-3 h-3" /> Microphone Device
+                    </label>
+                    <select value={selectedDevice} onChange={e => setSelectedDevice(e.target.value)}
+                      className="w-full rounded-lg px-3 py-2.5 text-xs bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors">
+                      <option value="">Default microphone</option>
+                      {audioDevices.map(d => (
+                        <option key={d.deviceId} value={d.deviceId}>
+                          {d.label || `Microphone (${d.deviceId.slice(0, 8)})`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <button type="button" onClick={() => setShowAdvanced(!showAdvanced)}
+                  className="flex items-center gap-1.5 text-[11px] text-[#9c958a] hover:text-white transition-colors">
+                  {showAdvanced ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  Advanced Settings
+                </button>
+
+                {showAdvanced && (
+                  <div className="rounded-xl bg-[#1c1d24] border border-[rgba(243,238,228,0.06)] p-4 space-y-3">
+                    <h4 className="text-[11px] font-semibold text-white flex items-center gap-1.5">
+                      <ExternalLink className="w-3.5 h-3.5 text-[#c9a227]" /> Stream Configuration
+                    </h4>
+                    <div className="grid md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] text-[#9c958a] mb-1">Church Online URL</label>
+                        <input type="text" value={churchOnlineUrl} onChange={e => setChurchOnlineUrl(e.target.value)}
+                          placeholder="https://online.church/your-church"
+                          className="w-full rounded-lg px-3 py-2 text-xs bg-[#14141a] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-[#9c958a] mb-1">RTMP Ingest URL</label>
+                        <input type="text" value={rtmpUrl} onChange={e => setRtmpUrl(e.target.value)}
+                          placeholder="rtmp://live.churchonline.com/live"
+                          className="w-full rounded-lg px-3 py-2 text-xs bg-[#14141a] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-[#9c958a] mb-1">Stream Key</label>
+                      <input type="password" value={streamKey} onChange={e => setStreamKey(e.target.value)}
+                        placeholder="Your stream key"
+                        className="w-full rounded-lg px-3 py-2 text-xs bg-[#14141a] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors"
+                      />
+                    </div>
+                    <div className="border-t border-[rgba(243,238,228,0.06)] pt-3 mt-1 md:col-span-2">
+                      <h4 className="text-[11px] font-semibold text-white flex items-center gap-1.5 mb-2">
+                        <HardDrive className="w-3.5 h-3.5 text-[#c9a227]" /> Local Recording
+                      </h4>
+                      <label className="flex items-center gap-2 mb-2 cursor-pointer">
+                        <input type="checkbox" checked={recordEnabled} onChange={e => toggleRecordEnabled(e.target.checked)}
+                          className="w-3.5 h-3.5 rounded border-[rgba(243,238,228,0.2)] bg-[#14141a] text-[#c9a227] focus:ring-[#c9a227]" />
+                        <span className="text-[11px] text-[#9c958a]">Auto-record broadcasts to local folder</span>
+                      </label>
+                      {recordEnabled && (
+                        <div className="flex items-center gap-2">
+                          {recordDirName ? (
+                            <span className="text-[11px] text-[#9c958a]">Folder: <span className="text-white">{recordDirName}</span></span>
+                          ) : (
+                            <span className="text-[11px] text-[#fca5a5]">No folder selected</span>
+                          )}
+                          <button type="button" onClick={pickRecordDirectory}
+                            className="text-[11px] text-[#c9a227] hover:text-[#e0bd5a] transition-colors flex items-center gap-1">
+                            <Folder className="w-3 h-3" /> {recordDirName ? 'Change' : 'Choose Folder'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-2">
+                  <button type="button" onClick={() => setView('list')}
+                    className="text-[11px] text-[#9c958a] hover:text-white transition-colors px-3 py-2">
+                    Cancel
+                  </button>
+                  <button type="button" onClick={goToPage2}
+                    className="flex items-center gap-1.5 bg-[#c9a227] hover:bg-[#e0bd5a] text-[#1b1208] text-[11px] font-medium px-5 py-2.5 rounded-lg transition-colors">
+                    Next <ChevronDown className="w-3.5 h-3.5 rotate-[-90deg]" />
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* ── PAGE 2: Audio Pre-Flight ── */
+              <>
+                {/* Mic Test Meter */}
+                <div className="rounded-lg bg-[#1c1d24] border border-[rgba(243,238,228,0.06)] p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider flex items-center gap-1">
+                      <Mic className="w-3 h-3" /> Microphone Test
+                    </label>
+                    {micTestActive ? (
+                      <button type="button" onClick={stopMicTest}
+                        className="text-[11px] text-[#ef4444] hover:text-[#fca5a5] transition-colors flex items-center gap-1">
+                        <Square className="w-3 h-3" /> Stop Test
                       </button>
+                    ) : (
+                      <button type="button" onClick={startMicTest}
+                        className="text-[11px] text-[#4ade80] hover:text-[#86efac] transition-colors flex items-center gap-1">
+                        <Play className="w-3 h-3" /> Test Mic
+                      </button>
+                    )}
+                  </div>
+                  {micTestActive && <MicMeter stream={micTestStream} />}
+                  <p className="text-[10px] text-[#9c958a]">
+                    {micTestActive
+                      ? 'Speak into your microphone. You should see the bars moving.'
+                      : 'Click "Test Mic" to verify your microphone is working before going live.'}
+                  </p>
+                </div>
+
+                {/* Soundtrack Upload */}
+                <div className="rounded-lg bg-[#1c1d24] border border-[rgba(243,238,228,0.06)] p-4 space-y-3">
+                  <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider flex items-center gap-1">
+                    <Music className="w-3 h-3" /> Background Soundtrack
+                  </label>
+                  <label className="relative flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg transition-colors"
+                    style={{ background: 'rgba(243,238,228,0.03)', border: '1px dashed rgba(243,238,228,0.15)' }}>
+                    <Upload className="w-4 h-4 flex-shrink-0 text-[#c9a227]" />
+                    <span className="text-xs truncate" style={{ color: musicName ? 'var(--parchment)' : 'var(--dim)' }}>
+                      {musicLoading ? 'Decoding audio...' : musicName || 'Upload background music (MP3, WAV, OGG…)'}
+                    </span>
+                    {musicLoading && <Loader2 className="w-3.5 h-3.5 animate-spin ml-auto flex-shrink-0 text-[#c9a227]" />}
+                    <input type="file" accept="audio/*"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      style={{ zIndex: 10 }}
+                      onChange={async e => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        await loadMusicFile(file)
+                      }} />
+                  </label>
+
+                  {musicBuffer && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3">
+                        <Music className="w-3 h-3 text-[#c9a227]" />
+                        <span className="text-[11px] text-white">{musicName}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-[10px] text-[#9c958a] w-12">Volume</span>
+                        <input type="range" min={0} max={100} value={musicVolume}
+                          onChange={e => setMusicVolume(parseInt(e.target.value))}
+                          className="flex-1 h-2 rounded-lg appearance-none cursor-pointer"
+                          style={{ background: `linear-gradient(to right, #c9a227 ${musicVolume}%, rgba(243,238,228,0.1) ${musicVolume}%)` }} />
+                        <span className="text-[10px] font-mono w-6 text-right text-[#9c958a]">{musicVolume}%</span>
+                      </div>
                     </div>
                   )}
                 </div>
-              </div>
-            )}
 
-            <div className="flex items-center justify-between pt-2">
-              <button type="button" onClick={() => setView('list')}
-                className="text-[11px] text-[#9c958a] hover:text-white transition-colors px-3 py-2">
-                Cancel
-              </button>
-              <button type="submit" disabled={creating || !title.trim()}
-                className="flex items-center gap-1.5 bg-[#ef4444] hover:bg-[#ef4444]/90 text-white text-[11px] font-medium px-5 py-2.5 rounded-lg transition-colors disabled:opacity-50">
-                {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Radio className="w-3.5 h-3.5" />}
-                {creating ? 'Starting...' : 'Go Live'}
-              </button>
-            </div>
-          </form>
+                <div className="flex items-center justify-between pt-2">
+                  <button type="button" onClick={() => setSetupPage(1)}
+                    className="text-[11px] text-[#9c958a] hover:text-white transition-colors px-3 py-2 flex items-center gap-1">
+                    <ChevronDown className="w-3.5 h-3.5 rotate-90" /> Back
+                  </button>
+                  <button type="button" onClick={createAndGoLive} disabled={creating}
+                    className="flex items-center gap-1.5 bg-[#ef4444] hover:bg-[#ef4444]/90 text-white text-[11px] font-medium px-5 py-2.5 rounded-lg transition-colors disabled:opacity-50">
+                    {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Radio className="w-3.5 h-3.5" />}
+                    {creating ? 'Starting...' : 'Go Live'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     )
@@ -773,6 +971,9 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
         onEnd={(uploadDone) => stopBroadcast(uploadDone)}
         actionLoading={actionLoading}
         recordEnabled={recordEnabled}
+        musicBuffer={musicBuffer || undefined}
+        musicName={musicName || undefined}
+        initialMusicVolume={musicVolume}
       />
     </div>
   )

@@ -4,7 +4,7 @@ import { API_BASE } from '../../lib/api'
 import {
   Radio, Pause, Play, Square, Mic, MicOff, Volume2, Volume1, VolumeX,
   Copy, CheckCircle, Activity, Share2, Headphones, Wifi, Zap, HardDrive,
-  Disc, Loader2, Music2, Upload, RotateCcw, StopCircle,
+  Disc, Loader2, Music2, Music, RotateCcw, StopCircle,
   MessageSquare, Send, User, Clock
 } from 'lucide-react'
 import { getRecordingConfig } from '../../lib/recording'
@@ -81,6 +81,9 @@ interface Props {
   onEnd: (uploadDone: Promise<void>) => void
   actionLoading: boolean
   recordEnabled?: boolean
+  musicBuffer?: AudioBuffer
+  musicName?: string
+  initialMusicVolume?: number
 }
 
 /* ── MonitorPlayer (real-time local monitor via Web Audio API) ─────────── */
@@ -145,18 +148,19 @@ export default function RadioStudio({
   churchOnlineUrl: _churchOnlineUrl, status, startTime, selectedDevice,
   thumbnailUrl,
   onPause, onResume, onEnd, actionLoading,
-  recordEnabled
+  recordEnabled,
+  musicBuffer: initialMusicBuffer,
+  musicName: initialMusicName,
+  initialMusicVolume = 25
 }: Props) {
   const [micMuted, setMicMuted] = useState(false)
   const [micGain, setMicGain] = useState(80)
 
   /* ── Background music mixer state ── */
-  const [musicFile, setMusicFile] = useState<File | null>(null)
-  const [musicVolume, setMusicVolume] = useState(25)
+  const [musicVolume, setMusicVolume] = useState(initialMusicVolume)
   const [musicPlaying, setMusicPlaying] = useState(false)
   const [musicLoop, setMusicLoop] = useState(true)
-  const [musicName, setMusicName] = useState('')
-  const [musicLoading, setMusicLoading] = useState(false)
+  const musicName = initialMusicName || ''
 
   /* ── Chat state ── */
   const [chatMessages, setChatMessages] = useState<any[]>([])
@@ -242,7 +246,7 @@ export default function RadioStudio({
   useEffect(() => {
     shouldRecordRef.current = isLive
     if (shouldRecordRef.current) { startStreaming() } else { stopStreaming() }
-    return () => stopStreaming()
+    return () => { void stopStreaming() }
   }, [isLive, activeDeviceId, broadcastId])
 
   // Poll chat messages + active users for this broadcast
@@ -353,23 +357,12 @@ export default function RadioStudio({
     setMusicPlaying(true)
   }
 
-  async function loadMusicFile(file: File) {
-    setMusicLoading(true)
-    setMusicName(file.name)
-    try {
-      const arrayBuf = await file.arrayBuffer()
-      const ctx = mixerCtxRef.current || new AudioContext()
-      if (!mixerCtxRef.current) {
-        mixerCtxRef.current = ctx
-      }
-      const decoded = await ctx.decodeAudioData(arrayBuf)
-      musicBufferRef.current = decoded
-      setMusicLoading(false)
-    } catch {
-      setMusicLoading(false)
-      alert('Could not decode audio file. Try a different format.')
+  // Initialize music buffer from props when mixer is ready
+  useEffect(() => {
+    if (initialMusicBuffer) {
+      musicBufferRef.current = initialMusicBuffer
     }
-  }
+  }, [initialMusicBuffer])
 
   async function startStreaming() {
     try {
@@ -818,7 +811,7 @@ export default function RadioStudio({
               <Music2 className="w-4 h-4" style={{ color: 'var(--gold)' }} /> Background Music
               <span className="text-xs font-normal" style={{ color: 'var(--dim)' }}>(mixed into stream)</span>
             </span>
-            {musicFile && (
+            {musicBufferRef.current && (
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => {
@@ -849,26 +842,14 @@ export default function RadioStudio({
             )}
           </div>
 
-          {/* File picker — use an invisible overlay instead of display:none so Android WebView triggers it reliably */}
-          <label className="relative flex items-center gap-2 cursor-pointer mb-3 px-3 py-2 rounded-lg transition-colors"
+          {/* Soundtrack name display */}
+          <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg"
             style={{ background: 'var(--ink-2)', border: '1px dashed var(--line)' }}>
-            <Upload className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--gold)' }} />
+            <Music className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--gold)' }} />
             <span className="text-xs truncate" style={{ color: musicName ? 'var(--parchment)' : 'var(--dim)' }}>
-              {musicLoading ? 'Decoding audio...' : musicName || 'Upload background music (MP3, WAV, OGG…)'}
+              {musicName || 'No soundtrack loaded'}
             </span>
-            {musicLoading && <Loader2 className="w-3.5 h-3.5 animate-spin ml-auto flex-shrink-0" style={{ color: 'var(--gold)' }} />}
-            <input type="file" accept="audio/*"
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              style={{ zIndex: 10 }}
-              onChange={async e => {
-                const file = e.target.files?.[0]
-                if (!file) return
-                setMusicFile(file)
-                stopMusicPlayback()
-                musicBufferRef.current = null
-                await loadMusicFile(file)
-              }} />
-          </label>
+          </div>
 
           {/* Music volume */}
           <div className="flex items-center gap-3">
@@ -885,14 +866,14 @@ export default function RadioStudio({
               style={{ background: `linear-gradient(to right, #c9a227 ${musicVolume}%, var(--line) ${musicVolume}%)` }} />
             <span className="text-xs font-mono w-8 text-right">{musicVolume}%</span>
           </div>
-          {!isLive && musicFile && (
+          {!isLive && musicBufferRef.current && (
             <p className="text-[11px] mt-2" style={{ color: 'var(--dim)' }}>
               Music will play when the broadcast goes live. Start it with the Play button above.
             </p>
           )}
-          {isLive && !musicFile && (
+          {isLive && !musicBufferRef.current && (
             <p className="text-[11px] mt-2" style={{ color: 'var(--dim)' }}>
-              Upload a track and press Play — it will be mixed into your live stream.
+              No soundtrack loaded. Go back to setup to add one.
             </p>
           )}
         </div>
