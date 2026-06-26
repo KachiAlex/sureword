@@ -78,6 +78,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
   const infoIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const keepAliveRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const liveEdgePollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isLiveRef = useRef(false)
   const isLoadingRef = useRef(false)
   const lastKnownChunkRef = useRef(-1)
@@ -191,8 +192,8 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
       return
     }
 
-    // Start a few chunks behind live so we have buffer, but not so far we replay old audio
-    const startFrom = Math.max(0, latest - 2)
+    // Start 10 chunks behind live so we have a decent buffer (~20s) without replaying old audio
+    const startFrom = Math.max(0, latest - 10)
     lastKnownChunkRef.current = startFrom
 
     const loaded = await loadAudioSrc(startFrom)
@@ -220,11 +221,12 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
         return
       }
       if (resumeFrom > freshLatest) {
+        // Caught up to live — wait briefly then try resuming from where we left off
         isLoadingRef.current = false
-        if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current)
-        retryTimeoutRef.current = setTimeout(() => {
-          if (isLiveRef.current) startPlayback()
-        }, 3000)
+        if (liveEdgePollRef.current) clearTimeout(liveEdgePollRef.current)
+        liveEdgePollRef.current = setTimeout(() => {
+          if (isLiveRef.current) audio.dispatchEvent(new Event('ended'))
+        }, 1000)
         return
       }
       // Use preloaded blob if available for instant transition
@@ -236,7 +238,6 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
         if (nextLast !== undefined) lastKnownChunkRef.current = nextLast
         audio.src = blobUrlRef.current
         audio.play().catch(() => {})
-        // Preload the one after that in background
         preloadNextBlob(lastKnownChunkRef.current + 1)
         return
       }
@@ -245,11 +246,12 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
         audio.play().catch(() => {})
         preloadNextBlob(lastKnownChunkRef.current + 1)
       } else {
+        // Failed to load next chunk — retry shortly without rewinding
         isLoadingRef.current = false
-        if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current)
-        retryTimeoutRef.current = setTimeout(() => {
-          if (isLiveRef.current) startPlayback()
-        }, 3000)
+        if (liveEdgePollRef.current) clearTimeout(liveEdgePollRef.current)
+        liveEdgePollRef.current = setTimeout(() => {
+          if (isLiveRef.current) audio.dispatchEvent(new Event('ended'))
+        }, 1500)
       }
     }
     audio.onerror = () => {
@@ -417,6 +419,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
       if (infoIntervalRef.current) clearInterval(infoIntervalRef.current)
       if (keepAliveRef.current) clearInterval(keepAliveRef.current)
       if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current)
+      if (liveEdgePollRef.current) clearTimeout(liveEdgePollRef.current)
       if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null }
       if (nextBlobUrlRef.current) { URL.revokeObjectURL(nextBlobUrlRef.current); nextBlobUrlRef.current = null }
       if (nextBlobAbortRef.current) { nextBlobAbortRef.current.abort(); nextBlobAbortRef.current = null }
