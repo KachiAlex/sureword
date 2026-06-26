@@ -158,19 +158,34 @@ export default function RadioStudio({
 
   const isLive = status === 'live'
 
-  /* ── Screen wake lock: keep screen on while broadcasting ── */
+  /* ── Screen wake lock + Android foreground service ── */
   const wakeLockRef = useRef<any>(null)
   useEffect(() => {
     if (!isLive) {
       if (wakeLockRef.current) { wakeLockRef.current.release().catch(() => {}); wakeLockRef.current = null }
+      // Stop Android foreground audio service when broadcast pauses/ends
+      try {
+        const android = (window as any).AndroidAudio
+        if (android && typeof android.stopAudioService === 'function') {
+          android.stopAudioService()
+        }
+      } catch {}
       return
     }
+    // Keep screen on
     if ('wakeLock' in navigator) {
       ;(navigator as any).wakeLock.request('screen').then((lock: any) => {
         wakeLockRef.current = lock
         lock.addEventListener('release', () => { wakeLockRef.current = null })
       }).catch(() => {})
     }
+    // Start Android foreground audio service when broadcast goes live
+    try {
+      const android = (window as any).AndroidAudio
+      if (android && typeof android.startAudioService === 'function') {
+        android.startAudioService()
+      }
+    } catch {}
     return () => {
       if (wakeLockRef.current) { wakeLockRef.current.release().catch(() => {}); wakeLockRef.current = null }
     }
