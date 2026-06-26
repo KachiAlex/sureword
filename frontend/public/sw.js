@@ -103,6 +103,13 @@ self.addEventListener('push', (event) => {
   )
 })
 
+// ── Keep-alive: respond to pings from the audio player so the SW stays active ──
+self.addEventListener('message', (event) => {
+  if (event.data === 'keepAlive') {
+    event.source?.postMessage('alive')
+  }
+})
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   if (event.action === 'dismiss') return

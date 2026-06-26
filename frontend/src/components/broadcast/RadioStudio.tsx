@@ -158,6 +158,24 @@ export default function RadioStudio({
 
   const isLive = status === 'live'
 
+  /* ── Screen wake lock: keep screen on while broadcasting ── */
+  const wakeLockRef = useRef<any>(null)
+  useEffect(() => {
+    if (!isLive) {
+      if (wakeLockRef.current) { wakeLockRef.current.release().catch(() => {}); wakeLockRef.current = null }
+      return
+    }
+    if ('wakeLock' in navigator) {
+      ;(navigator as any).wakeLock.request('screen').then((lock: any) => {
+        wakeLockRef.current = lock
+        lock.addEventListener('release', () => { wakeLockRef.current = null })
+      }).catch(() => {})
+    }
+    return () => {
+      if (wakeLockRef.current) { wakeLockRef.current.release().catch(() => {}); wakeLockRef.current = null }
+    }
+  }, [isLive])
+
   /* ── Enumerate mic devices & watch for hotplug ── */
   async function enumerateDevices() {
     try {
@@ -661,6 +679,14 @@ export default function RadioStudio({
         <div className="mx-6 mt-4 p-3 rounded-xl text-sm flex items-center gap-2"
           style={{ background: 'rgba(220,38,38,0.1)', color: '#fca5a5', border: '1px solid rgba(220,38,38,0.2)' }}>
           <Wifi className="w-4 h-4" /> {uploadError}
+        </div>
+      )}
+
+      {isLive && (
+        <div className="mx-6 mt-4 p-3 rounded-xl text-sm flex items-center gap-2"
+          style={{ background: 'rgba(201,162,39,0.1)', color: '#c9a227', border: '1px solid rgba(201,162,39,0.2)' }}>
+          <Zap className="w-4 h-4" />
+          Keep this screen on during broadcast. Audio will pause if the app is backgrounded or the screen locks.
         </div>
       )}
 

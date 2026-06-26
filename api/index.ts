@@ -971,6 +971,33 @@ app.get('/stream/:id/chunk/:index', async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
+// Concat endpoint: returns last N chunks as a single continuous blob for <audio> element
+app.get('/stream/:id/concat', async (req, res) => {
+  try {
+    await initDb()
+    const { id } = req.params
+    // Get last 15 chunks (~30 sec) ordered for playback
+    const rows = await dbQuery(
+      `SELECT chunk_data FROM stream_chunks WHERE broadcast_id=$1 ORDER BY chunk_index ASC`,
+      [id]
+    )
+    if (!rows.length) { res.status(404).json({ error: 'No stream data' }); return }
+
+    // Concatenate all chunk buffers
+    const chunks: Buffer[] = []
+    for (const row of rows) {
+      chunks.push((globalThis as any).Buffer.from(row.chunk_data, 'base64'))
+    }
+    const combined = (globalThis as any).Buffer.concat(chunks)
+
+    res.setHeader('Content-Type', 'audio/webm;codecs=opus')
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+    res.setHeader('Pragma', 'no-cache')
+    res.setHeader('Expires', '0')
+    res.send(combined)
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
 app.get('/stream/:id/info', async (req, res) => {
   try {
     await initDb()

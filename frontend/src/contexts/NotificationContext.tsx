@@ -105,7 +105,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   async function unregisterFcmToken() {
     try {
       const { PushNotifications } = await import('@capacitor/push-notifications')
-      const result = await PushNotifications.getDeliveredNotifications()
+      await PushNotifications.getDeliveredNotifications()
       // Best effort: we cannot read the token after unregister, but we can try to remove from server
       await PushNotifications.unregister()
     } catch (e: any) { console.error('FCM unregister error:', e) }

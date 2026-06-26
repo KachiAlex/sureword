@@ -100,7 +100,6 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
   const [selectedBroadcast, setSelectedBroadcast] = useState<Broadcast | null>(null)
   const [chatHistory, setChatHistory] = useState<ChatMsg[]>([])
   const [chatLoading, setChatLoading] = useState(false)
-  const [audioPlaying, setAudioPlaying] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   async function openBroadcastDetail(b: Broadcast) {
@@ -120,7 +119,6 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     setSelectedBroadcast(null)
     setChatHistory([])
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
-    setAudioPlaying(false)
   }
 
   async function downloadRecording(id: string) {
@@ -180,15 +178,13 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
   /* ── Broadcast detail panel ── */
   function BroadcastDetailPanel({ b: initialB }: { b: Broadcast }) {
     const [b, setB] = useState<Broadcast>(initialB)
-    const [detailLoading, setDetailLoading] = useState(false)
 
     useEffect(() => {
-      setDetailLoading(true)
       axios.get(`${API_BASE}/api/broadcasts/${initialB.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       }).then(({ data }) => {
         if (data.broadcast) setB(data.broadcast)
-      }).catch(() => {}).finally(() => setDetailLoading(false))
+      }).catch(() => {})
     }, [initialB.id])
 
     const duration = b.started_at && b.ended_at
@@ -251,8 +247,8 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
                   src={b.recording_url}
                   className="w-full h-10"
                   style={{ accentColor: '#c9a227' }}
-                  onPlay={() => setAudioPlaying(true)}
-                  onPause={() => setAudioPlaying(false)}
+                  onPlay={() => {}}
+                  onPause={() => {}}
                 />
                 {b.recorded_at && (
                   <p className="text-[10px] text-[#9c958a] mt-2">
