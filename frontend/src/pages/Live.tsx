@@ -294,7 +294,6 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
     if (!audioRef.current) return
     setStarted(true)
     isLiveRef.current = true
-    isLoadingRef.current = true
     setStatusText('Connecting…')
 
     // Listener tracking
