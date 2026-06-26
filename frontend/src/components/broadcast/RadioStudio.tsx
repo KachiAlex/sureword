@@ -331,6 +331,7 @@ export default function RadioStudio({
     const musG = ctx.createGain()
     musG.gain.value = musicVolume / 100
     musG.connect(dest)
+    musG.connect(ctx.destination) // broadcaster hears music locally for mood
     musicGainNodeRef.current = musG
     return { ctx, dest, micGain: micG, musicGain: musG }
   }
@@ -362,6 +363,7 @@ export default function RadioStudio({
     const ctx = mixerCtxRef.current
     if (!buf || !musicGain || !ctx) return
     stopMusicPlayback()
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {})
     const src = ctx.createBufferSource()
     src.buffer = buf
     src.loop = musicLoop
@@ -372,10 +374,11 @@ export default function RadioStudio({
     setMusicPlaying(true)
   }
 
-  // Initialize music buffer from props when mixer is ready
+  // Initialize music buffer from props and create mixer so broadcaster can preview before going live
   useEffect(() => {
     if (initialMusicBuffer) {
       musicBufferRef.current = initialMusicBuffer
+      getOrCreateMixer() // ensure mixer exists so Play button works before going live
     }
   }, [initialMusicBuffer])
 
@@ -406,6 +409,11 @@ export default function RadioStudio({
         audio.volume = monitorVolume / 100
         audio.play().catch(() => {})
         mixMonitorAudioRef.current = audio
+      }
+
+      // Auto-start background music if a soundtrack is loaded
+      if (musicBufferRef.current) {
+        startMusicPlayback()
       }
 
       recordNextChunk()
@@ -905,7 +913,7 @@ export default function RadioStudio({
           </div>
           {!isLive && musicBufferRef.current && (
             <p className="text-[11px] mt-2" style={{ color: 'var(--dim)' }}>
-              Music will play when the broadcast goes live. Start it with the Play button above.
+              Press Play to preview the soundtrack. It will be mixed into the stream when you go live.
             </p>
           )}
           {isLive && !musicBufferRef.current && (

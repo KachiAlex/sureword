@@ -61,7 +61,7 @@ function AudioBars({ active }: { active: boolean }) {
   )
 }
 
-/* ── StreamPlayer (HTML5 <audio> element for reliable background playback) ─────────────────────────────────── */
+/* ── StreamPlayer (simple <audio> for reliable background live streaming) ─────────────────────────────────── */
 function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: string; title?: string; thumbnailUrl?: string }) {
   const [started, setStarted] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -76,46 +76,22 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
   const infoIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const keepAliveRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isLiveRef = useRef(false)
+  const isLoadingRef = useRef(false)
+  const lastKnownChunkRef = useRef(-1)
+  const blobUrlRef = useRef<string | null>(null)
 
-  // Create and configure the <audio> element on mount
+  // Create the <audio> element once on mount
   useEffect(() => {
     const audio = document.createElement('audio')
-    audio.setAttribute('preload', 'none')
     audio.setAttribute('playsinline', 'true')
     audio.setAttribute('webkit-playsinline', 'true')
+    audio.setAttribute('preload', 'none')
     audioRef.current = audio
-
-    const onPlay = () => { setIsPlaying(true); updateMediaSession(true) }
-    const onPause = () => { setIsPlaying(false); updateMediaSession(false) }
-    const onEnded = () => { handleAudioEnded() }
-    const onError = () => {
-      setStatusText('Connection error — retrying…')
-      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current)
-      retryTimeoutRef.current = setTimeout(() => handleAudioEnded(), 3000)
-    }
-    const onWaiting = () => { setStatusText('Buffering…') }
-    const onPlaying = () => { setStatusText('Live') }
-    const onStalled = () => { setStatusText('Stalled — reconnecting…') }
-
-    audio.addEventListener('play', onPlay)
-    audio.addEventListener('pause', onPause)
-    audio.addEventListener('ended', onEnded)
-    audio.addEventListener('error', onError)
-    audio.addEventListener('waiting', onWaiting)
-    audio.addEventListener('playing', onPlaying)
-    audio.addEventListener('stalled', onStalled)
-
     return () => {
-      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current)
       audio.pause()
       audio.src = ''
-      audio.removeEventListener('play', onPlay)
-      audio.removeEventListener('pause', onPause)
-      audio.removeEventListener('ended', onEnded)
-      audio.removeEventListener('error', onError)
-      audio.removeEventListener('waiting', onWaiting)
-      audio.removeEventListener('playing', onPlaying)
-      audio.removeEventListener('stalled', onStalled)
+      audioRef.current = null
     }
   }, [])
 
@@ -143,33 +119,125 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
     })
   }
 
-  function startAudio() {
+  async function fetchLatestChunk(): Promise<number> {
+    try {
+      const res = await fetch(`${API_BASE}/api/stream/${broadcastId}/info`)
+      if (!res.ok) return -1
+      const info = await res.json()
+      return info.latestChunk ?? -1
+    } catch { return -1 }
+  }
+
+  async function loadAudioSrc(fromChunk: number): Promise<boolean> {
+    const audio = audioRef.current
+    if (!audio) return false
+    try {
+      const res = await fetch(`${API_BASE}/api/stream/${broadcastId}/concat?from=${fromChunk}&_=${Date.now()}`)
+      if (!res.ok) return false
+      const latest = parseInt(res.headers.get('X-Latest-Chunk') || '-1', 10)
+      if (latest >= 0) lastKnownChunkRef.current = latest
+      const blob = await res.blob()
+      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
+      const url = URL.createObjectURL(blob)
+      blobUrlRef.current = url
+      audio.src = url
+      audio.volume = volume / 100
+      return true
+    } catch { return false }
+  }
+
+  async function startPlayback() {
+    if (isLoadingRef.current) return
     const audio = audioRef.current
     if (!audio) return
-    audio.src = `${API_BASE}/api/stream/${broadcastId}/concat?_=${Date.now()}`
-    audio.volume = volume / 100
+    isLoadingRef.current = true
+    setStatusText('Connecting…')
+
+    // Find the latest chunk so we can start near live
+    const latest = await fetchLatestChunk()
+    if (latest < 0) {
+      setStatusText('Stream offline')
+      isLoadingRef.current = false
+      audio.src = ''
+      return
+    }
+
+    // Start a few chunks behind live so we have buffer, but not so far we replay old audio
+    const startFrom = Math.max(0, latest - 2)
+    lastKnownChunkRef.current = startFrom
+
+    const loaded = await loadAudioSrc(startFrom)
+    if (!loaded) {
+      setStatusText('Stream offline')
+      isLoadingRef.current = false
+      audio.src = ''
+      return
+    }
+
+    // Wire up event handlers (clear any old ones first)
+    audio.onplay = () => { setIsPlaying(true); updateMediaSession(true) }
+    audio.onpause = () => { setIsPlaying(false); updateMediaSession(false) }
+    audio.onended = async () => {
+      setIsPlaying(false); updateMediaSession(false)
+      if (!isLiveRef.current) return
+      // Check if new chunks actually exist before trying to resume
+      const freshLatest = await fetchLatestChunk()
+      if (freshLatest < 0) {
+        isLoadingRef.current = false
+        audio.src = ''
+        return
+      }
+      lastKnownChunkRef.current = Math.max(lastKnownChunkRef.current, freshLatest)
+      const resumeFrom = lastKnownChunkRef.current + 1
+      if (resumeFrom > freshLatest) {
+        // No new chunks yet — wait briefly and check again
+        isLoadingRef.current = false
+        if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current)
+        retryTimeoutRef.current = setTimeout(() => {
+          if (isLiveRef.current) startPlayback()
+        }, 3000)
+        return
+      }
+      const loaded2 = await loadAudioSrc(resumeFrom)
+      if (loaded2) {
+        audio.play().catch(() => {})
+      } else {
+        isLoadingRef.current = false
+        if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current)
+        retryTimeoutRef.current = setTimeout(() => {
+          if (isLiveRef.current) startPlayback()
+        }, 3000)
+      }
+    }
+    audio.onerror = () => {
+      setStatusText('Connection error — retrying…')
+      isLoadingRef.current = false
+      if (!isLiveRef.current) return
+      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current)
+      retryTimeoutRef.current = setTimeout(() => {
+        if (isLiveRef.current) startPlayback()
+      }, 3000)
+    }
+    audio.onwaiting = () => { setStatusText('Buffering…') }
+    audio.onplaying = () => { setStatusText('Live') }
+    audio.oncanplay = () => { setStatusText('Live') }
+    audio.onstalled = () => { setStatusText('Stalled — reconnecting…') }
+
     audio.play().then(() => {
       setIsPlaying(true)
       setStatusText('Live')
       setupMediaSession(title || 'Live Broadcast')
+      isLoadingRef.current = false
     }).catch(() => {
       setStatusText('Tap play to start')
+      isLoadingRef.current = false
     })
-  }
-
-  function handleAudioEnded() {
-    const audio = audioRef.current
-    if (!audio || audio.paused) return
-    // Fetch fresh chunks and continue playing seamlessly
-    audio.src = `${API_BASE}/api/stream/${broadcastId}/concat?_=${Date.now()}`
-    audio.volume = volume / 100
-    audio.play().catch(() => {})
   }
 
   function handleStart() {
     if (!audioRef.current) return
     setStarted(true)
-    setStatusText('Connecting…')
+    isLiveRef.current = true
 
     // Listener tracking
     sessionIdRef.current = Math.random().toString(36).slice(2) + Date.now().toString(36)
@@ -202,33 +270,71 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
       }, 20000)
     }
 
-    startAudio()
+    // Start Android foreground service for background audio in native app
+    try {
+      const android = (window as any).AndroidAudio
+      if (android && typeof android.startAudioService === 'function') {
+        android.startAudioService()
+      }
+    } catch {}
+
+    startPlayback()
   }
 
   function togglePlay() {
     const audio = audioRef.current
     if (!audio) return
     if (audio.paused) {
-      if (!audio.src) { startAudio(); return }
+      const needsRestart = !audio.src || audio.src === '' || audio.error || audio.ended
+      if (needsRestart) {
+        if (isLiveRef.current) startPlayback()
+        return
+      }
       audio.play().catch(() => {})
     } else {
       audio.pause()
     }
   }
 
+  // Recover when user returns to tab after backgrounding
+  useEffect(() => {
+    function onVisibilityChange() {
+      if (document.visibilityState !== 'visible' || !isLiveRef.current) return
+      const audio = audioRef.current
+      if (!audio) return
+      if (audio.paused || audio.ended || audio.error) {
+        setStatusText('Reconnecting…')
+        startPlayback()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [broadcastId])
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      isLiveRef.current = false
       if (heartbeatRef.current) clearInterval(heartbeatRef.current)
       if (infoIntervalRef.current) clearInterval(infoIntervalRef.current)
       if (keepAliveRef.current) clearInterval(keepAliveRef.current)
       if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current)
+      if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null }
       if (sessionIdRef.current) {
         fetch(`${API_BASE}/api/stream/${broadcastId}/leave`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sessionId: sessionIdRef.current })
         }).catch(() => {})
       }
+      const a = audioRef.current
+      if (a) { a.pause(); a.src = '' }
+      // Stop Android foreground service
+      try {
+        const android = (window as any).AndroidAudio
+        if (android && typeof android.stopAudioService === 'function') {
+          android.stopAudioService()
+        }
+      } catch {}
     }
   }, [broadcastId])
 

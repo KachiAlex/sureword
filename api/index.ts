@@ -952,9 +952,9 @@ app.post('/stream/:id/chunk', auth, async (req: AuthReq, res) => {
     const chunkId = uuidv4()
     await dbQuery(`INSERT INTO stream_chunks (id, broadcast_id, chunk_index, chunk_data) VALUES ($1,$2,$3,$4)`,
       [chunkId, req.params.id, chunkIndex, chunkData])
-    // Keep only last 30 chunks (~60 seconds at 2s interval)
+    // Keep last 300 chunks (~10 minutes at 2s interval) for background audio
     await dbQuery(`DELETE FROM stream_chunks WHERE broadcast_id=$1 AND chunk_index < $2`,
-      [req.params.id, chunkIndex - 30])
+      [req.params.id, chunkIndex - 300])
     res.json({ success: true })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
@@ -971,22 +971,24 @@ app.get('/stream/:id/chunk/:index', async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
-// Concat endpoint: returns last N chunks as a single continuous blob for <audio> element
+// Concat endpoint: returns chunks as a single continuous blob for <audio> element
+// Query: ?from={chunkIndex} — only include chunks from that index onward (max 30 for ~1min buffer)
 app.get('/stream/:id/concat', async (req, res) => {
   try {
     await initDb()
     const { id } = req.params
-    // Get last 15 chunks (~30 sec) ordered for playback
+    const fromIndex = parseInt(req.query.from as string || '0', 10)
     const rows = await dbQuery(
-      `SELECT chunk_data FROM stream_chunks WHERE broadcast_id=$1 ORDER BY chunk_index ASC`,
-      [id]
+      `SELECT chunk_index, chunk_data FROM stream_chunks WHERE broadcast_id=$1 AND chunk_index >= $2 ORDER BY chunk_index ASC LIMIT 30`,
+      [id, fromIndex]
     )
     if (!rows.length) { res.status(404).json({ error: 'No stream data' }); return }
 
-    // Concatenate all chunk buffers
     const chunks: Buffer[] = []
+    let latestIndex = -1
     for (const row of rows) {
       chunks.push((globalThis as any).Buffer.from(row.chunk_data, 'base64'))
+      latestIndex = Math.max(latestIndex, row.chunk_index)
     }
     const combined = (globalThis as any).Buffer.concat(chunks)
 
@@ -994,6 +996,8 @@ app.get('/stream/:id/concat', async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
     res.setHeader('Pragma', 'no-cache')
     res.setHeader('Expires', '0')
+    res.setHeader('Access-Control-Expose-Headers', 'X-Latest-Chunk')
+    res.setHeader('X-Latest-Chunk', String(latestIndex))
     res.send(combined)
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
