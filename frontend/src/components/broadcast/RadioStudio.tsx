@@ -86,47 +86,9 @@ interface Props {
   initialMusicVolume?: number
 }
 
-/* ── MonitorPlayer (real-time local monitor via Web Audio API) ─────────── */
-function MonitorPlayer({ stream, enabled, volume }: { stream: MediaStream | null; enabled: boolean; volume: number }) {
-  const ctxRef = useRef<AudioContext | null>(null)
-  const gainRef = useRef<GainNode | null>(null)
-  const [active, setActive] = useState(false)
-
-  useEffect(() => {
-    if (!enabled || !stream) {
-      if (ctxRef.current) { ctxRef.current.close().catch(() => {}); ctxRef.current = null }
-      gainRef.current = null
-      setActive(false)
-      return
-    }
-
-    const ctx = new AudioContext()
-    ctxRef.current = ctx
-    const source = ctx.createMediaStreamSource(stream)
-    const gain = ctx.createGain()
-    gain.gain.value = volume / 100
-    gainRef.current = gain
-    source.connect(gain)
-    gain.connect(ctx.destination)
-
-    // Resume in case browser suspended it (user gesture from clicking "On" allows this)
-    if (ctx.state === 'suspended') { ctx.resume().catch(() => {}) }
-    setActive(true)
-
-    return () => {
-      source.disconnect()
-      gain.disconnect()
-      ctx.close().catch(() => {})
-      ctxRef.current = null
-      gainRef.current = null
-      setActive(false)
-    }
-  }, [stream, enabled])
-
-  useEffect(() => {
-    if (gainRef.current) { gainRef.current.gain.value = volume / 100 }
-  }, [volume])
-
+/* ── MonitorStatus (visual indicator only — audio handled by mixMonitorAudioRef) ─────────── */
+function MonitorStatus({ stream, enabled }: { stream: MediaStream | null; enabled: boolean }) {
+  const active = enabled && !!stream && stream.active
   return (
     <div className="flex items-center gap-2">
       {active ? (
@@ -135,7 +97,7 @@ function MonitorPlayer({ stream, enabled, volume }: { stream: MediaStream | null
           Monitoring
         </span>
       ) : enabled && !stream ? (
-        <span className="text-xs font-mono" style={{ color: '#fca5a5' }}>No mic stream</span>
+        <span className="text-xs font-mono" style={{ color: '#fca5a5' }}>No stream</span>
       ) : (
         <span className="text-xs font-mono" style={{ color: 'var(--dim)' }}>Off</span>
       )}
@@ -185,6 +147,7 @@ export default function RadioStudio({
   const [micStream, setMicStream] = useState<MediaStream | null>(null)
   const [monitorEnabled, setMonitorEnabled] = useState(false)
   const [monitorVolume, setMonitorVolume] = useState(60)
+  const mixMonitorAudioRef = useRef<HTMLAudioElement | null>(null)
   const [recordingStatus, setRecordingStatus] = useState('')
   const [recordDirHandle, setRecordDirHandle] = useState<FileSystemDirectoryHandle | null>(null)
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([])
@@ -248,6 +211,21 @@ export default function RadioStudio({
     if (shouldRecordRef.current) { startStreaming() } else { stopStreaming() }
     return () => { void stopStreaming() }
   }, [isLive, activeDeviceId, broadcastId])
+
+  // Start/stop mix monitor when broadcaster toggles it during live broadcast
+  useEffect(() => {
+    if (!isLive || !streamRef.current) return
+    if (monitorEnabled) {
+      const audio = mixMonitorAudioRef.current || new Audio()
+      audio.srcObject = streamRef.current
+      audio.volume = monitorVolume / 100
+      audio.play().catch(() => {})
+      mixMonitorAudioRef.current = audio
+    } else if (mixMonitorAudioRef.current) {
+      mixMonitorAudioRef.current.pause()
+      mixMonitorAudioRef.current.srcObject = null
+    }
+  }, [monitorEnabled, isLive])
 
   // Poll chat messages + active users for this broadcast
   useEffect(() => {
@@ -330,6 +308,10 @@ export default function RadioStudio({
     mixerDestRef.current = null
     micGainNodeRef.current = null
     musicGainNodeRef.current = null
+    if (mixMonitorAudioRef.current) {
+      mixMonitorAudioRef.current.pause()
+      mixMonitorAudioRef.current.srcObject = null
+    }
   }
 
   function stopMusicPlayback() {
@@ -383,6 +365,16 @@ export default function RadioStudio({
       const stream = dest.stream
       streamRef.current = stream
       setMicStream(rawMicStream)
+
+      // Start local mix monitor so broadcaster hears music + mic
+      if (monitorEnabled) {
+        const audio = mixMonitorAudioRef.current || new Audio()
+        audio.srcObject = stream
+        audio.volume = monitorVolume / 100
+        audio.play().catch(() => {})
+        mixMonitorAudioRef.current = audio
+      }
+
       recordNextChunk()
 
       // Start local recording alongside server streaming
@@ -735,7 +727,7 @@ export default function RadioStudio({
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium flex items-center gap-2">
               <Headphones className="w-4 h-4" style={{ color: 'var(--gold)' }} /> Feedback Monitor
-              <span className="text-xs font-normal" style={{ color: 'var(--dim)' }}>(real-time mic monitor)</span>
+              <span className="text-xs font-normal" style={{ color: 'var(--dim)' }}>(mic + soundtrack)</span>
             </span>
             <button onClick={() => setMonitorEnabled(!monitorEnabled)}
               className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
@@ -749,13 +741,17 @@ export default function RadioStudio({
           </div>
           {monitorEnabled && (
             <>
-              <MonitorPlayer stream={micStream} enabled={isLive && monitorEnabled} volume={monitorVolume} />
+              <MonitorStatus stream={micStream} enabled={isLive && monitorEnabled} />
               <div className="flex items-center gap-3 mt-3">
                 {monitorVolume === 0 ? <VolumeX className="w-4 h-4" style={{ color: 'var(--dim)' }} /> :
                   monitorVolume > 60 ? <Volume2 className="w-4 h-4" style={{ color: 'var(--gold)' }} /> :
                   <Volume1 className="w-4 h-4" style={{ color: 'var(--gold)' }} />}
                 <input type="range" min={0} max={100} value={monitorVolume}
-                  onChange={e => setMonitorVolume(parseInt(e.target.value))}
+                  onChange={e => {
+                    const v = parseInt(e.target.value)
+                    setMonitorVolume(v)
+                    if (mixMonitorAudioRef.current) mixMonitorAudioRef.current.volume = v / 100
+                  }}
                   className="flex-1 h-2 rounded-lg appearance-none cursor-pointer"
                   style={{ background: `linear-gradient(to right, var(--gold) ${monitorVolume}%, var(--line) ${monitorVolume}%)` }} />
                 <span className="text-xs font-mono w-8 text-right">{monitorVolume}%</span>

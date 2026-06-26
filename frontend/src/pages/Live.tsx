@@ -18,6 +18,8 @@ interface Broadcast {
   started_at?: string
   broadcaster_id: string
   church_online_url?: string
+  thumbnail_url?: string
+  speaker?: string
 }
 
 interface ChatMessage {
@@ -60,7 +62,7 @@ function AudioBars({ active }: { active: boolean }) {
 }
 
 /* ── StreamPlayer ─────────────────────────────────── */
-function StreamPlayer({ broadcastId, title }: { broadcastId: string; title?: string }) {
+function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: string; title?: string; thumbnailUrl?: string }) {
   const [started, setStarted] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [listenerCount, setListenerCount] = useState(0)
@@ -200,11 +202,14 @@ function StreamPlayer({ broadcastId, title }: { broadcastId: string; title?: str
 
   function setupMediaSession(title: string) {
     if (!('mediaSession' in navigator)) return
+    const artwork: MediaImage[] = thumbnailUrl
+      ? [{ src: thumbnailUrl, sizes: '512x512', type: 'image/jpeg' }]
+      : [{ src: '/logo.png', sizes: '512x512', type: 'image/png' }]
     navigator.mediaSession.metadata = new MediaMetadata({
       title,
       artist: 'ZioniteFM',
       album: 'The Voice of Redemption',
-      artwork: [{ src: '/logo.png', sizes: '512x512', type: 'image/png' }]
+      artwork
     })
     navigator.mediaSession.setActionHandler('play', () => {
       userPausedRef.current = false
@@ -612,7 +617,7 @@ export default function Live() {
               <div className="flex-1 relative min-h-[300px] md:min-h-0">
                 <iframe ref={iframeRef} src={getChurchOnlineUrl()!} className="absolute inset-0 w-full h-full" style={{ border: 'none' }} allow="autoplay; fullscreen" allowFullScreen title="Live Broadcast" />
               </div>
-              {broadcast.status === 'live' && <StreamPlayer broadcastId={broadcast.id} title={broadcast.title} />}
+              {broadcast.status === 'live' && <StreamPlayer broadcastId={broadcast.id} title={broadcast.title} thumbnailUrl={broadcast.thumbnail_url} />}
               {broadcast.scripture_reference && (
                 <div className="mx-4 mb-4 rounded-xl p-4 text-center bg-[#14141a] border border-[rgba(243,238,228,0.06)]">
                   <div className="text-[10px] font-mono font-medium tracking-widest text-[#c9a227] mb-1.5">NOW READING</div>
@@ -625,11 +630,22 @@ export default function Live() {
               <div className="w-full max-w-md space-y-5">
                 {/* Broadcast info card */}
                 <div className="text-center space-y-3">
-                  <div className="w-16 h-16 rounded-full border border-[#c9a227]/20 flex items-center justify-center mx-auto">
-                    <Radio className="w-7 h-7 text-[#c9a227]" />
-                  </div>
+                  {broadcast.thumbnail_url ? (
+                    <div className="w-32 h-32 rounded-2xl overflow-hidden border border-[rgba(243,238,228,0.08)] mx-auto shadow-lg">
+                      <img src={broadcast.thumbnail_url} alt={broadcast.title} className="w-full h-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 rounded-full border border-[#c9a227]/20 flex items-center justify-center mx-auto">
+                      <Radio className="w-7 h-7 text-[#c9a227]" />
+                    </div>
+                  )}
                   <div>
                     <h2 className="text-lg font-semibold text-white">{broadcast.title}</h2>
+                    {broadcast.speaker && (
+                      <p className="text-[11px] text-[#c9a227] mt-1 flex items-center justify-center gap-1">
+                        <User className="w-3 h-3" />{broadcast.speaker}
+                      </p>
+                    )}
                     {broadcast.description && <p className="text-xs text-[#9c958a] mt-1 max-w-sm mx-auto">{broadcast.description}</p>}
                     {broadcast.scripture_reference && (
                       <p className="text-[11px] text-[#c9a227] mt-2 flex items-center justify-center gap-1"><BookOpen className="w-3 h-3" />{broadcast.scripture_reference}</p>
@@ -637,7 +653,7 @@ export default function Live() {
                   </div>
                 </div>
                 {/* Player */}
-                {broadcast.status === 'live' && <StreamPlayer broadcastId={broadcast.id} title={broadcast.title} />}
+                {broadcast.status === 'live' && <StreamPlayer broadcastId={broadcast.id} title={broadcast.title} thumbnailUrl={broadcast.thumbnail_url} />}
               </div>
             </div>
           )}
