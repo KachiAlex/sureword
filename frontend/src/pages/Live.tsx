@@ -186,6 +186,13 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
       keepAliveAudioRef.current = null
       streamDestRef.current = null
       if (ctxRef.current) { ctxRef.current.close().catch(() => {}); ctxRef.current = null }
+      // Stop Android foreground service
+      try {
+        const android = (window as any).AndroidAudio
+        if (android && typeof android.stopAudioService === 'function') {
+          android.stopAudioService()
+        }
+      } catch {}
     }
   }, [])
 
@@ -295,6 +302,14 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
     setupMediaSession(broadcastTitle || title || 'Live Broadcast')
     setStatusText('Connecting…')
     setStarted(true)
+
+    // Start Android foreground service to keep process alive in background
+    try {
+      const android = (window as any).AndroidAudio
+      if (android && typeof android.startAudioService === 'function') {
+        android.startAudioService()
+      }
+    } catch {}
   }
 
   const VolumeIcon = volume === 0 ? VolumeX : volume > 50 ? Volume2 : Volume1
