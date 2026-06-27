@@ -423,7 +423,7 @@ export default function RadioStudio({
         startMusicPlayback()
       }
 
-      recordNextChunk()
+      startChunkRecorder()
 
       // Start local recording alongside server streaming
       if (recordEnabled && recordDirHandle) {
@@ -475,7 +475,7 @@ export default function RadioStudio({
     }
   }
 
-  function recordNextChunk() {
+  function startChunkRecorder() {
     if (!shouldRecordRef.current || !streamRef.current || !broadcastId) return
     const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
       ? 'audio/webm;codecs=opus' : 'audio/webm'
@@ -506,18 +506,8 @@ export default function RadioStudio({
       }
     }
 
-    recorder.onstop = () => {
-      if (shouldRecordRef.current && streamRef.current) {
-        recordNextChunk()
-      }
-    }
-
     mediaRecorderRef.current = recorder
-    recorder.start()
-
-    chunkTimeoutRef.current = setTimeout(() => {
-      if (recorder.state !== 'inactive') recorder.stop()
-    }, 2000)
+    recorder.start(2000) // timeslice: emit blob every 2 seconds with proper segments
   }
 
   function stopStreaming(triggerUpload = false): Promise<void> {
