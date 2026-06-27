@@ -83,6 +83,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
   const pendingBuffersRef = useRef<ArrayBuffer[]>([])
   const isAppendingRef = useRef(false)
   const userPausedRef = useRef(false)
+  const pauseTimeRef = useRef(0)
 
   function updateMediaSession(playing: boolean) {
     if (!('mediaSession' in navigator)) return
@@ -125,7 +126,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
       if (res.ok) {
         const info = await res.json()
         latestChunkRef.current = info.latestChunk ?? -1
-        nextChunkIndexRef.current = Math.max(0, latestChunkRef.current - 3)
+        nextChunkIndexRef.current = Math.max(0, latestChunkRef.current - 1)
       }
     } catch {}
 
@@ -177,24 +178,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
     }, 10000)
 
     // Build MediaSource pipeline
-    const mime = 'audio/webm; codecs="opus"'
-    if (!MediaSource.isTypeSupported(mime)) {
-      setStatusText('Browser not supported')
-      return
-    }
-
-    const ms = new MediaSource()
-    mediaSourceRef.current = ms
-    audioRef.current.src = URL.createObjectURL(ms)
-
-    ms.addEventListener('sourceopen', () => {
-      const sb = ms.addSourceBuffer(mime)
-      sourceBufferRef.current = sb
-      sb.addEventListener('updateend', () => { isAppendingRef.current = false; drainPending() })
-      sb.addEventListener('error', () => { console.error('SourceBuffer error') })
-      startFetching()
-    })
-
+    buildMediaSource()
     audioRef.current.volume = volume / 100
     audioRef.current.play().then(() => {
       setIsPlaying(true)
@@ -208,11 +192,63 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
     } catch {}
   }
 
+  function resetMediaSource() {
+    if (fetchTimerRef.current) { clearInterval(fetchTimerRef.current); fetchTimerRef.current = null }
+    pendingBuffersRef.current = []
+    isAppendingRef.current = false
+    const oldMs = mediaSourceRef.current
+    if (oldMs && oldMs.readyState === 'open') { try { oldMs.endOfStream() } catch {} }
+    mediaSourceRef.current = null
+    sourceBufferRef.current = null
+    const audio = audioRef.current
+    if (audio) {
+      const oldSrc = audio.src
+      audio.src = ''
+      if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc)
+    }
+  }
+
+  function buildMediaSource() {
+    const audio = audioRef.current
+    if (!audio) return
+    const mime = 'audio/webm; codecs="opus"'
+    if (!MediaSource.isTypeSupported(mime)) { setStatusText('Browser not supported'); return }
+    const ms = new MediaSource()
+    mediaSourceRef.current = ms
+    audio.src = URL.createObjectURL(ms)
+    ms.addEventListener('sourceopen', () => {
+      const sb = ms.addSourceBuffer(mime)
+      sourceBufferRef.current = sb
+      sb.addEventListener('updateend', () => { isAppendingRef.current = false; drainPending() })
+      sb.addEventListener('error', () => { console.error('SourceBuffer error') })
+      startFetching()
+    })
+  }
+
   function togglePlay() {
     const audio = audioRef.current
     if (!audio) return
-    if (audio.paused) { audio.play().catch(() => {}); userPausedRef.current = false }
-    else { audio.pause(); userPausedRef.current = true }
+    if (audio.paused) {
+      const pausedFor = Date.now() - pauseTimeRef.current
+      if (pausedFor > 3000 && started) {
+        // Hard reset to live edge after long pause
+        resetMediaSource()
+        userPausedRef.current = false
+        setStatusText('Reconnecting…')
+        buildMediaSource()
+        audio.play().then(() => {
+          setIsPlaying(true)
+          setStatusText('Live')
+        }).catch(() => { setStatusText('Tap play to start') })
+      } else {
+        audio.play().catch(() => {})
+        userPausedRef.current = false
+      }
+    } else {
+      audio.pause()
+      userPausedRef.current = true
+      pauseTimeRef.current = Date.now()
+    }
   }
 
   useEffect(() => {
@@ -247,14 +283,9 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
           body: JSON.stringify({ sessionId: sessionIdRef.current })
         }).catch(() => {})
       }
+      resetMediaSource()
       const a = audioRef.current
       if (a) { a.pause(); a.src = '' }
-      if (mediaSourceRef.current && mediaSourceRef.current.readyState === 'open') {
-        try { mediaSourceRef.current.endOfStream() } catch {}
-      }
-      mediaSourceRef.current = null
-      sourceBufferRef.current = null
-      pendingBuffersRef.current = []
       try {
         const android = (window as any).AndroidAudio
         if (android && typeof android.stopAudioService === 'function') android.stopAudioService()
