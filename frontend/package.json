@@ -28,6 +28,7 @@
     "react-is": "^19.2.7",
     "react-router-dom": "^6.23.1",
     "recharts": "^3.8.1",
+    "socket.io-client": "^4.8.3",
     "tailwind-merge": "^2.3.0"
   },
   "devDependencies": {

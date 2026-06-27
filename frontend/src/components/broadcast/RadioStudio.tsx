@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
+import { io, Socket } from 'socket.io-client'
 import { API_BASE } from '../../lib/api'
 import {
   Radio, Pause, Play, Square, Mic, MicOff, Volume2, Volume1, VolumeX,
@@ -231,6 +232,7 @@ export default function RadioStudio({
   const cloudRecorderRef = useRef<MediaRecorder | null>(null)
   const cloudBlobsRef = useRef<Blob[]>([])
   const cloudMimeRef = useRef('audio/webm')
+  const socketRef = useRef<Socket | null>(null)
 
   useEffect(() => {
     if (!recordEnabled) return
@@ -384,6 +386,12 @@ export default function RadioStudio({
 
   async function startStreaming() {
     try {
+      // Connect socket for real-time chunk relay
+      const socketUrl = API_BASE || undefined
+      const socket = io(socketUrl, { path: '/socket.io', transports: ['websocket', 'polling'] })
+      socketRef.current = socket
+      socket.on('connect', () => { if (broadcastId) socket.emit('join_broadcast', broadcastId) })
+
       const deviceId = activeDeviceIdRef.current
       const rawMicStream = await navigator.mediaDevices.getUserMedia({
         audio: deviceId ? { deviceId: { exact: deviceId } } : true
@@ -481,9 +489,15 @@ export default function RadioStudio({
           const base64 = (reader.result as string).split(',')[1]
           chunkTimesRef.current.push(Date.now())
           if (chunkTimesRef.current.length > 10) chunkTimesRef.current.shift()
+          const idx = chunkIndexRef.current++
+          // Real-time relay via WebSocket
+          if (socketRef.current?.connected) {
+            socketRef.current.emit('broadcast_chunk', { broadcastId, chunkIndex: idx, chunkData: base64 })
+          }
+          // HTTP fallback for persistence / replay
           try {
             await axios.post(`${API_BASE}/api/stream/${broadcastId}/chunk`, {
-              chunkIndex: chunkIndexRef.current++,
+              chunkIndex: idx,
               chunkData: base64
             }, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
             setUploadError('')
@@ -510,6 +524,7 @@ export default function RadioStudio({
   function stopStreaming(triggerUpload = false): Promise<void> {
     teardownMixer()
     shouldRecordRef.current = false
+    if (socketRef.current) { socketRef.current.disconnect(); socketRef.current = null }
     if (chunkTimeoutRef.current) { clearTimeout(chunkTimeoutRef.current); chunkTimeoutRef.current = null }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop()

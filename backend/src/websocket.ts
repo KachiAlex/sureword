@@ -85,6 +85,22 @@ export function initWebSocket(httpServer: HttpServer) {
       }
     })
 
+    socket.on('broadcast_chunk', async (payload: { broadcastId: string; chunkIndex: number; chunkData: string }) => {
+      try {
+        await initDb()
+        const { broadcastId, chunkIndex, chunkData } = payload
+        // Persist for replay / late joiners
+        await db.run(
+          `INSERT INTO stream_chunks (id, broadcast_id, chunk_index, chunk_data) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING`,
+          [crypto.randomUUID(), broadcastId, chunkIndex, chunkData]
+        )
+        // Relay to all listeners in real-time
+        io!.to(`broadcast_${broadcastId}`).emit('stream_chunk', { chunkIndex, chunkData })
+      } catch (err: any) {
+        console.error('[WS] broadcast_chunk error:', err.message)
+      }
+    })
+
     socket.on('disconnect', () => {
       if (currentRoom) socket.leave(currentRoom)
     })

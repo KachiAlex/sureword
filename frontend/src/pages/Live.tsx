@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState, useRef } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import axios from 'axios'
+import { io, Socket } from 'socket.io-client'
 import { API_BASE } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { usePageTitle } from '../hooks/usePageTitle'
@@ -84,6 +85,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
   const isAppendingRef = useRef(false)
   const userPausedRef = useRef(false)
   const pauseTimeRef = useRef(0)
+  const socketRef = useRef<Socket | null>(null)
 
   function updateMediaSession(playing: boolean) {
     if (!('mediaSession' in navigator)) return
@@ -151,6 +153,14 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
     }, 800)
   }
 
+  function base64ToArrayBuffer(base64: string): ArrayBuffer {
+    const bin = atob(base64)
+    const len = bin.length
+    const bytes = new Uint8Array(len)
+    for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i)
+    return bytes.buffer
+  }
+
   function handleStart() {
     if (!audioRef.current) return
     setStarted(true)
@@ -185,6 +195,20 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
       setStatusText('Live')
       setupMediaSession(title || 'Live Broadcast')
     }).catch(() => { setStatusText('Tap play to start') })
+
+    // Real-time socket for chunks
+    const socketUrl = API_BASE || undefined
+    const socket = io(socketUrl, { path: '/socket.io', transports: ['websocket', 'polling'] })
+    socketRef.current = socket
+    socket.on('connect', () => {
+      socket.emit('join_broadcast', broadcastId)
+    })
+    socket.on('stream_chunk', (payload: { chunkIndex: number; chunkData: string }) => {
+      latestChunkRef.current = Math.max(latestChunkRef.current, payload.chunkIndex)
+      const buf = base64ToArrayBuffer(payload.chunkData)
+      pendingBuffersRef.current.push(buf)
+      drainPending()
+    })
 
     try {
       const android = (window as any).AndroidAudio
@@ -222,6 +246,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
       sb.addEventListener('updateend', () => { isAppendingRef.current = false; drainPending() })
       sb.addEventListener('error', () => { console.error('SourceBuffer error') })
       startFetching()
+      drainPending() // process chunks received while waiting for sourceopen
     })
   }
 
@@ -284,6 +309,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
         }).catch(() => {})
       }
       resetMediaSource()
+      if (socketRef.current) { socketRef.current.disconnect(); socketRef.current = null }
       const a = audioRef.current
       if (a) { a.pause(); a.src = '' }
       try {
