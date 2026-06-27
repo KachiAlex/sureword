@@ -1,9 +1,35 @@
 import { Router, Request, Response } from 'express'
 import { v4 as uuidv4 } from 'uuid'
+import { EventEmitter } from 'events'
 import { db, initDb } from '../db.js'
 import { authenticateToken, requireRole, AuthenticatedRequest } from '../middleware/auth.js'
 
 const router = Router()
+const liveEmitter = new EventEmitter()
+liveEmitter.setMaxListeners(500)
+
+// Matroska Cluster element ID: 0x1F43B675
+const CLUSTER_ID = Buffer.from([0x1F, 0x43, 0xB6, 0x75])
+
+function mergeWebMChunks(chunks: Buffer[]): Buffer {
+  if (chunks.length === 0) return Buffer.alloc(0)
+  if (chunks.length === 1) return chunks[0]
+  const result: Buffer[] = [chunks[0]]
+  for (let i = 1; i < chunks.length; i++) {
+    const chunk = chunks[i]
+    let found = false
+    for (let j = 0; j <= chunk.length - 4; j++) {
+      if (chunk[j] === CLUSTER_ID[0] && chunk[j+1] === CLUSTER_ID[1] &&
+          chunk[j+2] === CLUSTER_ID[2] && chunk[j+3] === CLUSTER_ID[3]) {
+        result.push(chunk.subarray(j))
+        found = true
+        break
+      }
+    }
+    if (!found) result.push(chunk) // fallback
+  }
+  return Buffer.concat(result)
+}
 
 // Upload chunk (broadcaster)
 router.post('/:id/chunk', authenticateToken, requireRole('broadcaster', 'admin'), async (req: AuthenticatedRequest, res: Response) => {
@@ -24,6 +50,8 @@ router.post('/:id/chunk', authenticateToken, requireRole('broadcaster', 'admin')
       [req.params.id, chunkIndex - 300]
     )
     res.json({ success: true })
+    // Notify live listeners that a new chunk is available
+    liveEmitter.emit(`chunk:${req.params.id}`, chunkIndex)
   } catch (err: any) {
     console.error('[STREAM] chunk upload error:', err.message)
     res.status(500).json({ error: err.message })
@@ -68,7 +96,7 @@ router.get('/:id/concat', async (req: Request, res: Response) => {
       chunks.push(Buffer.from(row.chunk_data, 'base64'))
       latestIndex = Math.max(latestIndex, row.chunk_index)
     }
-    const combined = Buffer.concat(chunks)
+    const combined = mergeWebMChunks(chunks)
 
     res.setHeader('Content-Type', 'audio/webm;codecs=opus')
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
@@ -197,6 +225,74 @@ router.delete('/:id', authenticateToken, requireRole('broadcaster', 'admin'), as
     await initDb()
     await db.query(`DELETE FROM stream_chunks WHERE broadcast_id=$1`, [req.params.id])
     res.json({ success: true })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Live continuous stream endpoint
+router.get('/:id/live', async (req: Request, res: Response) => {
+  try {
+    await initDb()
+    const { id } = req.params
+
+    // Send all existing chunks merged
+    const rows = await db.all(
+      `SELECT chunk_index, chunk_data FROM stream_chunks WHERE broadcast_id=$1 ORDER BY chunk_index ASC LIMIT 120`,
+      [id]
+    )
+    if (!rows.length) { res.status(404).json({ error: 'No stream data' }); return }
+
+    const chunks: Buffer[] = []
+    let latestIndex = -1
+    for (const row of rows) {
+      chunks.push(Buffer.from(row.chunk_data, 'base64'))
+      latestIndex = Math.max(latestIndex, row.chunk_index)
+    }
+
+    res.setHeader('Content-Type', 'audio/webm;codecs=opus')
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+    res.setHeader('Pragma', 'no-cache')
+    res.setHeader('Expires', '0')
+    res.setHeader('Transfer-Encoding', 'chunked')
+    res.setHeader('Connection', 'keep-alive')
+    res.flushHeaders()
+
+    // Send merged init + all existing clusters
+    res.write(mergeWebMChunks(chunks))
+
+    // Listen for new chunks
+    const onChunk = async (chunkIndex: number) => {
+      try {
+        if (chunkIndex <= latestIndex) return
+        const row = await db.get(
+          `SELECT chunk_data FROM stream_chunks WHERE broadcast_id=$1 AND chunk_index=$2`,
+          [id, chunkIndex]
+        )
+        if (!row) return
+        const buf = Buffer.from(row.chunk_data, 'base64')
+        // Strip init header, keep only cluster data
+        let found = false
+        for (let j = 0; j <= buf.length - 4; j++) {
+          if (buf[j] === CLUSTER_ID[0] && buf[j+1] === CLUSTER_ID[1] &&
+              buf[j+2] === CLUSTER_ID[2] && buf[j+3] === CLUSTER_ID[3]) {
+            res.write(buf.subarray(j))
+            found = true
+            break
+          }
+        }
+        if (!found) res.write(buf) // fallback
+        latestIndex = chunkIndex
+      } catch (err: any) {
+        console.error('[LIVE] chunk relay error:', err.message)
+      }
+    }
+
+    liveEmitter.on(`chunk:${id}`, onChunk)
+
+    req.on('close', () => {
+      liveEmitter.off(`chunk:${id}`, onChunk)
+    })
   } catch (err: any) {
     res.status(500).json({ error: err.message })
   }
