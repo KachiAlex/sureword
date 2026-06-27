@@ -114,9 +114,14 @@ const SCHEMA_QUERIES = [
     audio_url TEXT NOT NULL, cover_url TEXT, duration INTEGER, lyrics TEXT,
     file_format TEXT, file_size INTEGER, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS stream_chunks (
+    id TEXT PRIMARY KEY, broadcast_id TEXT NOT NULL, chunk_index INTEGER NOT NULL,
+    chunk_data TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`,
   `CREATE TABLE IF NOT EXISTS stream_listeners (
     id TEXT PRIMARY KEY, broadcast_id TEXT NOT NULL, session_id TEXT NOT NULL,
-    platform TEXT DEFAULT 'web', last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    platform TEXT DEFAULT 'web', last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ip TEXT, country TEXT, region TEXT, city TEXT
   )`,
   `CREATE TABLE IF NOT EXISTS donations (
     id TEXT PRIMARY KEY, name TEXT, email TEXT, amount NUMERIC NOT NULL,

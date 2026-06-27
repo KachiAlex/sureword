@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <audio id="a" controls></audio>
+  <p id="info">Loading...</p>
+  <script>
+    const audio = document.getElementById('a');
+    const info = document.getElementById('info');
+    
+    fetch('test_concat.webm')
+      .then(r => r.blob())
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        audio.src = url;
+        
+        audio.onloadedmetadata = () => {
+          info.textContent = 'Duration: ' + audio.duration + 's';
+        };
+        audio.onended = () => {
+          info.textContent += ' | ENDED at ' + audio.currentTime + 's';
+        };
+        audio.onerror = () => {
+          info.textContent = 'ERROR: ' + audio.error.code;
+        };
+        audio.play().catch(e => info.textContent = 'Play error: ' + e);
+      })
+      .catch(e => info.textContent = 'Fetch error: ' + e);
+  </script>
+</body>
+</html>
