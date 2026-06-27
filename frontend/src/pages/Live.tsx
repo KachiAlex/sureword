@@ -2,7 +2,7 @@
 import { Link, useParams } from 'react-router-dom'
 import axios from 'axios'
 import { io, Socket } from 'socket.io-client'
-import { API_BASE } from '../lib/api'
+import { API_BASE, SOCKET_BASE } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { usePageTitle } from '../hooks/usePageTitle'
 import {
@@ -197,8 +197,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
     }).catch(() => { setStatusText('Tap play to start') })
 
     // Real-time socket for chunks
-    const socketUrl = API_BASE || undefined
-    const socket = io(socketUrl, { path: '/socket.io', transports: ['websocket', 'polling'] })
+    const socket = io(SOCKET_BASE, { path: '/socket.io', transports: ['websocket', 'polling'] })
     socketRef.current = socket
     socket.on('connect', () => {
       socket.emit('join_broadcast', broadcastId)

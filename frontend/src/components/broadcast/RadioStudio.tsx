@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import { io, Socket } from 'socket.io-client'
-import { API_BASE } from '../../lib/api'
+import { API_BASE, SOCKET_BASE } from '../../lib/api'
 import {
   Radio, Pause, Play, Square, Mic, MicOff, Volume2, Volume1, VolumeX,
   Copy, CheckCircle, Activity, Share2, Headphones, Wifi, Zap, HardDrive,
@@ -387,8 +387,7 @@ export default function RadioStudio({
   async function startStreaming() {
     try {
       // Connect socket for real-time chunk relay
-      const socketUrl = API_BASE || undefined
-      const socket = io(socketUrl, { path: '/socket.io', transports: ['websocket', 'polling'] })
+      const socket = io(SOCKET_BASE, { path: '/socket.io', transports: ['websocket', 'polling'] })
       socketRef.current = socket
       socket.on('connect', () => { if (broadcastId) socket.emit('join_broadcast', broadcastId) })
 
