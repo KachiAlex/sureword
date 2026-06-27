@@ -1071,6 +1071,76 @@ app.post('/stream/:id/join', async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
+// ── Relay stream (continuous HTTP stream for <audio> background playback) ──────────────────────────────────────
+// NOTE: Vercel serverless functions have execution time limits (10s hobby / 60s pro).
+// For a real live broadcast, deploy the backend Express app on a persistent host.
+// This endpoint exists so the URL structure is consistent if you proxy /relay to a persistent backend.
+
+app.get('/relay/:broadcastId/stream', async (req, res) => {
+  const { broadcastId } = req.params
+  try {
+    await initDb()
+    const broadcast = await dbGet('SELECT status FROM broadcasts WHERE id = $1', [broadcastId])
+    if (!broadcast) { res.status(404).json({ error: 'Broadcast not found' }); return }
+    if (broadcast.status !== 'live') { res.status(404).json({ error: 'Broadcast not live' }); return }
+
+    res.setHeader('Content-Type', 'audio/webm;codecs=opus')
+    res.setHeader('Transfer-Encoding', 'chunked')
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+    res.setHeader('Pragma', 'no-cache')
+    res.setHeader('Connection', 'keep-alive')
+
+    // Start near live
+    const latestRow = await dbGet<{ chunk_index: number }>(
+      'SELECT chunk_index FROM stream_chunks WHERE broadcast_id = $1 ORDER BY chunk_index DESC LIMIT 1',
+      [broadcastId]
+    )
+    let nextIndex = latestRow ? Math.max(0, latestRow.chunk_index - 3) : 0
+    let ended = false
+
+    const fetchTimer = setInterval(async () => {
+      try {
+        const bc = await dbGet('SELECT status FROM broadcasts WHERE id = $1', [broadcastId])
+        if (!bc || bc.status !== 'live') {
+          ended = true
+          clearInterval(fetchTimer)
+          res.end()
+          return
+        }
+        const rows = await dbQuery<{ chunk_index: number; chunk_data: string }>(
+          'SELECT chunk_index, chunk_data FROM stream_chunks WHERE broadcast_id = $1 AND chunk_index >= $2 ORDER BY chunk_index ASC LIMIT 30',
+          [broadcastId, nextIndex]
+        )
+        for (const row of rows) {
+          const buf = Buffer.from(row.chunk_data, 'base64')
+          res.write(buf)
+          nextIndex = row.chunk_index + 1
+        }
+      } catch {
+        ended = true
+        clearInterval(fetchTimer)
+        res.end()
+      }
+    }, 1500)
+
+    req.on('close', () => { clearInterval(fetchTimer); if (!ended) res.end() })
+    req.on('error', () => { clearInterval(fetchTimer); if (!ended) res.end() })
+  } catch (e: any) {
+    console.error('[RELAY] stream error:', e.message)
+    if (!res.headersSent) res.status(500).json({ error: 'Stream error' })
+    else res.end()
+  }
+})
+
+app.get('/relay/:broadcastId/status', async (req, res) => {
+  try {
+    await initDb()
+    const { broadcastId } = req.params
+    const broadcast = await dbGet('SELECT status FROM broadcasts WHERE id = $1', [broadcastId])
+    res.json({ live: broadcast?.status === 'live' })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
 app.get('/stream/:id/listeners/geo', auth, requireRole('admin'), async (req: AuthReq, res) => {
   try {
     await initDb()
