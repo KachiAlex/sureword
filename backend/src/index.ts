@@ -17,6 +17,7 @@ import testimonyRoutes from './routes/testimonies.js'
 import campaignRoutes from './routes/campaigns.js'
 import analyticsRoutes from './routes/analytics.js'
 import searchRoutes from './routes/search.js'
+import relayRoutes from './routes/relay.js'
 import { cacheMiddleware } from './middleware/cache.js'
 
 // Sentry init
@@ -78,6 +79,7 @@ app.use('/testimonies', testimonyRoutes)
 app.use('/campaigns', campaignRoutes)
 app.use('/analytics', analyticsRoutes)
 app.use('/search', cacheMiddleware(30000), searchRoutes)
+app.use('/relay', relayRoutes)
 
 // Sentry error handler (must be before 404)
 if (process.env.SENTRY_DSN) {

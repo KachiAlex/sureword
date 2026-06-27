@@ -61,7 +61,7 @@ function AudioBars({ active }: { active: boolean }) {
   )
 }
 
-/* ── StreamPlayer (AudioContext + gapless scheduling) ─────────────────────────────────── */
+/* ── StreamPlayer (relay stream via <audio> for reliable background playback) ─────────────────────────────────── */
 function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: string; title?: string; thumbnailUrl?: string }) {
   const [started, setStarted] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -70,131 +70,12 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
   const [showVolume, setShowVolume] = useState(false)
   const [statusText, setStatusText] = useState('Tap to listen')
 
-  const decodedRef = useRef<AudioBuffer[]>([])
-  const nextFetchRef = useRef(-1)
-  const fetchIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const playingRef = useRef(false)
-  const userPausedRef = useRef(false)
-  const ctxRef = useRef<AudioContext | null>(null)
-  const gainRef = useRef<GainNode | null>(null)
-  const streamDestRef = useRef<MediaStreamAudioDestinationNode | null>(null)
-  const keepAliveAudioRef = useRef<HTMLAudioElement | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
   const sessionIdRef = useRef('')
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const infoIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  async function fetchChunk(index: number): Promise<Blob | null> {
-    try {
-      const res = await fetch(`${API_BASE}/api/stream/${broadcastId}/chunk/${index}`)
-      if (res.ok) return await res.blob()
-    } catch {}
-    return null
-  }
-
-  async function decodeAndQueue(blob: Blob) {
-    if (!ctxRef.current) return
-    try {
-      const ab = await blob.arrayBuffer()
-      const buf = await ctxRef.current.decodeAudioData(ab)
-      if (buf.duration > 0.05) decodedRef.current.push(buf)
-    } catch {}
-  }
-
-  useEffect(() => {
-    if (!started) return
-    sessionIdRef.current = Math.random().toString(36).slice(2) + Date.now().toString(36)
-    fetch(`${API_BASE}/api/stream/${broadcastId}/join`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId: sessionIdRef.current })
-    }).catch(() => {})
-
-    const heartbeat = setInterval(() => {
-      fetch(`${API_BASE}/api/stream/${broadcastId}/heartbeat`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: sessionIdRef.current })
-      }).catch(() => {})
-    }, 30000)
-
-    fetchIntervalRef.current = setInterval(async () => {
-      try {
-        const infoRes = await fetch(`${API_BASE}/api/stream/${broadcastId}/info`)
-        if (!infoRes.ok) { setStatusText('Info error'); return }
-        const info = await infoRes.json()
-        setListenerCount(info.listenerCount || 0)
-        const latest = info.latestChunk ?? -1
-        if (latest < 0) { setStatusText('No stream'); return }
-        if (nextFetchRef.current < 0) {
-          nextFetchRef.current = Math.max(0, latest - 1)
-          setStatusText('Connecting…')
-        }
-        while (nextFetchRef.current <= latest) {
-          const blob = await fetchChunk(nextFetchRef.current)
-          if (!blob) break
-          if (blob.size > 0) await decodeAndQueue(blob)
-          nextFetchRef.current++
-        }
-        if (!playingRef.current && !userPausedRef.current && decodedRef.current.length >= 2) scheduleNext()
-      } catch {}
-    }, 2000)
-
-    return () => {
-      if (fetchIntervalRef.current) clearInterval(fetchIntervalRef.current)
-      clearInterval(heartbeat)
-      fetch(`${API_BASE}/api/stream/${broadcastId}/leave`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: sessionIdRef.current })
-      }).catch(() => {})
-    }
-  }, [broadcastId, started])
-
-  useEffect(() => {
-    if (gainRef.current) gainRef.current.gain.value = volume / 100
-  }, [volume])
-
-  useEffect(() => {
-    function onVisibilityChange() {
-      const ctx = ctxRef.current
-      if (!ctx || userPausedRef.current) return
-      keepAliveAudioRef.current?.play().catch(() => {})
-      if (ctx.state === 'suspended') {
-        ctx.resume().then(() => {
-          keepAliveAudioRef.current?.play().catch(() => {})
-          if (!playingRef.current && decodedRef.current.length > 0) scheduleNext()
-        }).catch(() => {})
-      }
-    }
-    document.addEventListener('visibilitychange', onVisibilityChange)
-    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
-  }, [])
-
-  useEffect(() => {
-    if (!started) return
-    const iv = setInterval(() => {
-      const ctx = ctxRef.current
-      if (!ctx || userPausedRef.current) return
-      keepAliveAudioRef.current?.play().catch(() => {})
-      if (ctx.state === 'suspended') {
-        ctx.resume().then(() => {
-          if (!playingRef.current && decodedRef.current.length > 0) scheduleNext()
-        }).catch(() => {})
-      }
-    }, 5000)
-    return () => clearInterval(iv)
-  }, [started])
-
-  useEffect(() => {
-    return () => {
-      keepAliveAudioRef.current?.pause()
-      keepAliveAudioRef.current = null
-      streamDestRef.current = null
-      if (ctxRef.current) { ctxRef.current.close().catch(() => {}); ctxRef.current = null }
-      // Stop Android foreground service
-      try {
-        const android = (window as any).AndroidAudio
-        if (android && typeof android.stopAudioService === 'function') {
-          android.stopAudioService()
-        }
-      } catch {}
-    }
-  }, [])
+  const streamUrl = `${API_BASE}/relay/${broadcastId}/stream`
 
   function updateMediaSession(playing: boolean) {
     if (!('mediaSession' in navigator)) return
@@ -212,98 +93,55 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
       album: 'The Voice of Redemption',
       artwork
     })
-    navigator.mediaSession.setActionHandler('play', () => {
-      userPausedRef.current = false
-      ctxRef.current?.resume().catch(() => {})
-      if (decodedRef.current.length > 0) scheduleNext()
-    })
-    navigator.mediaSession.setActionHandler('pause', () => {
-      userPausedRef.current = true
-      playingRef.current = false
-      setIsPlaying(false)
-      ctxRef.current?.suspend().catch(() => {})
-      updateMediaSession(false)
-    })
+    navigator.mediaSession.setActionHandler('play', () => audioRef.current?.play().catch(() => {}))
+    navigator.mediaSession.setActionHandler('pause', () => audioRef.current?.pause())
     navigator.mediaSession.setActionHandler('stop', () => {
-      userPausedRef.current = true
-      playingRef.current = false
-      setIsPlaying(false)
-      ctxRef.current?.suspend().catch(() => {})
-      updateMediaSession(false)
+      const a = audioRef.current
+      if (a) { a.pause(); a.src = '' }
     })
   }
 
-  function scheduleNext() {
-    if (userPausedRef.current) { playingRef.current = false; setIsPlaying(false); updateMediaSession(false); return }
-    if (!ctxRef.current) return
-    if (decodedRef.current.length === 0) {
-      playingRef.current = false
-      setIsPlaying(false)
-      updateMediaSession(false)
-      const retry = setInterval(() => {
-        if (userPausedRef.current) { clearInterval(retry); return }
-        if (decodedRef.current.length > 0) { clearInterval(retry); scheduleNext() }
-      }, 500)
-      return
-    }
-    const ctx = ctxRef.current
-    if (ctx.state === 'suspended') ctx.resume().catch(() => {})
-    playingRef.current = true
-    setIsPlaying(true)
-    updateMediaSession(true)
-    const buf = decodedRef.current.shift()!
-    const src = ctx.createBufferSource()
-    src.buffer = buf
-    src.connect(gainRef.current!)
-    src.start()
-    src.onended = () => { scheduleNext() }
-  }
-
-  function togglePlay() {
-    const ctx = ctxRef.current
-    if (!ctx) { handleStart(); return }
-    if (playingRef.current) {
-      userPausedRef.current = true
-      playingRef.current = false
-      setIsPlaying(false)
-      ctx.suspend().catch(() => {})
-      updateMediaSession(false)
-    } else {
-      userPausedRef.current = false
-      ctx.resume().catch(() => {})
-      updateMediaSession(true)
-      if (decodedRef.current.length > 0) scheduleNext()
-    }
-  }
-
-  function handleStart(broadcastTitle?: string) {
-    if (!ctxRef.current) {
-      const ctx = new AudioContext()
-      ctxRef.current = ctx
-      const win = window as any
-      win.__audioContexts = win.__audioContexts || []
-      win.__audioContexts.push(ctx)
-      const g = ctx.createGain()
-      g.gain.value = volume / 100
-      g.connect(ctx.destination)
-      gainRef.current = g
-      try {
-        const dest = ctx.createMediaStreamDestination()
-        streamDestRef.current = dest
-        g.connect(dest)
-        const audio = new Audio()
-        audio.srcObject = dest.stream
-        audio.volume = 0.001
-        audio.loop = true
-        audio.play().catch(() => {})
-        keepAliveAudioRef.current = audio
-      } catch {}
-    }
-    setupMediaSession(broadcastTitle || title || 'Live Broadcast')
-    setStatusText('Connecting…')
+  function handleStart() {
+    if (!audioRef.current) return
     setStarted(true)
+    setStatusText('Connecting…')
 
-    // Start Android foreground service to keep process alive in background
+    // Listener tracking
+    sessionIdRef.current = Math.random().toString(36).slice(2) + Date.now().toString(36)
+    fetch(`${API_BASE}/api/stream/${broadcastId}/join`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: sessionIdRef.current })
+    }).catch(() => {})
+
+    heartbeatRef.current = setInterval(() => {
+      fetch(`${API_BASE}/api/stream/${broadcastId}/heartbeat`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: sessionIdRef.current })
+      }).catch(() => {})
+    }, 30000)
+
+    infoIntervalRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/stream/${broadcastId}/info`)
+        if (res.ok) {
+          const info = await res.json()
+          setListenerCount(info.listenerCount || 0)
+        }
+      } catch {}
+    }, 10000)
+
+    // Set stream source and play
+    audioRef.current.src = streamUrl + '?_=' + Date.now()
+    audioRef.current.volume = volume / 100
+    audioRef.current.play().then(() => {
+      setIsPlaying(true)
+      setStatusText('Live')
+      setupMediaSession(title || 'Live Broadcast')
+    }).catch(() => {
+      setStatusText('Tap play to start')
+    })
+
+    // Start Android foreground service
     try {
       const android = (window as any).AndroidAudio
       if (android && typeof android.startAudioService === 'function') {
@@ -311,6 +149,63 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
       }
     } catch {}
   }
+
+  function togglePlay() {
+    const audio = audioRef.current
+    if (!audio) return
+    if (audio.paused) {
+      audio.play().catch(() => {})
+    } else {
+      audio.pause()
+    }
+  }
+
+  // Create <audio> element once
+  useEffect(() => {
+    const audio = document.createElement('audio')
+    audio.setAttribute('playsinline', 'true')
+    audio.setAttribute('webkit-playsinline', 'true')
+    audio.setAttribute('preload', 'none')
+    audio.onplay = () => { setIsPlaying(true); updateMediaSession(true) }
+    audio.onpause = () => { setIsPlaying(false); updateMediaSession(false) }
+    audio.onwaiting = () => { setStatusText('Buffering…') }
+    audio.onplaying = () => { setStatusText('Live') }
+    audio.oncanplay = () => { setStatusText('Live') }
+    audio.onstalled = () => { setStatusText('Stalled — reconnecting…') }
+    audio.onerror = () => { setStatusText('Connection error') }
+    audioRef.current = audio
+    return () => {
+      audio.pause()
+      audio.src = ''
+      audioRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.volume = volume / 100
+  }, [volume])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (heartbeatRef.current) clearInterval(heartbeatRef.current)
+      if (infoIntervalRef.current) clearInterval(infoIntervalRef.current)
+      if (sessionIdRef.current) {
+        fetch(`${API_BASE}/api/stream/${broadcastId}/leave`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: sessionIdRef.current })
+        }).catch(() => {})
+      }
+      const a = audioRef.current
+      if (a) { a.pause(); a.src = '' }
+      try {
+        const android = (window as any).AndroidAudio
+        if (android && typeof android.stopAudioService === 'function') {
+          android.stopAudioService()
+        }
+      } catch {}
+    }
+  }, [broadcastId])
 
   const VolumeIcon = volume === 0 ? VolumeX : volume > 50 ? Volume2 : Volume1
 
