@@ -71,21 +71,21 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
   const [showVolume, setShowVolume] = useState(false)
   const [statusText, setStatusText] = useState('Tap to listen')
 
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-  const mediaSourceRef = useRef<MediaSource | null>(null)
-  const sourceBufferRef = useRef<SourceBuffer | null>(null)
   const sessionIdRef = useRef('')
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const infoIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const nextChunkIndexRef = useRef(0)
-  const latestChunkRef = useRef(-1)
   const fetchTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const pendingBuffersRef = useRef<ArrayBuffer[]>([])
-  const isAppendingRef = useRef(false)
   const userPausedRef = useRef(false)
   const pauseTimeRef = useRef(0)
   const socketRef = useRef<Socket | null>(null)
+
+  /* AudioContext gapless playback */
+  const ctxRef = useRef<AudioContext | null>(null)
+  const gainRef = useRef<GainNode | null>(null)
+  const nextStartRef = useRef(0)
+  const decodedQueueRef = useRef<AudioBuffer[]>([])
+  const isSchedulingRef = useRef(false)
 
   function updateMediaSession(playing: boolean) {
     if (!('mediaSession' in navigator)) return
@@ -100,57 +100,24 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
     navigator.mediaSession.metadata = new MediaMetadata({
       title: broadcastTitle, artist: 'ZioniteFM', album: 'The Voice of Redemption', artwork
     })
-    navigator.mediaSession.setActionHandler('play', () => audioRef.current?.play().catch(() => {}))
-    navigator.mediaSession.setActionHandler('pause', () => audioRef.current?.pause())
-    navigator.mediaSession.setActionHandler('stop', () => {
-      const a = audioRef.current; if (a) { a.pause(); a.src = '' }
-    })
+    navigator.mediaSession.setActionHandler('play', () => resumeFromMediaSession())
+    navigator.mediaSession.setActionHandler('pause', () => pauseFromMediaSession())
+    navigator.mediaSession.setActionHandler('stop', () => stopFromMediaSession())
   }
 
-  async function fetchChunk(index: number): Promise<ArrayBuffer | null> {
-    try {
-      const res = await fetch(`${API_BASE}/api/stream/${broadcastId}/chunk/${index}`)
-      if (res.ok) return await res.arrayBuffer()
-    } catch {}
-    return null
+  function resumeFromMediaSession() {
+    if (userPausedRef.current) togglePlay()
   }
-
-  function drainPending() {
-    const sb = sourceBufferRef.current
-    if (!sb || sb.updating || pendingBuffersRef.current.length === 0) return
-    isAppendingRef.current = true
-    sb.appendBuffer(pendingBuffersRef.current.shift()!)
+  function pauseFromMediaSession() {
+    if (!userPausedRef.current) togglePlay()
   }
-
-  async function startFetching() {
-    try {
-      const res = await fetch(`${API_BASE}/api/stream/${broadcastId}/info`)
-      if (res.ok) {
-        const info = await res.json()
-        latestChunkRef.current = info.latestChunk ?? -1
-        nextChunkIndexRef.current = Math.max(0, latestChunkRef.current - 1)
-      }
-    } catch {}
-
-    fetchTimerRef.current = setInterval(async () => {
-      if (userPausedRef.current) return
-      try {
-        const res = await fetch(`${API_BASE}/api/stream/${broadcastId}/info`)
-        if (res.ok) {
-          const info = await res.json()
-          latestChunkRef.current = info.latestChunk ?? latestChunkRef.current
-        }
-      } catch {}
-
-      if (nextChunkIndexRef.current <= latestChunkRef.current) {
-        const buf = await fetchChunk(nextChunkIndexRef.current)
-        if (buf) {
-          pendingBuffersRef.current.push(buf)
-          nextChunkIndexRef.current++
-          drainPending()
-        }
-      }
-    }, 800)
+  function stopFromMediaSession() {
+    userPausedRef.current = true
+    if (ctxRef.current) { ctxRef.current.close().catch(() => {}); ctxRef.current = null }
+    gainRef.current = null
+    decodedQueueRef.current = []
+    setIsPlaying(false)
+    updateMediaSession(false)
   }
 
   function base64ToArrayBuffer(base64: string): ArrayBuffer {
@@ -161,8 +128,39 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
     return bytes.buffer
   }
 
+  async function decodeChunk(base64: string) {
+    if (!ctxRef.current) return
+    try {
+      const buf = base64ToArrayBuffer(base64)
+      const audioBuf = await ctxRef.current.decodeAudioData(buf)
+      if (audioBuf.duration > 0.05) decodedQueueRef.current.push(audioBuf)
+      scheduleDecoded()
+    } catch {}
+  }
+
+  function scheduleDecoded() {
+    if (userPausedRef.current || isSchedulingRef.current || !ctxRef.current) return
+    if (decodedQueueRef.current.length === 0) return
+    isSchedulingRef.current = true
+    const ctx = ctxRef.current
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+    while (decodedQueueRef.current.length > 0) {
+      const buf = decodedQueueRef.current.shift()!
+      const src = ctx.createBufferSource()
+      src.buffer = buf
+      src.connect(gainRef.current!)
+      if (nextStartRef.current < ctx.currentTime + 0.1) {
+        nextStartRef.current = ctx.currentTime + 0.1
+      }
+      src.start(nextStartRef.current)
+      nextStartRef.current += buf.duration
+    }
+    setIsPlaying(true)
+    updateMediaSession(true)
+    isSchedulingRef.current = false
+  }
+
   function handleStart() {
-    if (!audioRef.current) return
     setStarted(true)
     setStatusText('Connecting…')
     userPausedRef.current = false
@@ -187,27 +185,56 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
       } catch {}
     }, 10000)
 
-    // Build MediaSource pipeline
-    buildMediaSource()
-    audioRef.current.volume = volume / 100
-    audioRef.current.play().then(() => {
-      setIsPlaying(true)
-      setStatusText('Live')
-      setupMediaSession(title || 'Live Broadcast')
-    }).catch(() => { setStatusText('Tap play to start') })
+    // Build AudioContext pipeline
+    const ctx = new AudioContext()
+    ctxRef.current = ctx
+    const gain = ctx.createGain()
+    gain.gain.value = volume / 100
+    gain.connect(ctx.destination)
+    gainRef.current = gain
+    nextStartRef.current = ctx.currentTime + 0.3
+
+    // Hidden audio element wired to MediaStream keeps AudioContext alive in background
+    const dest = ctx.createMediaStreamDestination()
+    gain.connect(dest)
+    const hiddenAudio = new Audio()
+    hiddenAudio.srcObject = dest.stream
+    hiddenAudio.play().catch(() => {})
 
     // Real-time socket for chunks
     const socket = io(SOCKET_BASE, { path: '/socket.io', transports: ['websocket', 'polling'] })
     socketRef.current = socket
-    socket.on('connect', () => {
-      socket.emit('join_broadcast', broadcastId)
-    })
+    socket.on('connect', () => { socket.emit('join_broadcast', broadcastId) })
     socket.on('stream_chunk', (payload: { chunkIndex: number; chunkData: string }) => {
-      latestChunkRef.current = Math.max(latestChunkRef.current, payload.chunkIndex)
-      const buf = base64ToArrayBuffer(payload.chunkData)
-      pendingBuffersRef.current.push(buf)
-      drainPending()
+      decodeChunk(payload.chunkData)
     })
+
+    // HTTP fallback: fetch recent chunks to catch up
+    fetchTimerRef.current = setInterval(async () => {
+      if (userPausedRef.current) return
+      try {
+        const res = await fetch(`${API_BASE}/api/stream/${broadcastId}/info`)
+        if (!res.ok) return
+        const info = await res.json()
+        if (info.latestChunk > -1 && nextStartRef.current <= ctxRef.current!.currentTime + 0.5) {
+          // Buffer running low, fetch latest chunk
+          const chunkRes = await fetch(`${API_BASE}/api/stream/${broadcastId}/chunk/${info.latestChunk}`)
+          if (chunkRes.ok) {
+            const blob = await chunkRes.blob()
+            const reader = new FileReader()
+            reader.onloadend = () => {
+              const base64 = (reader.result as string).split(',')[1]
+              decodeChunk(base64)
+            }
+            reader.readAsDataURL(blob)
+          }
+        }
+      } catch {}
+    }, 1000)
+
+    setIsPlaying(true)
+    setStatusText('Live')
+    setupMediaSession(title || 'Live Broadcast')
 
     try {
       const android = (window as any).AndroidAudio
@@ -215,102 +242,47 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
     } catch {}
   }
 
-  function resetMediaSource() {
-    if (fetchTimerRef.current) { clearInterval(fetchTimerRef.current); fetchTimerRef.current = null }
-    pendingBuffersRef.current = []
-    isAppendingRef.current = false
-    const oldMs = mediaSourceRef.current
-    if (oldMs && oldMs.readyState === 'open') { try { oldMs.endOfStream() } catch {} }
-    mediaSourceRef.current = null
-    sourceBufferRef.current = null
-    const audio = audioRef.current
-    if (audio) {
-      const oldSrc = audio.src
-      audio.src = ''
-      if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc)
-    }
-  }
-
-  function buildMediaSource() {
-    const audio = audioRef.current
-    if (!audio) return
-    const mime = 'audio/webm; codecs="opus"'
-    if (!MediaSource.isTypeSupported(mime)) { setStatusText('Browser not supported'); return }
-    const ms = new MediaSource()
-    mediaSourceRef.current = ms
-    audio.src = URL.createObjectURL(ms)
-    ms.addEventListener('sourceopen', () => {
-      const sb = ms.addSourceBuffer(mime)
-      sourceBufferRef.current = sb
-      sb.addEventListener('updateend', () => { isAppendingRef.current = false; drainPending() })
-      sb.addEventListener('error', () => { console.error('SourceBuffer error') })
-      startFetching()
-      drainPending() // process chunks received while waiting for sourceopen
-    })
-  }
-
   function togglePlay() {
-    const audio = audioRef.current
-    if (!audio) return
-    if (audio.paused) {
-      const pausedFor = Date.now() - pauseTimeRef.current
-      if (pausedFor > 3000 && started) {
-        // Hard reset to live edge after long pause
-        resetMediaSource()
-        userPausedRef.current = false
-        setStatusText('Reconnecting…')
-        buildMediaSource()
-        audio.play().then(() => {
-          setIsPlaying(true)
-          setStatusText('Live')
-        }).catch(() => { setStatusText('Tap play to start') })
-      } else {
-        audio.play().catch(() => {})
-        userPausedRef.current = false
-      }
+    const ctx = ctxRef.current
+    if (!ctx) return
+    if (userPausedRef.current) {
+      // Resume
+      userPausedRef.current = false
+      pauseTimeRef.current = 0
+      ctx.resume().catch(() => {})
+      nextStartRef.current = ctx.currentTime + 0.1
+      scheduleDecoded()
+      setIsPlaying(true)
+      updateMediaSession(true)
     } else {
-      audio.pause()
+      // Pause
       userPausedRef.current = true
       pauseTimeRef.current = Date.now()
+      ctx.suspend().catch(() => {})
+      setIsPlaying(false)
+      updateMediaSession(false)
     }
   }
 
   useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = volume / 100
+    if (gainRef.current) gainRef.current.gain.value = volume / 100
   }, [volume])
-
-  useEffect(() => {
-    const audio = document.createElement('audio')
-    audio.setAttribute('playsinline', 'true')
-    audio.setAttribute('webkit-playsinline', 'true')
-    audio.setAttribute('preload', 'none')
-    audio.onplay = () => { setIsPlaying(true); updateMediaSession(true) }
-    audio.onpause = () => { setIsPlaying(false); updateMediaSession(false); userPausedRef.current = true }
-    audio.onplaying = () => { setStatusText('Live') }
-    audio.onwaiting = () => { setStatusText('Buffering…') }
-    audio.onstalled = () => { setStatusText('Stalled') }
-    audio.onerror = () => { setStatusText('Connection error') }
-    audioRef.current = audio
-    return () => {
-      audio.pause(); audio.src = ''; audioRef.current = null
-    }
-  }, [])
 
   useEffect(() => {
     return () => {
       if (heartbeatRef.current) clearInterval(heartbeatRef.current)
       if (infoIntervalRef.current) clearInterval(infoIntervalRef.current)
       if (fetchTimerRef.current) clearInterval(fetchTimerRef.current)
+      if (socketRef.current) { socketRef.current.disconnect(); socketRef.current = null }
       if (sessionIdRef.current) {
         fetch(`${API_BASE}/api/stream/${broadcastId}/leave`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sessionId: sessionIdRef.current })
         }).catch(() => {})
       }
-      resetMediaSource()
-      if (socketRef.current) { socketRef.current.disconnect(); socketRef.current = null }
-      const a = audioRef.current
-      if (a) { a.pause(); a.src = '' }
+      if (ctxRef.current) { ctxRef.current.close().catch(() => {}); ctxRef.current = null }
+      gainRef.current = null
+      decodedQueueRef.current = []
       try {
         const android = (window as any).AndroidAudio
         if (android && typeof android.stopAudioService === 'function') android.stopAudioService()
