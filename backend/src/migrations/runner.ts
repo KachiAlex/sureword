@@ -16,18 +16,19 @@ export async function runMigrations() {
 
   const migrationDir = join(__dirname)
   const files = readdirSync(migrationDir)
-    .filter(f => f.endsWith('.sql') || f.endsWith('.ts'))
-    .filter(f => f !== 'runner.ts')
+    .filter(f => f.endsWith('.sql') || f.endsWith('.js') || (f.endsWith('.ts') && !f.endsWith('.d.ts')))
+    .filter(f => f !== 'runner.ts' && f !== 'runner.js')
     .sort()
 
   for (const file of files) {
-    const name = basename(file, file.endsWith('.ts') ? '.ts' : '.sql')
+    const ext = file.endsWith('.ts') ? '.ts' : (file.endsWith('.js') ? '.js' : '.sql')
+    const name = basename(file, ext)
     const existing = await db.get('SELECT * FROM migrations WHERE name = $1', [name])
     if (existing) continue
 
     console.log(`[MIGRATION] applying ${name}...`)
 
-    if (file.endsWith('.ts')) {
+    if (file.endsWith('.ts') || file.endsWith('.js')) {
       const mod = await import(join(migrationDir, file))
       if (typeof mod.up === 'function') {
         await mod.up(db)
