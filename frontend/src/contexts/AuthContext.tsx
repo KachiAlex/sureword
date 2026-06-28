@@ -1,6 +1,6 @@
 ﻿import { createContext, useContext, useState, useEffect } from 'react'
 import axios from 'axios'
-import { API_BASE } from '../lib/api'
+import { API_BASE, api } from '../lib/api'
 
 interface User {
   id: string
@@ -11,7 +11,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null
-  login: (token: string, user: User) => void
+  login: (accessToken: string, refreshToken: string, user: User) => void
   logout: () => void
   loading: boolean
 }
@@ -27,9 +27,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const token = localStorage.getItem('token')
       const cachedUser = localStorage.getItem('user')
 
-      // Defensive: reject literal "undefined" or obviously malformed tokens
       if (!token || token === 'undefined' || token === 'null' || token.length < 10) {
         localStorage.removeItem('token')
+        localStorage.removeItem('refreshToken')
         localStorage.removeItem('user')
         delete axios.defaults.headers.common['Authorization']
         setLoading(false)
@@ -46,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('user', JSON.stringify(data.user))
       } catch {
         localStorage.removeItem('token')
+        localStorage.removeItem('refreshToken')
         localStorage.removeItem('user')
         delete axios.defaults.headers.common['Authorization']
         setUser(null)
@@ -55,15 +56,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     validateToken()
   }, [])
 
-  const login = (token: string, userData: User) => {
-    localStorage.setItem('token', token)
+  useEffect(() => {
+    const handleLogout = () => {
+      setUser(null)
+    }
+    window.addEventListener('auth:logout', handleLogout)
+    return () => window.removeEventListener('auth:logout', handleLogout)
+  }, [])
+
+  const login = (accessToken: string, refreshToken: string, userData: User) => {
+    localStorage.setItem('token', accessToken)
+    localStorage.setItem('refreshToken', refreshToken)
     localStorage.setItem('user', JSON.stringify(userData))
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+    axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`
     setUser(userData)
   }
 
-  const logout = () => {
+  const logout = async () => {
+    const refreshToken = localStorage.getItem('refreshToken')
+    if (refreshToken) {
+      try { await api.post('/auth/logout', { refreshToken }) } catch {}
+    }
     localStorage.removeItem('token')
+    localStorage.removeItem('refreshToken')
     localStorage.removeItem('user')
     delete axios.defaults.headers.common['Authorization']
     setUser(null)

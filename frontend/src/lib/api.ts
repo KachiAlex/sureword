@@ -6,6 +6,18 @@ export const API_BASE = isDev ? '' : 'https://sureword.fly.dev'
 export const SOCKET_BASE = 'https://sureword.fly.dev'
 export const api = axios.create({ baseURL: `${API_BASE}/api`, timeout: 15000 })
 
+let isRefreshing = false
+let refreshSubscribers: ((token: string) => void)[] = []
+
+function onRefreshed(token: string) {
+  refreshSubscribers.forEach(cb => cb(token))
+  refreshSubscribers = []
+}
+
+function addRefreshSubscriber(cb: (token: string) => void) {
+  refreshSubscribers.push(cb)
+}
+
 api.interceptors.request.use(config => {
   const token = localStorage.getItem('token')
   if (token && token !== 'undefined' && token !== 'null') {
@@ -14,6 +26,60 @@ api.interceptors.request.use(config => {
   }
   return config
 })
+
+api.interceptors.response.use(
+  response => response,
+  async error => {
+    const originalRequest = error.config
+    const status = error.response?.status
+
+    if (status === 403 && !originalRequest._retry) {
+      if (isRefreshing) {
+        return new Promise(resolve => {
+          addRefreshSubscriber(token => {
+            originalRequest.headers['Authorization'] = `Bearer ${token}`
+            resolve(api(originalRequest))
+          })
+        })
+      }
+
+      originalRequest._retry = true
+      isRefreshing = true
+
+      const refreshToken = localStorage.getItem('refreshToken')
+      if (!refreshToken) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('refreshToken')
+        localStorage.removeItem('user')
+        delete axios.defaults.headers.common['Authorization']
+        isRefreshing = false
+        return Promise.reject(error)
+      }
+
+      try {
+        const { data } = await axios.post(`${API_BASE}/api/auth/refresh`, { refreshToken })
+        const { accessToken, refreshToken: newRefreshToken } = data
+        localStorage.setItem('token', accessToken)
+        localStorage.setItem('refreshToken', newRefreshToken)
+        axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`
+        onRefreshed(accessToken)
+        originalRequest.headers['Authorization'] = `Bearer ${accessToken}`
+        return api(originalRequest)
+      } catch {
+        localStorage.removeItem('token')
+        localStorage.removeItem('refreshToken')
+        localStorage.removeItem('user')
+        delete axios.defaults.headers.common['Authorization']
+        window.dispatchEvent(new CustomEvent('auth:logout'))
+        return Promise.reject(error)
+      } finally {
+        isRefreshing = false
+      }
+    }
+
+    return Promise.reject(error)
+  }
+)
 
 export interface Broadcast { id: string; title: string; description?: string; scripture_reference?: string; status: string; started_at?: string; broadcaster_id: string; speaker?: string; thumbnail_url?: string }
 export interface Sermon { id: string; title: string; scripture_reference?: string; speaker?: string; series?: string; duration?: number; date: string; audio_url?: string; video_url?: string; thumbnail_url?: string; is_featured?: boolean }

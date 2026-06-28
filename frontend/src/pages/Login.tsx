@@ -38,7 +38,7 @@ export default function Login() {
       console.log('[AUTH] calling', endpoint, 'with', JSON.stringify(Object.keys(payload)))
       const { data } = await axios.post(endpoint, payload, { timeout: 15000 })
       console.log('[AUTH] success, role:', data.user?.role)
-      login(data.token, data.user)
+      login(data.accessToken, data.refreshToken, data.user)
 
       switch (data.user.role) {
         case 'admin':

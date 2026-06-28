@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken'
 import { z } from 'zod'
 import { v4 as uuidv4 } from 'uuid'
 import { db, initDb, dbReady } from '../db.js'
-import { JWT_SECRET, authenticateToken, requireRole, AuthenticatedRequest } from '../middleware/auth.js'
+import { JWT_SECRET, authenticateToken, requireRole, AuthenticatedRequest, generateTokens, storeRefreshToken, verifyRefreshToken, revokeRefreshToken } from '../middleware/auth.js'
 import { sendEmail } from '../lib/email.js'
 
 const router = Router()
@@ -50,8 +50,9 @@ router.post('/register', async (req, res) => {
       'INSERT INTO users (id, email, password_hash, name, role) VALUES ($1, $2, $3, $4, $5)',
       [id, email, hash, name, 'listener']
     )
-    const token = jwt.sign({ id, email, name, role: 'listener' }, JWT_SECRET, { expiresIn: '7d' })
-    res.json({ token, user: { id, email, name, role: 'listener' } })
+    const { accessToken, refreshToken } = generateTokens({ id, email, name, role: 'listener' })
+    await storeRefreshToken(id, refreshToken)
+    res.json({ accessToken, refreshToken, user: { id, email, name, role: 'listener' } })
   } catch (err: any) {
     console.error('[AUTH] register error:', err.message)
     res.status(500).json({ error: 'Registration failed' })
@@ -76,15 +77,50 @@ router.post('/login', async (req, res) => {
     const valid = await bcrypt.compare(password, user.password_hash)
     if (!valid) { res.status(401).json({ error: 'Invalid credentials' }); return }
 
-    const token = jwt.sign(
-      { id: user.id, email: user.email, name: user.name, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    )
-    res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } })
+    const { accessToken, refreshToken } = generateTokens({
+      id: user.id, email: user.email, name: user.name, role: user.role
+    })
+    await storeRefreshToken(user.id, refreshToken)
+    res.json({ accessToken, refreshToken, user: { id: user.id, email: user.email, name: user.name, role: user.role } })
   } catch (err: any) {
     console.error('[AUTH] login error:', err.message)
     res.status(500).json({ error: 'Login failed' })
+  }
+})
+
+router.post('/refresh', async (req, res) => {
+  try {
+    const { refreshToken } = req.body
+    if (!refreshToken) { res.status(400).json({ error: 'Refresh token required' }); return }
+
+    const decoded = await verifyRefreshToken(refreshToken)
+    if (!decoded) { res.status(403).json({ error: 'Invalid or expired refresh token' }); return }
+
+    await initDb()
+    const user = await db.get('SELECT id, email, name, role FROM users WHERE id = $1', [decoded.id])
+    if (!user) { res.status(404).json({ error: 'User not found' }); return }
+
+    const tokens = generateTokens(user)
+    await revokeRefreshToken(refreshToken)
+    await storeRefreshToken(user.id, tokens.refreshToken)
+
+    res.json({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken })
+  } catch (err: any) {
+    console.error('[AUTH] refresh error:', err.message)
+    res.status(500).json({ error: 'Refresh failed' })
+  }
+})
+
+router.post('/logout', async (req, res) => {
+  try {
+    const { refreshToken } = req.body
+    if (refreshToken) {
+      await revokeRefreshToken(refreshToken)
+    }
+    res.json({ success: true })
+  } catch (err: any) {
+    console.error('[AUTH] logout error:', err.message)
+    res.status(500).json({ error: 'Logout failed' })
   }
 })
 
