@@ -8,7 +8,7 @@ import {
 import type { Sermon } from '../lib/api'
 import StructuredData from '../components/StructuredData'
 import { Play, Pause, BookOpen, Download } from 'lucide-react'
-import { useMemo } from 'react'
+import { useState, useEffect } from 'react'
 
 /* ── Logo SVGs ── */
 function SignalLogo({ size = 100 }: { size?: number }) {
@@ -26,17 +26,35 @@ function SignalLogo({ size = 100 }: { size?: number }) {
   )
 }
 
-/* ── Spectrum bars (signature motion) ── */
+/* ── Spectrum bars (active music visualizer) ── */
 function SpectrumBars() {
-  const bars = useMemo(() => {
-    const count = 80
-    return Array.from({ length: count }, () => ({
-      lo: Math.random() * 30 + 8,
-      hi: Math.random() * 60 + 30,
-      dur: (Math.random() * 0.8 + 0.5).toFixed(2),
-      delay: (Math.random() * 1).toFixed(2)
-    }))
+  const COUNT = 80
+  const [heights, setHeights] = useState<number[]>(() =>
+    Array.from({ length: COUNT }, () => Math.random() * 20 + 6)
+  )
+
+  useEffect(() => {
+    const targets = Array.from({ length: COUNT }, () => Math.random() * 80 + 10)
+    const speeds = Array.from({ length: COUNT }, () => Math.random() * 0.15 + 0.04)
+
+    const id = setInterval(() => {
+      setHeights(prev => {
+        const next = prev.map((h, i) => {
+          // Pick a new target occasionally
+          if (Math.random() < 0.08) {
+            targets[i] = Math.random() * 85 + 6
+          }
+          // Smoothly interpolate toward target
+          const diff = targets[i] - h
+          return h + diff * speeds[i]
+        })
+        return next
+      })
+    }, 60)
+
+    return () => clearInterval(id)
   }, [])
+
   return (
     <div style={{ position: 'relative', zIndex: 1, padding: '28px 0 0', overflow: 'hidden' }}>
       <div style={{
@@ -47,14 +65,13 @@ function SpectrumBars() {
         <span style={{ flex: 1, height: 1, background: 'var(--line)' }} />
       </div>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 56, width: '100%' }}>
-        {bars.map((b, i) => (
+        {heights.map((h, i) => (
           <span key={i} style={{
             flex: 1, borderRadius: '1px 1px 0 0',
             background: 'linear-gradient(to top,var(--flame2),var(--sunrise))',
-            opacity: .75, minHeight: 4,
-            height: `${b.lo}%`,
-            animation: `barjump ${b.dur}s ease-in-out infinite alternate`,
-            animationDelay: `${b.delay}s`
+            opacity: .8, minHeight: 3,
+            height: `${Math.max(3, h)}%`,
+            transition: 'height 60ms linear'
           }} />
         ))}
       </div>
@@ -142,7 +159,9 @@ export default function Home() {
       {/* ══ HERO ══ */}
       <section style={{
         position: 'relative', minHeight: '100vh', display: 'flex', flexDirection: 'column',
-        justifyContent: 'center', overflow: 'hidden', paddingTop: 64
+        justifyContent: 'center', overflow: 'hidden', paddingTop: 64,
+        backgroundImage: 'linear-gradient(to bottom, rgba(15,4,0,.85) 0%, rgba(15,4,0,.55) 30%, rgba(15,4,0,.75) 70%, rgba(15,4,0,.95) 100%), url(https://images.unsplash.com/photo-1487089427585-85563b1049f3?w=1600&q=80)',
+        backgroundSize: 'cover', backgroundPosition: 'center'
       }}>
         {/* Stage glow — warm light from above */}
         <div style={{
@@ -187,25 +206,14 @@ export default function Home() {
                 Broadcasting 24 hours · 7 days a week
               </div>
 
-              {/* 3-line headline */}
-              <h1 aria-label="The Whole Word">
-                <span style={{
-                  display: 'block', fontFamily: "'Bebas Neue',sans-serif",
-                  fontSize: 'clamp(72px,9.5vw,136px)', lineHeight: .92,
-                  color: 'transparent', WebkitTextStroke: '1.5px rgba(255,240,212,.22)',
-                  letterSpacing: '.03em'
-                }}>THE</span>
-                <span style={{
-                  display: 'block', fontFamily: "'Bebas Neue',sans-serif",
-                  fontSize: 'clamp(80px,11vw,158px)', lineHeight: .92,
-                  color: 'var(--flame)', textShadow: '0 0 80px rgba(224,90,26,.3)',
-                  letterSpacing: '.03em'
-                }}>WHOLE</span>
-                <span style={{
-                  display: 'block', fontFamily: "'Bebas Neue',sans-serif",
-                  fontSize: 'clamp(72px,9.5vw,136px)', lineHeight: .92,
-                  color: 'var(--white)', letterSpacing: '.03em'
-                }}>WORD.</span>
+              {/* Single-line headline */}
+              <h1 style={{
+                fontFamily: "'Bebas Neue',sans-serif",
+                fontSize: 'clamp(48px,7vw,92px)',
+                lineHeight: 1, letterSpacing: '.02em',
+                color: 'var(--white)'
+              }}>
+                THE <span style={{ color: 'var(--flame)', textShadow: '0 0 60px rgba(224,90,26,.35)' }}>WHOLE</span> WORD
               </h1>
 
               <p style={{
@@ -294,7 +302,7 @@ export default function Home() {
                 {nowPlaying?.title || broadcast?.title || 'Grace That Never Fails'}
               </div>
               <div style={{ fontSize: 12, color: 'var(--ash2)' }}>
-                {nowPlaying?.speaker || broadcast?.speaker || 'Pastor Emmanuel Osei'}
+                {nowPlaying?.speaker || broadcast?.speaker || 'Reverend Austin Oviawe'}
                 {nowPlaying?.scriptureReference ? ` · ${nowPlaying.scriptureReference}` : ''}
               </div>
             </div>
@@ -355,10 +363,10 @@ export default function Home() {
           {[
             { hr: '6:00', ap: 'AM', title: 'Morning Devotion', meta: 'Pastor Agyei · 45 min', now: false },
             { hr: '8:00', ap: 'AM', title: 'Praise & Worship Hour', meta: 'Worship team · 60 min', now: false },
-            { hr: '10:00', ap: 'AM', title: nowPlaying?.title || 'Grace That Never Fails', meta: `${nowPlaying?.speaker || 'Pastor Osei'} · Romans 5`, now: true },
+            { hr: '10:00', ap: 'AM', title: nowPlaying?.title || 'Grace That Never Fails', meta: `${nowPlaying?.speaker || 'Reverend Austin Oviawe'} · Romans 5`, now: true },
             { hr: '12:00', ap: 'PM', title: 'Midday Prayer', meta: 'Elder Grace · 30 min', now: false },
             { hr: '2:00', ap: 'PM', title: 'Faith & Family', meta: 'Various speakers · 60 min', now: false },
-            { hr: '7:00', ap: 'PM', title: 'Evening Word', meta: 'Pastor Osei · 45 min', now: false },
+            { hr: '7:00', ap: 'PM', title: 'Evening Word', meta: 'Reverend Austin Oviawe · 45 min', now: false },
           ].map((s) => (
             <div key={s.hr + s.title} style={{
               background: s.now ? 'var(--mahog)' : 'var(--coal)',
