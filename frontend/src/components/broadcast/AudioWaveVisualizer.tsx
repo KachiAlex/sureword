@@ -20,7 +20,7 @@ export default function AudioWaveVisualizer({ active, micMuted, stream: external
         const ctx = cvs.getContext('2d')
         if (ctx) {
           ctx.clearRect(0, 0, cvs.width, cvs.height)
-          ctx.fillStyle = '#c9a227'
+          ctx.fillStyle = '#E05A1A'
           const barCount = 32
           const barW = (cvs.width / barCount) * 0.6
           const gap = (cvs.width / barCount) * 0.4
@@ -80,7 +80,7 @@ export default function AudioWaveVisualizer({ active, micMuted, stream: external
         const y = (canvas.height - h) / 2
         const gradient = ctx.createLinearGradient(0, y, 0, y + h)
         gradient.addColorStop(0, 'rgba(201,162,39,0.3)')
-        gradient.addColorStop(0.5, '#c9a227')
+        gradient.addColorStop(0.5, '#E05A1A')
         gradient.addColorStop(1, 'rgba(201,162,39,0.3)')
         ctx.fillStyle = gradient
         ctx.fillRect(i * (barW + gap) + gap / 2, y, barW, h)
@@ -106,7 +106,7 @@ export default function AudioWaveVisualizer({ active, micMuted, stream: external
         const y = (canvas.height - h) / 2
         const gradient = ctx.createLinearGradient(0, y, 0, y + h)
         gradient.addColorStop(0, 'rgba(201,162,39,0.2)')
-        gradient.addColorStop(0.5, '#c9a227')
+        gradient.addColorStop(0.5, '#E05A1A')
         gradient.addColorStop(1, 'rgba(201,162,39,0.2)')
         ctx.fillStyle = gradient
         ctx.fillRect(i * (barW + gap) + gap / 2, y, barW, h)
@@ -133,3 +133,4 @@ export default function AudioWaveVisualizer({ active, micMuted, stream: external
     />
   )
 }
+

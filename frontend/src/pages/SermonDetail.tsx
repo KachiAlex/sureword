@@ -98,8 +98,8 @@ export default function SermonDetail() {
       await downloadWithTags({
         audioUrl: sermon.audio_url,
         title: sermon.title,
-        artist: sermon.speaker || 'ZioniteFM',
-        album: sermon.series || 'ZioniteFM Sermons',
+        artist: sermon.speaker || 'SUREWORD RADIO',
+        album: sermon.series || 'SUREWORD RADIO Sermons',
         genre: 'Sermon',
         coverUrl: sermon.thumbnail_url,
         comment: sermon.scripture_reference,
@@ -115,7 +115,7 @@ export default function SermonDetail() {
     const shareUrl = `${window.location.origin}/sermons/${sermon.id}`
     try {
       if (navigator.share) {
-        await navigator.share({ title: sermon.title, text: `Listen to "${sermon.title}" on ZioniteFM`, url: shareUrl })
+        await navigator.share({ title: sermon.title, text: `Listen to "${sermon.title}" on SUREWORD RADIO`, url: shareUrl })
       } else {
         await navigator.clipboard.writeText(shareUrl)
         alert('Link copied to clipboard!')
@@ -158,7 +158,7 @@ export default function SermonDetail() {
   return (
     <div className="min-h-screen py-8 lg:py-12" style={{ background: 'var(--ink)', color: 'var(--parchment)' }}>
       <div className="max-w-3xl mx-auto px-6">
-        <button onClick={() => navigate('/archive')} className="text-sm mb-6 flex items-center gap-1.5 transition-colors hover:text-[#e0bd5a]" style={{ color: 'var(--gold)' }}>
+        <button onClick={() => navigate('/archive')} className="text-sm mb-6 flex items-center gap-1.5 transition-colors hover:text-[#F5A623]" style={{ color: 'var(--gold)' }}>
           <ArrowLeft className="w-4 h-4" /> Back to Sermons
         </button>
 
@@ -266,7 +266,7 @@ export default function SermonDetail() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{s.title}</p>
                     <p className="text-[11px] mt-0.5" style={{ color: 'var(--dim)' }}>
-                      {s.speaker || 'Unknown speaker'} · {s.date}
+                      {s.speaker || 'Unknown speaker'} � {s.date}
                     </p>
                   </div>
                 </Link>
@@ -278,3 +278,4 @@ export default function SermonDetail() {
     </div>
   )
 }
+

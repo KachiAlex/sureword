@@ -69,3 +69,4 @@ export default function ChatSupervisor({ messages, onRefresh }: { messages: Chat
     </div>
   )
 }
+

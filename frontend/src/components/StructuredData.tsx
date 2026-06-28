@@ -2,26 +2,26 @@
   const org = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
-    name: 'Zionite FM',
-    alternateName: 'The Voice of Redemption',
-    url: 'https://zionite.vercel.app',
-    logo: 'https://zionite.vercel.app/icon-512.svg',
-    description: 'The official digital radio ministry of The Redemption Project.',
+    name: 'SureWord Radio',
+    alternateName: 'The Whole Word to the Whole World',
+    url: 'https://surewordradio.org',
+    logo: 'https://surewordradio.org/icon-512.svg',
+    description: 'The official digital radio ministry of Sure Word Media.',
     sameAs: [
-      'https://facebook.com/zionitefm',
-      'https://instagram.com/zionitefm',
-      'https://youtube.com/zionitefm',
-      'https://twitter.com/zionitefm',
+      'https://facebook.com/surewordradio',
+      'https://instagram.com/surewordradio',
+      'https://youtube.com/surewordradio',
+      'https://twitter.com/surewordradio',
     ],
   }
   const website = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    name: 'Zionite FM',
-    url: 'https://zionite.vercel.app',
+    name: 'SureWord Radio',
+    url: 'https://surewordradio.org',
     potentialAction: {
       '@type': 'SearchAction',
-      target: 'https://zionite.vercel.app/search?q={search_term_string}',
+      target: 'https://surewordradio.org/search?q={search_term_string}',
       'query-input': 'required name=search_term_string',
     },
   }
@@ -32,3 +32,4 @@
     </>
   )
 }
+

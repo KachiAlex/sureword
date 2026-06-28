@@ -481,11 +481,11 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
       <div className="rounded-2xl p-5 mb-5" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold flex items-center gap-2">
-            <Star className="w-4 h-4 fill-[#c9a227] text-[#c9a227]" />
+            <Star className="w-4 h-4 fill-[#E05A1A] text-[#E05A1A]" />
             Featured Sermons on Home Page
           </h3>
           <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
-            style={{ background: featuredCount === 4 ? 'rgba(74,222,128,0.12)' : 'rgba(201,162,39,0.12)', color: featuredCount === 4 ? '#4ade80' : '#c9a227' }}>
+            style={{ background: featuredCount === 4 ? 'rgba(74,222,128,0.12)' : 'rgba(201,162,39,0.12)', color: featuredCount === 4 ? '#4ade80' : '#E05A1A' }}>
             {featuredCount}/4 slots filled
           </span>
         </div>
@@ -494,7 +494,7 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
             const s = featuredSermons[i]
             return (
               <div key={i} className="rounded-xl overflow-hidden aspect-[4/3] relative flex items-center justify-center"
-                style={{ background: s ? 'var(--ink)' : 'rgba(243,238,228,0.03)', border: `1px solid ${s ? 'rgba(201,162,39,0.3)' : 'var(--line)'}` }}>
+                style={{ background: s ? 'var(--ink)' : 'rgba(240,190,100,0.03)', border: `1px solid ${s ? 'rgba(201,162,39,0.3)' : 'var(--line)'}` }}>
                 {s ? (
                   <>
                     {s.thumbnail_url
@@ -503,7 +503,7 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-1.5">
                       <p className="text-[10px] font-medium text-white leading-tight line-clamp-2">{s.title}</p>
                     </div>
-                    <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-[#c9a227] flex items-center justify-center">
+                    <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-[#E05A1A] flex items-center justify-center">
                       <Star className="w-2.5 h-2.5 fill-[#1b1208] text-[#1b1208]" />
                     </div>
                   </>
@@ -528,12 +528,12 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
 
       {/* Sermon list */}
       <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
-        <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--line)', background: 'rgba(243,238,228,0.03)' }}>
+        <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--line)', background: 'rgba(240,190,100,0.03)' }}>
           <h3 className="font-semibold flex items-center gap-2">
             <Headphones className="w-4 h-4" style={{ color: 'var(--gold)' }} />
             All Sermons ({sermons.length})
           </h3>
-          <span className="text-[11px]" style={{ color: 'var(--dim)' }}>Click ★ to feature/unfeature</span>
+          <span className="text-[11px]" style={{ color: 'var(--dim)' }}>Click ? to feature/unfeature</span>
         </div>
         {sermons.length === 0 ? (
           <div className="p-8 text-center" style={{ color: 'var(--dim)' }}>No sermons yet</div>
@@ -571,7 +571,7 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
                     className="p-1.5 rounded-lg transition-colors disabled:opacity-40"
                     style={{ background: s.is_featured ? 'rgba(201,162,39,0.15)' : 'var(--ink)', border: '1px solid var(--line)' }}
                   >
-                    <Star className="w-3.5 h-3.5" fill={s.is_featured ? '#c9a227' : 'none'} style={{ color: s.is_featured ? '#c9a227' : 'var(--dim)' }} />
+                    <Star className="w-3.5 h-3.5" fill={s.is_featured ? '#E05A1A' : 'none'} style={{ color: s.is_featured ? '#E05A1A' : 'var(--dim)' }} />
                   </button>
                   <a
                     href={s.video_url || s.audio_url}
@@ -591,3 +591,4 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
     </div>
   )
 }
+

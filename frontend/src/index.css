@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:ital,wght@1,400;1,500&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,175 +6,131 @@
 
 @layer base {
   html {
-    font-size: 17px;
+    font-size: 16px;
   }
 
   :root {
-    --ink: #0c0c12;
-    --ink-2: #15161c;
-    --panel: #1e1f28;
-    --line: rgba(243, 238, 228, 0.10);
-    --parchment: #f3eee4;
-    --dim: #9c958a;
-    --gold: #c9a227;
-    --gold-soft: #e0bd5a;
-    --oxblood: #8a3326;
-    --oxblood-soft: #c1564a;
+    /* ── New Sure Word Radio Palette ── */
+    --ember:   #160600;
+    --coal:    #230d02;
+    --mahog:   #2f1206;
+    --panel:   #3b1709;
+    --line:    rgba(240, 190, 100, .12);
+    --cream:   #fff0d4;
+    --cream2:  #e8cfa0;
+    --ash:     #9a7c60;
+    --flame:   #E05A1A;
+    --flame2:  #c94c10;
+    --sunrise: #F5A623;
+    --sun2:    #f0c040;
+    --white:   #fff8ee;
+
+    /* legacy aliases for existing component reuse */
+    --ink: var(--ember);
+    --ink-2: var(--coal);
+    --parchment: var(--cream);
+    --dim: var(--ash);
+    --gold: var(--flame);
+    --gold-soft: var(--sunrise);
   }
-  
+
   body {
     @apply font-sans antialiased;
-    background: var(--ink);
-    color: var(--parchment);
-    font-family: 'Work Sans', sans-serif;
+    background: var(--ember);
+    color: var(--cream);
+    font-family: 'Source Sans 3', sans-serif;
     font-size: 1rem;
     line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
   }
-  
+
   h1, h2, h3, h4, h5, h6 {
-    @apply font-semibold tracking-tight;
-    font-family: 'Fraunces', serif;
-    line-height: 1.25;
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: .04em;
+    line-height: 1;
+    font-weight: 400;
   }
+
+  a { color: inherit; text-decoration: none; }
+  button { font-family: inherit; cursor: pointer; }
+  input, select, textarea { font-family: inherit; }
+  :focus-visible { outline: 2px solid var(--sunrise); outline-offset: 3px; }
 }
 
 @layer components {
-  .font-serif {
-    font-family: 'Fraunces', serif;
-  }
-  .font-cursive {
-    font-family: 'Playfair Display', serif;
-    font-style: italic;
-  }
-  .font-mono {
-    font-family: 'IBM Plex Mono', monospace;
-  }
-  
-  .btn-gold {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full font-bold transition-all duration-300;
-    background: var(--gold);
-    color: #1b1208;
-  }
-  .btn-gold:hover {
-    background: var(--gold-soft);
-    transform: scale(1.05);
-    box-shadow: 0 0 24px rgba(201, 162, 39, 0.45);
-  }
-  
-  .btn-oxblood {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full font-medium border transition-colors;
-    background: transparent;
-    border-color: var(--oxblood-soft);
-    color: var(--oxblood-soft);
-  }
-  .btn-oxblood:hover {
-    background: rgba(193, 86, 74, 0.12);
-  }
-  
-  .btn-line {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full font-medium border transition-colors;
-    background: transparent;
-    border-color: var(--line);
-    color: var(--parchment);
-  }
-  .btn-line:hover {
-    border-color: var(--gold);
-    color: var(--gold-soft);
-  }
+  .font-bebas { font-family: 'Bebas Neue', sans-serif; letter-spacing: .04em; line-height: 1; }
+  .font-serif { font-family: 'Playfair Display', serif; }
+  .font-mono  { font-family: 'IBM Plex Mono', monospace; }
 
+  .eyebrow {
+    font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--sunrise); display: flex; align-items: center; gap: 7px;
+  }
+  .eyebrow::before { content: ''; width: 22px; height: 1px; background: var(--flame); }
+
+  /* ── Buttons ── */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2;
+    padding: 10px 20px; border-radius: 4px; font-size: 13.5px;
+    font-weight: 600; border: none; transition: all .15s ease; white-space: nowrap;
+  }
+  .btn-sm { padding: 7px 14px; font-size: 12.5px; }
+  .btn-flame { background: var(--flame); color: #fff; }
+  .btn-flame:hover { background: var(--flame2); }
+  .btn-sun { background: var(--sunrise); color: #1a0400; }
+  .btn-sun:hover { background: var(--sun2); }
+  .btn-out { background: transparent; border: 1px solid var(--flame); color: var(--flame); }
+  .btn-out:hover { background: rgba(224, 90, 26, .12); }
+  .btn-ghost { background: transparent; border: 1px solid var(--line); color: var(--cream2); }
+  .btn-ghost:hover { border-color: var(--sunrise); color: var(--sunrise); }
+
+  /* legacy helpers mapped to new system */
+  .btn-gold { @apply inline-flex items-center justify-center gap-2; padding: 10px 20px; border-radius: 4px; font-size: 13.5px; font-weight: 600; border: none; transition: all .15s ease; white-space: nowrap; background: var(--flame); color: #fff; }
+  .btn-gold:hover { background: var(--flame2); }
+  .btn-line { @apply inline-flex items-center justify-center gap-2; padding: 10px 20px; border-radius: 4px; font-size: 13.5px; font-weight: 600; border: 1px solid var(--line); transition: all .15s ease; white-space: nowrap; background: transparent; color: var(--cream2); }
+  .btn-line:hover { border-color: var(--sunrise); color: var(--sunrise); }
   .input-dark {
     @apply px-3 py-2 rounded-lg text-sm outline-none transition-colors;
-    background: var(--ink);
-    border: 1px solid var(--line);
-    color: var(--parchment);
+    background: var(--coal); border: 1px solid var(--line); color: var(--cream);
   }
-  .input-dark:focus {
-    border-color: var(--gold);
-  }
-  .input-dark::placeholder {
-    color: var(--dim);
+  .input-dark:focus { border-color: var(--sunrise); }
+  .input-dark::placeholder { color: var(--ash); }
+
+  /* ── Live dot ── */
+  .ldot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--flame); display: inline-block;
+    animation: pulse 1.6s ease-in-out infinite; flex-shrink: 0;
   }
 
-  /* ── Animation utilities ── */
-  .animate-fade-in {
-    animation: fadeIn 0.5s ease-out both;
+  /* ── Signal ring ── */
+  .signal-ring {
+    position: absolute; border-radius: 50%; border: 1px solid var(--flame);
+    animation: expand 3s ease-out infinite;
   }
-  .animate-slide-up {
-    animation: slideUp 0.5s ease-out both;
-  }
-  .animate-slide-right {
-    animation: slideRight 0.4s ease-out both;
-  }
-  .animate-scale-in {
-    animation: scaleIn 0.3s ease-out both;
-  }
-  .animate-shimmer {
-    animation: shimmer 2s infinite linear;
-    background: linear-gradient(90deg, rgba(243,238,228,0.02) 25%, rgba(243,238,228,0.06) 50%, rgba(243,238,228,0.02) 75%);
-    background-size: 200% 100%;
-  }
-  .animate-pulse-ring {
-    animation: pulseRing 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
-  .animate-float {
-    animation: float 3s ease-in-out infinite;
-  }
-  .hover-lift {
-    @apply transition-all duration-300;
-  }
-  .hover-lift:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
-  }
-  .hover-glow {
-    @apply transition-all duration-300;
-  }
-  .hover-glow:hover {
-    box-shadow: 0 0 20px rgba(201, 162, 39, 0.25);
-  }
-  .stagger-1 { animation-delay: 0.05s; }
-  .stagger-2 { animation-delay: 0.10s; }
-  .stagger-3 { animation-delay: 0.15s; }
-  .stagger-4 { animation-delay: 0.20s; }
-  .stagger-5 { animation-delay: 0.25s; }
-  .stagger-6 { animation-delay: 0.30s; }
+
+  /* ── Waveform bars ── */
+  .wv-a { animation: wv 1.1s ease-in-out infinite; }
+  .wv-b { animation: wv 1.4s ease-in-out infinite; }
+  .wv-c { animation: wv 0.9s ease-in-out infinite; }
+
+  /* ── Animations ── */
+  .animate-fade-in { animation: fadeIn .5s ease-out both; }
+  .animate-slide-up { animation: slideUp .5s ease-out both; }
+  .animate-pulse-ring { animation: pulse 1.6s ease-in-out infinite; }
+  .hover-lift { @apply transition-all duration-300; }
+  .hover-lift:hover { transform: translateY(-4px); }
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes slideRight {
-  from { opacity: 0; transform: translateX(-12px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-@keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.96); }
-  to { opacity: 1; transform: scale(1); }
-}
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-@keyframes pulseRing {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(201, 162, 39, 0.35); }
-  50% { box-shadow: 0 0 0 8px rgba(201, 162, 39, 0); }
-}
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
-}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pulse { 0%,100%{ opacity:1; box-shadow:0 0 0 0 rgba(224,90,26,.5); } 50%{ opacity:.6; box-shadow:0 0 0 6px rgba(224,90,26,0); } }
+@keyframes expand { 0%{ transform:scale(.8); opacity:.5; } 100%{ transform:scale(1.1); opacity:0; } }
+@keyframes wv { 0%,100%{ transform:scaleY(1); } 50%{ transform:scaleY(.35); } }
 
-/* Respect user motion preferences */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+    animation-duration: .001ms !important; transition-duration: .001ms !important;
   }
 }
+

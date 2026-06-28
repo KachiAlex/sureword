@@ -173,14 +173,14 @@ export default function PrayerWall() {
                           <Check className="w-3.5 h-3.5" /> {p.prayers_count || 0} Prayed
                         </button>
                       ) : (
-                        <button onClick={() => handlePray(p.id)} className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors hover:border-[#c9a227]"
+                        <button onClick={() => handlePray(p.id)} className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors hover:border-[#E05A1A]"
                           style={{ borderColor: 'var(--line)', color: 'var(--dim)' }}>
                           <Heart className="w-3.5 h-3.5" /> {p.prayers_count || 0} Pray
                         </button>
                       )
                     ) : (
                       <p className="text-xs" style={{ color: 'var(--dim)' }}>
-                        <Heart className="w-3.5 h-3.5 inline mr-1" />{p.prayers_count || 0} praying — <a href="/login" className="underline" style={{ color: 'var(--gold)' }}>Log in</a> to pray
+                        <Heart className="w-3.5 h-3.5 inline mr-1" />{p.prayers_count || 0} praying � <a href="/login" className="underline" style={{ color: 'var(--gold)' }}>Log in</a> to pray
                       </p>
                     )}
                     {isCreator && (
@@ -206,3 +206,4 @@ export default function PrayerWall() {
     </div>
   )
 }
+

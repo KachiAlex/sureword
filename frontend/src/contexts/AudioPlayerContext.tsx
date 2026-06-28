@@ -1,5 +1,5 @@
 ﻿import { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from 'react'
-import { API_BASE } from '../lib/api'
+import { API_BASE, useRadioCurrent } from '../lib/api'
 
 export interface Track {
   id: string
@@ -57,6 +57,38 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const [duration, setDuration] = useState(0)
   const [volume, setVolumeState] = useState(0.8)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const hasUserInteracted = useRef(false)
+  const { data: radioData } = useRadioCurrent()
+
+  // Auto-play current scheduled sermon when app loads (if nothing already playing)
+  useEffect(() => {
+    if (!radioData?.current || queue.length > 0 || isPlaying) return
+    const current = radioData.current
+    const track: Track = {
+      id: current.itemId,
+      title: current.title,
+      speaker: current.speaker,
+      audioUrl: current.audioUrl,
+      thumbnail: current.thumbnailUrl,
+      trackType: 'sermon',
+    }
+    // Set queue with just this track
+    setQueue([track])
+    setOriginalIndex(0)
+    setShuffleOn(false)
+    setShuffleIndices([0])
+    setShufflePos(0)
+    if (audioRef.current) {
+      audioRef.current.src = track.audioUrl
+      // Start at the offset so listener joins mid-stream
+      audioRef.current.currentTime = current.offsetSeconds || 0
+      // Only auto-play if user hasn't explicitly stopped playback
+      if (!hasUserInteracted.current) {
+        audioRef.current.play().catch(() => setIsPlaying(false))
+        setIsPlaying(true)
+      }
+    }
+  }, [radioData])
 
   const currentTrack = queue.length > 0
     ? queue[shuffleOn ? shuffleIndices[shufflePos] : originalIndex]
@@ -78,6 +110,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   }, [trackPlay])
 
   const playTrack = useCallback((track: Track) => {
+    hasUserInteracted.current = true
     setQueue([track])
     setOriginalIndex(0)
     setShuffleOn(false)
@@ -87,6 +120,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   }, [loadAndPlay])
 
   const playQueue = useCallback((tracks: Track[], startIndex: number = 0) => {
+    hasUserInteracted.current = true
     setQueue(tracks)
     setOriginalIndex(startIndex)
     const indices = tracks.map((_, i) => i)
@@ -127,8 +161,8 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     loadAndPlay(track)
   }, [queue, originalIndex, shuffleOn, shufflePos, shuffleIndices, repeat, currentTrack, loadAndPlay])
 
-  const next = useCallback(() => advance(1), [advance])
-  const prev = useCallback(() => advance(-1), [advance])
+  const next = useCallback(() => { hasUserInteracted.current = true; advance(1) }, [advance])
+  const prev = useCallback(() => { hasUserInteracted.current = true; advance(-1) }, [advance])
 
   const toggleShuffle = useCallback(() => {
     setShuffleOn(prev => {
@@ -152,6 +186,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
   const togglePlay = useCallback(() => {
     if (!audioRef.current || !currentTrack) return
+    hasUserInteracted.current = true
     if (isPlaying) {
       audioRef.current.pause()
       setIsPlaying(false)
@@ -162,6 +197,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   }, [isPlaying, currentTrack])
 
   const stop = useCallback(() => {
+    hasUserInteracted.current = true
     if (audioRef.current) {
       audioRef.current.pause()
       audioRef.current.currentTime = 0
@@ -221,3 +257,4 @@ export function useAudioPlayer() {
   if (!ctx) throw new Error('useAudioPlayer must be used within AudioPlayerProvider')
   return ctx
 }
+

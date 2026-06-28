@@ -118,7 +118,7 @@ export default function GuestSpeakerManager() {
                 </div>
                 <div>
                   <p className="font-medium text-sm">{s.name}</p>
-                  <p className="text-xs" style={{ color: 'var(--dim)' }}>{s.topic}{s.date ? ` · ${s.date}` : ''}</p>
+                  <p className="text-xs" style={{ color: 'var(--dim)' }}>{s.topic}{s.date ? ` � ${s.date}` : ''}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -135,3 +135,4 @@ export default function GuestSpeakerManager() {
     </div>
   )
 }
+

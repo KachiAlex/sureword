@@ -27,11 +27,12 @@ const Events = lazy(() => import('./pages/Events'))
 const EventDetail = lazy(() => import('./pages/EventDetail'))
 const AboutUs = lazy(() => import('./pages/AboutUs'))
 const Donate = lazy(() => import('./pages/Donate'))
+const Print = lazy(() => import('./pages/Print'))
 
 function PageLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--ink)' }}>
-      <div className="w-8 h-8 border-2 border-[#c9a227] border-t-transparent rounded-full animate-spin" />
+      <div className="w-8 h-8 border-2 border-[#E05A1A] border-t-transparent rounded-full animate-spin" />
     </div>
   )
 }
@@ -57,6 +58,7 @@ function AnimatedRoutes() {
         <Route path="/events/:id" element={<EventDetail />} />
         <Route path="/about" element={<AboutUs />} />
         <Route path="/donate" element={<Donate />} />
+        <Route path="/print" element={<Print />} />
         <Route
           path="/dashboard"
           element={
@@ -109,3 +111,4 @@ function App() {
 }
 
 export default App
+

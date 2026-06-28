@@ -1,7 +1,7 @@
 {
-  "name": "Zionite FM - Church Broadcast",
-  "short_name": "Zionite FM",
-  "description": "The Voice of Redemption - Live broadcasts, sermons, and community",
+  "name": "SureWord Radio - Church Broadcast",
+  "short_name": "SureWord Radio",
+  "description": "The Whole Word to the Whole World - Live broadcasts, sermons, and community",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0c0c12",

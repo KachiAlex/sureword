@@ -43,3 +43,4 @@ export async function setRecordingConfig(config: RecordingConfig): Promise<void>
     req.onerror = () => reject(req.error)
   })
 }
+

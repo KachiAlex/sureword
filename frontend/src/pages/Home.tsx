@@ -1,485 +1,440 @@
-﻿import { memo, useState, useCallback } from "react"
-import axios from "axios"
-import { downloadWithTags } from "../lib/downloadWithTags"
-import { Link } from "react-router-dom"
-import { useAuth } from "../contexts/AuthContext"
-import { usePageTitle } from "../hooks/usePageTitle"
-import { useAudioPlayer } from "../contexts/AudioPlayerContext"
-import { useActiveBroadcast, useFeaturedSermons, useMusic, useGuestSpeakers, useEvents , API_BASE } from "../lib/api"
-import type { Sermon, MusicTrack } from "../lib/api"
-import StructuredData from "../components/StructuredData"
+import { Link } from 'react-router-dom'
+import { usePageTitle } from '../hooks/usePageTitle'
+import { useAudioPlayer } from '../contexts/AudioPlayerContext'
 import {
-  Play, Pause, Search, Heart,
-  Users, BookOpen, Headphones, ChevronRight,
-  Download, Facebook, Instagram, Youtube, Twitter,
-  Mic2, MapPin, Mail, Radio, Calendar, Disc3, Music, Share2
-} from "lucide-react"
+  useActiveBroadcast, useFeaturedSermons, usePrintMedia,
+  useRadioCurrent
+} from '../lib/api'
+import type { Sermon } from '../lib/api'
+import StructuredData from '../components/StructuredData'
+import { Play, Pause, Headphones, BookOpen, Download } from 'lucide-react'
 
-function SectionHeader({ title, action, to }:{ title:string; action:string; to:string }) {
+/* ── Logo SVGs ── */
+function SignalLogo({ size = 100 }: { size?: number }) {
   return (
-    <div className="flex items-center justify-between mb-4">
-      <h3 className="font-serif text-lg md:text-xl font-bold text-white">{title}</h3>
-      <Link to={to} className="text-xs font-bold text-[#9c958a] hover:text-[#c9a227] transition-colors">{action}</Link>
+    <svg viewBox="0 0 60 60" width={size} height={size} aria-hidden="true">
+      <circle cx="30" cy="30" r="29" fill="#2f1206" stroke="#E05A1A" strokeWidth="2" />
+      <circle cx="30" cy="30" r="20" fill="none" stroke="#F5A623" strokeWidth="1" strokeDasharray="3 4" />
+      <rect x="24" y="12" width="12" height="21" rx="6" fill="#E05A1A" />
+      <line x1="30" y1="33" x2="30" y2="40" stroke="#F5A623" strokeWidth="2" />
+      <line x1="23" y1="40" x2="37" y2="40" stroke="#F5A623" strokeWidth="2" strokeLinecap="round" />
+      <line x1="25" y1="19" x2="35" y2="19" stroke="#fff" strokeWidth="1" opacity=".5" />
+      <line x1="25" y1="23" x2="35" y2="23" stroke="#fff" strokeWidth="1" opacity=".5" />
+      <line x1="25" y1="27" x2="35" y2="27" stroke="#fff" strokeWidth="1" opacity=".5" />
+    </svg>
+  )
+}
+
+/* ── Waveform bars ── */
+function Waveform() {
+  const bars = [40,70,90,50,65,35,80,55,70,40,85,60,45,75,50,30,65]
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 3, height: 40, margin: '14px 0' }}>
+      {bars.map((h, i) => (
+        <span key={i} style={{
+          width: 3, borderRadius: 2, background: 'var(--flame)', display: 'block',
+          height: `${h}%`, animation: `wv ${1 + (i % 3) * 0.25}s ease-in-out infinite`
+        }} />
+      ))}
     </div>
   )
 }
 
-const SermonCard = memo(function SermonCard({ s }:{ s:Sermon }) {
-  const { playTrack } = useAudioPlayer()
+/* ── Sermon list item ── */
+function SermonListItem({ s, index, onPlay }: { s: Sermon; index: number; onPlay: () => void }) {
+  const { currentTrack, isPlaying, togglePlay } = useAudioPlayer()
+  const isCurrent = currentTrack?.id === s.id
+  const active = isCurrent && isPlaying
+
   return (
-    <div className="group block hover-lift w-full">
-      <Link to={`/archive/${s.id}`}>
-        <div className="relative rounded-xl overflow-hidden aspect-[4/3] mb-2.5 bg-[#1c1d24]">
-          {s.thumbnail_url ? (
-            <img src={s.thumbnail_url} alt={`${s.title} sermon thumbnail`} loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-          ) : null}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-          {s.video_url && (
-            <div className="absolute top-2 right-2 bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">VIDEO</div>
-          )}
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 14, background: 'var(--coal)',
+      border: '1px solid var(--line)', borderRadius: 6, padding: '12px 14px',
+      transition: 'border-color .15s, background .15s', cursor: 'pointer'
+    }}
+    className="hover-lift"
+    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--flame)'; e.currentTarget.style.background = 'var(--mahog)' }}
+    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.background = 'var(--coal)' }}>
+      <div style={{
+        fontFamily: "'Bebas Neue',sans-serif", fontSize: 22,
+        color: isCurrent ? 'var(--flame)' : 'var(--ash)', minWidth: 28, textAlign: 'center'
+      }}>
+        {active ? '▶' : index + 1}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--flame)', marginBottom: 2 }}>
+          {s.series || 'Sermon'}
         </div>
-      </Link>
-      <div className="flex items-start justify-between gap-2">
-        <Link to={`/archive/${s.id}`} className="flex-1 min-w-0">
-          <h4 className="text-sm font-medium text-white group-hover:text-[#c9a227] transition-colors leading-snug truncate">{s.title}</h4>
-          <p className="text-xs text-[#9c958a] mt-0.5">{s.speaker || "Pastor"}</p>
-        </Link>
-        {s.audio_url && (
-          <button
-            onClick={(e) => { e.stopPropagation(); playTrack({ id: s.id, title: s.title, speaker: s.speaker || 'Pastor', audioUrl: s.audio_url!, thumbnail: s.thumbnail_url }) }}
-            className="w-8 h-8 rounded-full bg-[#c9a227] flex items-center justify-center text-[#1b1208] flex-shrink-0 transition-transform hover:scale-110"
-          >
-            <Play className="w-4 h-4 fill-current ml-0.5" />
-          </button>
-        )}
+        <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {s.title}
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--ash)' }}>{s.speaker}</div>
       </div>
+      <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 12, color: 'var(--ash)' }}>
+        {s.duration ? `${Math.floor(s.duration / 60)}:${String(s.duration % 60).padStart(2, '0')}` : '—'}
+      </div>
+      <button onClick={(e) => { e.stopPropagation(); active ? togglePlay() : onPlay() }}
+        className="btn btn-ghost btn-sm"
+        style={{ padding: '4px 10px', fontSize: 11 }}>
+        {active ? 'Pause' : 'Play'}
+      </button>
     </div>
   )
-})
+}
 
-const MusicCard = memo(function MusicCard({ track }: { track: MusicTrack }) {
-  const { currentTrack, isPlaying, playTrack, togglePlay } = useAudioPlayer()
-  const isCurrent = currentTrack?.id === track.id
-
-  function handlePlay() {
-    if (isCurrent) { togglePlay(); return }
-    playTrack({ id: track.id, title: track.title, speaker: track.artist || 'Unknown artist', audioUrl: track.audio_url, thumbnail: track.cover_url })
+/* ── Print card ── */
+function PrintThumb({ variant }: { variant: 'a' | 'b' | 'c' | 'd' }) {
+  const grads = {
+    a: 'linear-gradient(145deg,#2f1206,#e05a1a)',
+    b: 'linear-gradient(145deg,#1a0900,#f5a623)',
+    c: 'linear-gradient(145deg,#230d02,#c94c10)',
+    d: 'linear-gradient(145deg,#3b1709,#e8cfa0)',
   }
-
-  const [downloading, setDownloading] = useState(false)
-
-  const handleDownload = useCallback(async (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (downloading) return
-    setDownloading(true)
-    try {
-      await downloadWithTags({
-        audioUrl: track.audio_url,
-        title: track.title,
-        artist: track.artist || 'ZioniteFM',
-        album: track.album || 'ZioniteFM Music',
-        genre: track.genre || 'Gospel',
-        coverUrl: track.cover_url,
-        filename: `${track.title}.mp3`
-      })
-    } finally {
-      setDownloading(false)
-    }
-  }, [track, downloading])
-
-  async function handleShare(e: React.MouseEvent) {
-    e.stopPropagation()
-    const shareUrl = `${window.location.origin}/music?track=${track.id}`
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: track.title, text: `Listen to "${track.title}" by ${track.artist || 'Unknown artist'} on ZioniteFM`, url: shareUrl })
-      } else {
-        await navigator.clipboard.writeText(shareUrl)
-        alert('Link copied to clipboard!')
-      }
-    } catch { /* user cancelled */ }
-  }
-
+  const icons = { a: '📰', b: '📖', c: '🎓', d: '✝️' }
   return (
-    <div className="group block hover-lift w-[150px] flex-shrink-0">
-      <div className="relative rounded-xl overflow-hidden aspect-square mb-2.5 bg-[#1c1d24]">
-        {track.cover_url ? (
-          <img src={track.cover_url} alt={`${track.title} album cover`} loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center"><Disc3 className="w-12 h-12 text-[#9c958a]/40" /></div>
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-        <button onClick={handlePlay} className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-[#c9a227] flex items-center justify-center text-[#1b1208] flex-shrink-0 transition-transform hover:scale-110">
-          {isCurrent && isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
-        </button>
-      </div>
-      <h4 className="text-sm font-medium text-white group-hover:text-[#c9a227] transition-colors leading-snug truncate">{track.title}</h4>
-      <p className="text-xs text-[#9c958a] mt-0.5">{track.artist || 'Unknown artist'}</p>
-      <div className="flex items-center gap-2 mt-1.5">
-        <button onClick={handleShare} className="text-[#9c958a] hover:text-[#c9a227] transition-colors" title="Share">
-          <Share2 className="w-3.5 h-3.5" />
-        </button>
-        <button onClick={handleDownload} disabled={downloading} className="text-[#9c958a] hover:text-[#c9a227] transition-colors disabled:opacity-50" title="Download">
-          <Download className="w-3.5 h-3.5" />
-        </button>
-      </div>
+    <div style={{
+      height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      position: 'relative', background: grads[variant]
+    }}>
+      <span style={{ fontSize: 44, opacity: .7 }}>{icons[variant]}</span>
     </div>
   )
-})
+}
 
 export default function Home() {
-  usePageTitle('The Voice of Redemption')
+  usePageTitle('The Whole Word to the Whole World')
   const { data: broadcast } = useActiveBroadcast()
   const { data: sermons = [] } = useFeaturedSermons()
-  const { data: musicTracks = [] } = useMusic()
-  const { data: guestSpeakers = [] } = useGuestSpeakers()
-  const { data: events = [] } = useEvents()
-  const { user } = useAuth()
-  const isLive = broadcast?.status==="live"
-  const [subEmail, setSubEmail] = useState('')
-  const [subState, setSubState] = useState<'idle'|'loading'|'done'|'error'>('idle') // eslint-disable-line
+  const { data: printItems = [] } = usePrintMedia()
+  const { data: radioData } = useRadioCurrent()
+  const { playTrack, togglePlay, currentTrack, isPlaying } = useAudioPlayer()
+  const isLive = broadcast?.status === 'live'
 
-  async function handleSubscribe(e: React.FormEvent) {
-    e.preventDefault()
-    if (!subEmail) return
-    setSubState('loading')
-    try {
-      await axios.post(`${API_BASE}/api/newsletter/subscribe`, { email: subEmail })
-      setSubEmail('')
-      setSubState('done')
-    } catch {
-      setSubState('error')
-    }
-  }
+  const nowPlaying = radioData?.current
+  const npActive = currentTrack && isPlaying
 
   return (
-    <div className="min-h-screen" style={{background:"var(--ink)",color:"var(--parchment)"}}>
+    <div style={{ background: 'var(--ember)', color: 'var(--cream)' }}>
       <StructuredData />
-      {/* ====== HERO ====== */}
-      <div className="relative">
-        <div className="absolute inset-0">
-          <img src="https://images.unsplash.com/photo-1507692049790-de58290a4334?auto=format&fit=crop&w=2000&q=80" alt="" className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#0c0c12]/85 via-[#0c0c12]/70 to-[#0c0c12]" />
-        </div>
-        <div className="relative max-w-[1440px] mx-auto px-4 md:px-6 py-12 sm:py-16 md:py-28">
-          <div className="max-w-3xl mx-auto text-center">
-            <p className="font-cursive text-2xl md:text-3xl text-[#c9a227] mb-2 font-bold">Welcome to</p>
-            <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight mb-5">
-              ZioniteFM –<br />The Voice of Redemption
+
+      {/* ══ HERO ══ */}
+      <section style={{ maxWidth: 1200, margin: '0 auto', padding: '70px 24px 60px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, alignItems: 'center' }} className="hero-grid">
+          {/* Left */}
+          <div>
+            <div className="eyebrow">Online 24 / 7</div>
+            <h1 className="font-bebas" style={{ fontSize: 'clamp(56px,7vw,88px)', lineHeight: .95, margin: '14px 0 8px', color: 'var(--white)' }}>
+              THE<br /><span style={{ color: 'var(--flame)' }}>WHOLE</span><br />WORD
             </h1>
-            <p className="text-base text-[#9c958a] max-w-xl mx-auto leading-relaxed mb-8 font-semibold">
-              The official digital radio ministry of The Redemption Project. Broadcasting the Gospel of Jesus Christ to the nations through powerful sermons, worship, prayer, and life-transforming conversations.
+            <p className="font-serif" style={{ fontSize: 'clamp(15px,1.8vw,19px)', color: 'var(--cream2)', fontStyle: 'italic', margin: '6px 0 28px' }}>
+              To the whole world — live from the studio, anytime you need it.
             </p>
-            <div className="flex items-center justify-center gap-4">
-              <Link to={user ? (user.role==='admin' || user.role==='broadcaster' ? '/admin' : '/dashboard') : (isLive?`/live/${broadcast.id}`:"/live")} className="btn-gold text-sm">
-                <Headphones className="w-4 h-4" /> Listen Live
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <Link to={isLive && broadcast ? `/live/${broadcast.id}` : '/live'} className="btn btn-flame">
+                <Headphones style={{ width: 16, height: 16 }} /> Listen Live Now
               </Link>
-              <Link to="/archive" className="flex items-center gap-2 text-sm font-semibold text-[#9c958a] hover:text-white transition-colors hover:scale-105 duration-300">
-                <BookOpen className="w-4 h-4" /> Browse Sermons
-              </Link>
-            </div>
-            <Link to="/register" className="flex items-center justify-center gap-3 mt-8 group">
-              <div className="flex -space-x-2">
-                {["SJ","DM","BK","AO","GO"].map((init,i)=>{
-                  const bg = ["c9a227","8a3326","21222c","1c1d24","48433a"][i]
-                  return <img key={i} src={`https://ui-avatars.com/api/?name=${init}&background=${bg}&color=f3eee4&size=32`} loading="lazy" className="w-8 h-8 rounded-full border-2 border-[#14141a] group-hover:scale-105 transition-transform duration-300" alt="" />
-                })}
-              </div>
-              <div className="text-left">
-                <p className="text-xs font-semibold text-white group-hover:text-[#c9a227] transition-colors">Join the Community</p>
-                <p className="text-[10px] text-[#9c958a]">Thousands of listeners online</p>
-              </div>
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* ====== LIVE BROADCAST BANNER ====== */}
-      {isLive && broadcast && (
-        <div className="max-w-[1440px] mx-auto px-4 md:px-6 py-3">
-          <Link to={`/live/${broadcast.id}`}
-            className="flex items-center gap-4 rounded-2xl p-4 md:p-5 transition-all hover:scale-[1.01] active:scale-[0.99]"
-            style={{ background: 'linear-gradient(135deg, #8a1a1a 0%, #1b1208 60%, #14141a 100%)', border: '1px solid rgba(239,68,68,0.3)' }}>
-            {/* Pulsing live dot */}
-            <div className="relative flex-shrink-0">
-              <span className="relative flex h-4 w-4">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#ef4444] opacity-75" />
-                <span className="relative inline-flex rounded-full h-4 w-4 bg-[#ef4444]" />
-              </span>
-            </div>
-            {/* Thumbnail */}
-            {broadcast.thumbnail_url ? (
-              <img src={broadcast.thumbnail_url} alt="" className="w-12 h-12 rounded-xl object-cover flex-shrink-0 ring-2 ring-[#ef4444]/30" />
-            ) : (
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-[#ef4444]/10">
-                <Radio className="w-6 h-6 text-[#ef4444]" />
-              </div>
-            )}
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-0.5">
-                <span className="text-[10px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded bg-[#ef4444] text-white">Live Now</span>
-                {broadcast.speaker && <span className="text-[10px] text-[#9c958a]">{broadcast.speaker}</span>}
-              </div>
-              <p className="text-sm font-semibold text-white truncate">{broadcast.title}</p>
-              {broadcast.description && (
-                <p className="text-[11px] text-[#9c958a] truncate mt-0.5">{broadcast.description}</p>
-              )}
-            </div>
-            {/* CTA */}
-            <div className="flex-shrink-0 flex items-center gap-2 bg-[#ef4444] hover:bg-[#ef4444]/90 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors">
-              <Headphones className="w-3.5 h-3.5" /> Join
-            </div>
-          </Link>
-        </div>
-      )}
-
-      {/* ====== MAIN DASHBOARD GRID ====== */}
-      <div className="max-w-[1440px] mx-auto px-4 md:px-6 pb-5 animate-slide-up">
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
-
-          {/* LEFT COLUMN (8/12) */}
-          <div className="xl:col-span-8 space-y-5">
-
-            {/* Sermons + Music side by side */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* Featured Sermons */}
-              <section className="rounded-2xl border border-[rgba(243,238,228,0.08)] bg-[#1c1d24] p-5 hover-lift">
-                <SectionHeader title="Featured Sermons" action="View All" to="/archive" />
-                {sermons.length > 0 ? (
-                  <>
-                    <div className="grid grid-cols-2 gap-3">
-                      {sermons.slice(0, 2).map(s => <SermonCard key={s.id} s={s} />)}
-                      {sermons.slice(2, 4).map(s => (
-                        <div key={s.id} className="hidden md:block"><SermonCard s={s} /></div>
-                      ))}
-                    </div>
-                    <Link to="/archive"
-                      className="mt-4 w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold transition-colors hover:text-[#c9a227]"
-                      style={{ border: '1px solid var(--line)', color: 'var(--dim)' }}>
-                      <BookOpen className="w-3.5 h-3.5" /> View All Sermons
-                    </Link>
-                  </>
-                ) : (
-                  <div className="text-center py-6">
-                    <BookOpen className="w-8 h-8 mx-auto mb-2 text-[#9c958a]/40" />
-                    <p className="text-sm text-[#9c958a] font-semibold">No sermons yet.</p>
-                  </div>
-                )}
-              </section>
-
-              {/* Featured Music */}
-              <section className="rounded-2xl border border-[rgba(243,238,228,0.08)] bg-[#1c1d24] p-5 hover-lift">
-                <SectionHeader title="Featured Music" action="View All" to="/music" />
-                {musicTracks.length > 0 ? (
-                  <div className="flex flex-wrap gap-3">
-                    {musicTracks.slice(0, 2).map(t => <MusicCard key={t.id} track={t} />)}
-                  </div>
-                ) : (
-                  <div className="text-center py-6">
-                    <Music className="w-8 h-8 mx-auto mb-2 text-[#9c958a]/40" />
-                    <p className="text-sm text-[#9c958a] font-semibold">No music yet.</p>
-                  </div>
-                )}
-              </section>
-            </div>
-
-            {/* Bottom row: 3 cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {/* Sermon Transcripts */}
-              <section className="rounded-2xl border border-[rgba(243,238,228,0.08)] bg-[#1c1d24] p-5 hover-lift">
-                <SectionHeader title="Sermon Transcripts" action="View All" to="/archive" />
-                <p className="text-xs text-[#9c958a] mb-3">Read, study and download sermon transcripts.</p>
-                <div className="space-y-2">
-                  {["Search by topic","Download PDF","Study offline"].map((item,i)=>{
-                    const icons = [Search, Download, BookOpen]
-                    const Icon = icons[i]
-                    return (
-                      <div key={item} className="flex items-center gap-2 text-xs text-[#9c958a]">
-                        <Icon className="w-3.5 h-3.5 text-[#c9a227]" /> {item}
-                      </div>
-                    )
-                  })}
-                </div>
-                <Link to="/archive" className="btn-gold w-full text-xs mt-4">Browse Transcripts</Link>
-              </section>
-
-              {/* Guest Speaker Spotlight */}
-              <section className="rounded-2xl border border-[rgba(243,238,228,0.08)] bg-[#1c1d24] p-5 hover-lift">
-                <SectionHeader title="Guest Speaker Spotlight" action="View All" to="/events" />
-                {guestSpeakers.length > 0 ? (
-                  <div className="flex gap-3">
-                    {guestSpeakers[0].photo_url ? (
-                      <img src={guestSpeakers[0].photo_url} alt={`${guestSpeakers[0].name} guest speaker`} loading="lazy" className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
-                    ) : (
-                      <div className="w-16 h-16 rounded-lg bg-[#21222c] flex items-center justify-center flex-shrink-0">
-                        <Users className="w-8 h-8 text-[#c9a227]/40" />
-                      </div>
-                    )}
-                    <div>
-                      <p className="text-sm font-medium text-white">{guestSpeakers[0].name}</p>
-                      <span className="text-[10px] bg-[rgba(201,162,39,0.15)] text-[#c9a227] px-2 py-0.5 rounded-full">Guest Minister</span>
-                      <p className="text-xs text-[#9c958a] mt-1">{guestSpeakers[0].topic || 'Special Conference'}</p>
-                      {guestSpeakers[0].date && <p className="text-[10px] text-[#9c958a]">{guestSpeakers[0].date}</p>}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-4">
-                    <Users className="w-8 h-8 mx-auto mb-2 text-[#9c958a]/40" />
-                    <p className="text-sm text-[#9c958a] font-semibold">No guest speakers yet.</p>
-                  </div>
-                )}
-                <Link to="/events" className="btn-gold w-full text-xs mt-3">View Event Details</Link>
-              </section>
-
-              {/* Giving & Donations */}
-              <section className="rounded-2xl border border-[rgba(243,238,228,0.08)] bg-[#1c1d24] p-5 hover-lift">
-                <SectionHeader title="Giving & Donations" action="" to="#" />
-                <p className="text-xs text-[#9c958a] mb-3">Your giving makes ministry and impact possible.</p>
-                <div className="space-y-2 mb-4">
-                  {["Gospel Broadcasting","Outreach Programs","Missions","Ministry Support"].map(item=>{
-                    return (
-                      <div key={item} className="flex items-center gap-2 text-xs text-[#9c958a]">
-                        <ChevronRight className="w-3 h-3 text-[#c9a227]" /> {item}
-                      </div>
-                    )
-                  })}
-                </div>
-                <Link to="/donate" className="btn-gold w-full text-xs"><Heart className="w-3.5 h-3.5" /> Give Now</Link>
-              </section>
+              <Link to="/archive" className="btn btn-out">Browse Sermons</Link>
             </div>
           </div>
 
-          {/* RIGHT COLUMN (4/12) */}
-          <div className="xl:col-span-4 space-y-5">
-
-            {/* Today's Schedule */}
-            <section className="rounded-2xl border border-[rgba(243,238,228,0.08)] bg-[#1c1d24] p-5 hover-lift">
-              <SectionHeader title="Today's Schedule" action="View Full Schedule" to="/status" />
-              <div className="text-center py-6">
-                <Calendar className="w-8 h-8 mx-auto mb-2 text-[#9c958a]/40" />
-                <p className="text-sm text-[#9c958a] font-semibold">No scheduled broadcasts today.</p>
+          {/* Right: signal + now playing */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0, alignItems: 'center' }}>
+            {/* Signal animation */}
+            <div style={{
+              position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 160, height: 160, flexShrink: 0, marginBottom: 24
+            }}>
+              <div className="signal-ring" style={{ width: '100%', height: '100%', animationDelay: '0s', opacity: .5 }} />
+              <div className="signal-ring" style={{ width: '130%', height: '130%', animationDelay: '1s', opacity: .3 }} />
+              <div className="signal-ring" style={{ width: '160%', height: '160%', animationDelay: '2s', opacity: .15 }} />
+              <div style={{
+                width: 100, height: 100, borderRadius: '50%', background: 'var(--panel)',
+                border: '2px solid var(--flame)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1
+              }}>
+                <SignalLogo size={72} />
               </div>
-            </section>
+            </div>
 
-            {/* Upcoming Events */}
-            <section className="rounded-2xl border border-[rgba(243,238,228,0.08)] bg-[#1c1d24] p-5 hover-lift">
-              <SectionHeader title="Upcoming Events" action="View All" to="/events" />
-              {events.length > 0 ? (
-                <div className="space-y-3">
-                  {events.slice(0, 3).map(evt => (
-                    <Link key={evt.id} to={`/events/${evt.id}`} className="flex items-start gap-3 group no-underline">
-                      {evt.image_url ? (
-                        <img src={evt.image_url} alt={`${evt.title} event`} loading="lazy" className="w-12 h-12 rounded-lg object-cover flex-shrink-0 transition-transform group-hover:scale-105" />
+            {/* Now Playing Card */}
+            <div style={{ width: '100%', background: 'var(--panel)', border: '1px solid var(--line)', borderRadius: 8, overflow: 'hidden' }}>
+              <div style={{
+                background: 'linear-gradient(135deg,var(--flame2),var(--flame),var(--sunrise))',
+                padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+              }}>
+                <div className="font-bebas" style={{ fontSize: 15, letterSpacing: '.1em', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="ldot" style={{ width: 6, height: 6 }} /> Now Playing
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 600 }}>{isLive ? 'LIVE BROADCAST' : 'ON AIR'}</span>
+              </div>
+              <div style={{ padding: 18 }}>
+                <div className="font-serif" style={{ fontSize: 19, marginBottom: 4, color: 'var(--white)' }}>
+                  {nowPlaying?.title || broadcast?.title || 'Grace That Never Fails'}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--ash)' }}>
+                  {nowPlaying?.speaker || broadcast?.speaker || 'Pastor Emmanuel Osei'}
+                  {nowPlaying?.scriptureReference ? ` · ${nowPlaying.scriptureReference}` : ''}
+                </div>
+                <Waveform />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                  <span className="font-mono" style={{ fontSize: 11, color: 'var(--ash)' }}>24:18</span>
+                  <div style={{ flex: 1, height: 3, background: 'var(--mahog)', borderRadius: 2, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: '44%', background: 'linear-gradient(to right,var(--flame),var(--sunrise))', borderRadius: 2 }} />
+                  </div>
+                  <span className="font-mono" style={{ fontSize: 11, color: 'var(--ash)' }}>55:40</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+                  {['prev','rewind','play','forward','next'].map((ctrl) => (
+                    <button key={ctrl}
+                      style={{
+                        background: ctrl === 'play' ? 'var(--flame)' : 'transparent',
+                        color: ctrl === 'play' ? '#fff' : 'var(--cream2)',
+                        border: 'none', borderRadius: '50%', padding: ctrl === 'play' ? 0 : 6,
+                        width: ctrl === 'play' ? 48 : 32, height: ctrl === 'play' ? 48 : 32,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'color .15s, background .15s'
+                      }}
+                      onClick={() => {
+                        if (ctrl === 'play') {
+                          if (nowPlaying) {
+                            if (currentTrack?.id === nowPlaying.itemId) togglePlay()
+                            else playTrack({ id: nowPlaying.itemId, title: nowPlaying.title, speaker: nowPlaying.speaker, audioUrl: nowPlaying.audioUrl, thumbnail: nowPlaying.thumbnailUrl, trackType: 'sermon' })
+                          }
+                        }
+                      }}>
+                      {ctrl === 'play' ? (
+                        npActive
+                          ? <Pause style={{ width: 18, height: 18 }} />
+                          : <Play style={{ width: 18, height: 18 }} />
                       ) : (
-                        <div className="w-12 h-12 rounded-lg bg-[#21222c] flex items-center justify-center flex-shrink-0">
-                          <Calendar className="w-5 h-5 text-[#c9a227]/60" />
-                        </div>
+                        <span style={{ fontSize: 12, color: 'var(--ash)' }}>
+                          {ctrl === 'prev' ? '⏮' : ctrl === 'rewind' ? '⏪' : ctrl === 'forward' ? '⏩' : '⏭'}
+                        </span>
                       )}
-                      <div>
-                        <p className="text-sm font-medium text-white group-hover:text-[#c9a227] transition-colors">{evt.title}</p>
-                        <p className="text-[10px] text-[#9c958a]">{evt.date}{evt.time ? ` · ${evt.time}` : ''}{evt.location ? ` · ${evt.location}` : ''}</p>
-                      </div>
-                    </Link>
+                    </button>
                   ))}
                 </div>
-              ) : (
-                <div className="text-center py-4">
-                  <Calendar className="w-8 h-8 mx-auto mb-2 text-[#9c958a]/40" />
-                  <p className="text-xs text-[#9c958a]">No upcoming events</p>
-                </div>
-              )}
-              <Link to="/events" className="btn-gold w-full text-xs mt-3">View All Events</Link>
-            </section>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
+      {/* ══ PROGRAM SCHEDULE ══ */}
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
+        <div style={{ height: 1, background: 'var(--line)', margin: '56px 0' }} />
+      </div>
+      <section style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px 60px' }}>
+        <div style={{ marginBottom: 32 }}>
+          <div className="eyebrow">Today on air</div>
+          <h2 className="font-bebas" style={{ fontSize: 'clamp(28px,3.5vw,38px)', margin: '8px 0 6px' }}>Program Schedule</h2>
+          <p style={{ color: 'var(--ash)', fontSize: 15, maxWidth: 520 }}>
+            What's broadcasting on Sure Word Radio today. Tune in or catch up in the archive.
+          </p>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 16 }}>
+          {[
+            { hr: '6:00', ap: 'AM', title: 'Morning Devotion', meta: 'Pastor Agyei · 45 min', now: false },
+            { hr: '8:00', ap: 'AM', title: 'Praise & Worship Hour', meta: 'Worship team · 60 min', now: false },
+            { hr: '10:00', ap: 'AM', title: nowPlaying?.title || 'Grace That Never Fails', meta: `${nowPlaying?.speaker || 'Pastor Osei'} · Romans 5`, now: true },
+            { hr: '12:00', ap: 'PM', title: 'Midday Prayer', meta: 'Elder Grace · 30 min', now: false },
+            { hr: '2:00', ap: 'PM', title: 'Faith & Family', meta: 'Various speakers · 60 min', now: false },
+            { hr: '7:00', ap: 'PM', title: 'Evening Word', meta: 'Pastor Osei · 45 min', now: false },
+          ].map((s) => (
+            <div key={s.hr + s.title} style={{
+              background: s.now ? 'var(--mahog)' : 'var(--coal)',
+              border: '1px solid var(--line)', borderRadius: 6, padding: 16,
+              display: 'flex', gap: 14, alignItems: 'flex-start',
+              transition: 'border-color .2s', cursor: 'pointer'
+            }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--flame)'}
+            onMouseLeave={e => e.currentTarget.style.borderColor = s.now ? 'var(--flame)' : 'var(--line)'}>
+              <div style={{ textAlign: 'center', minWidth: 48 }}>
+                <div className="font-bebas" style={{ fontSize: 22, color: 'var(--sunrise)', lineHeight: 1 }}>{s.hr}</div>
+                <div style={{ fontSize: 11, color: 'var(--ash)' }}>{s.ap}</div>
+              </div>
+              <div>
+                {s.now && (
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    background: 'var(--flame)', color: '#fff', fontSize: 10, fontWeight: 700,
+                    letterSpacing: '.06em', padding: '3px 8px', borderRadius: 2, marginBottom: 5
+                  }}>
+                    <span className="ldot" style={{ width: 5, height: 5 }} /> LIVE
+                  </div>
+                )}
+                <div style={{ fontWeight: 600, fontSize: 14.5, marginBottom: 2, color: 'var(--white)' }}>{s.title}</div>
+                <div style={{ fontSize: 12, color: 'var(--ash)' }}>{s.meta}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ══ SERMON PLAYLIST ══ */}
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
+        <div style={{ height: 1, background: 'var(--line)', margin: '56px 0' }} />
+      </div>
+      <section style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px 60px' }}>
+        <div style={{ marginBottom: 32 }}>
+          <div className="eyebrow">Sermon library</div>
+          <h2 className="font-bebas" style={{ fontSize: 'clamp(28px,3.5vw,38px)', margin: '8px 0 6px' }}>Build Your Playlist</h2>
+          <p style={{ color: 'var(--ash)', fontSize: 15, maxWidth: 520 }}>
+            Add sermons to a queue that plays end-to-end for however long you need. Set it and let it run.
+          </p>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 28, alignItems: 'flex-start' }} className="playlist-grid">
+          {/* Sermon list */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {sermons.slice(0, 6).map((s, i) => (
+              <SermonListItem key={s.id} s={s} index={i}
+                onPlay={() => playTrack({ id: s.id, title: s.title, speaker: s.speaker || 'Pastor', audioUrl: s.audio_url || '', thumbnail: s.thumbnail_url, trackType: 'sermon' })} />
+            ))}
+            {sermons.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--ash)' }}>
+                <BookOpen style={{ width: 32, height: 32, margin: '0 auto 8px', opacity: .4 }} />
+                <p>No sermons uploaded yet.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Queue card */}
+          <div style={{
+            background: 'var(--panel)', border: '1px solid var(--line)', borderRadius: 8,
+            overflow: 'hidden', position: 'sticky', top: 80
+          }}>
+            <div style={{
+              background: 'linear-gradient(135deg,var(--mahog),var(--panel))',
+              padding: '14px 16px', borderBottom: '1px solid var(--line)'
+            }}>
+              <h3 className="font-bebas" style={{ fontSize: 20, letterSpacing: '.06em' }}>My Playlist</h3>
+              <div style={{ fontSize: 11.5, color: 'var(--ash)', marginTop: 2 }}>Plays continuously</div>
+            </div>
+            <div style={{ padding: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <span style={{ fontSize: 12, color: 'var(--ash)' }}>Play for:</span>
+                <select className="input-dark" style={{ padding: '6px 10px', fontSize: 13, borderRadius: 4 }}>
+                  <option>1 hour</option>
+                  <option>2 hours</option>
+                  <option>3 hours</option>
+                  <option>All day</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14, maxHeight: 280, overflowY: 'auto' }}>
+                {sermons.slice(0, 3).map((s) => (
+                  <div key={s.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
+                    background: 'var(--mahog)', borderRadius: 4
+                  }}>
+                    <span style={{ color: 'var(--ash)', fontSize: 14, cursor: 'grab' }}>⠿</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--white)' }}>{s.title}</div>
+                      <div className="font-mono" style={{ fontSize: 11, color: 'var(--ash)' }}>
+                        {s.duration ? `${Math.floor(s.duration / 60)}:${String(s.duration % 60).padStart(2, '0')}` : '—'}
+                      </div>
+                    </div>
+                    <button style={{ background: 'transparent', border: 'none', color: 'var(--ash)', fontSize: 14, padding: 2, transition: 'color .15s' }}
+                      className="hover:!text-[var(--flame)]">✕</button>
+                  </div>
+                ))}
+                {sermons.length === 0 && <div style={{ color: 'var(--ash)', fontSize: 12, padding: 8 }}>No sermons in queue yet.</div>}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, borderTop: '1px solid var(--line)', paddingTop: 10, marginBottom: 12 }}>
+                <span>Total runtime</span>
+                <span className="font-mono" style={{ color: 'var(--sunrise)' }}>—</span>
+              </div>
+              <button className="btn btn-sun" style={{ width: '100%' }}>▶ Play Playlist</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ══ PRINT MEDIA ══ */}
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
+        <div style={{ height: 1, background: 'var(--line)', margin: '56px 0' }} />
+      </div>
+      <section style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px 60px' }}>
+        <div style={{ marginBottom: 32 }}>
+          <div className="eyebrow">Print media</div>
+          <h2 className="font-bebas" style={{ fontSize: 'clamp(28px,3.5vw,38px)', margin: '8px 0 6px' }}>Read & Download</h2>
+          <p style={{ color: 'var(--ash)', fontSize: 15, maxWidth: 520 }}>
+            Church bulletins, devotional magazines, and study guides — free to download anytime.
+          </p>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 18 }}>
+          {(printItems.length > 0 ? printItems : [
+            { id: '1', title: 'June Weekly Bulletin', description: 'Jun 28, 2026 · 4 pages', category: 'bulletin', pdf_url: '#' },
+            { id: '2', title: 'Sure Word Monthly', description: 'June 2026 · 28 pages', category: 'magazine', pdf_url: '#' },
+            { id: '3', title: 'Romans 5 Study Guide', description: 'May 2026 · 12 pages', category: 'study-guide', pdf_url: '#' },
+            { id: '4', title: 'Daily Devotional', description: 'Q2 2026 · 90 days', category: 'devotional', pdf_url: '#' },
+          ]).slice(0, 4).map((item, i) => {
+            const variants: Array<'a' | 'b' | 'c' | 'd'> = ['a', 'b', 'c', 'd']
+            return (
+              <div key={item.id} style={{
+                background: 'var(--coal)', border: '1px solid var(--line)', borderRadius: 6,
+                overflow: 'hidden', transition: 'border-color .2s, transform .2s', cursor: 'pointer'
+              }}
+              className="hover-lift"
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--sunrise)'; e.currentTarget.style.transform = 'translateY(-4px)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.transform = 'translateY(0)' }}>
+                <PrintThumb variant={variants[i % 4]} />
+                <div style={{ padding: '12px 14px' }}>
+                  <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 2, color: 'var(--white)' }}>{item.title}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--ash)' }}>{item.description}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+                    <a href={item.pdf_url} target="_blank" rel="noopener noreferrer" className="btn btn-out btn-sm">
+                      <Download style={{ width: 14, height: 14 }} /> Download
+                    </a>
+                    <span style={{ fontSize: 11, color: 'var(--ash)' }}>PDF</span>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* ══ CTA STRIP ══ */}
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
+        <div style={{
+          background: 'linear-gradient(135deg,var(--mahog),var(--panel))',
+          border: '1px solid var(--line)', borderRadius: 8, padding: '40px 48px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 24, flexWrap: 'wrap', marginBottom: 60
+        }}>
+          <div>
+            <h2 className="font-bebas" style={{ fontSize: 'clamp(24px,3vw,34px)', marginBottom: 6 }}>Never miss a word</h2>
+            <p style={{ color: 'var(--ash)', fontSize: 15 }}>
+              Get notified when we go live, new sermons drop, and fresh resources arrive — right to your phone.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <button className="btn btn-flame">Get notifications</button>
+            <button className="btn btn-ghost">Visit surewordradio.org</button>
           </div>
         </div>
       </div>
 
-      {/* ====== FOOTER ====== */}
-      <footer className="border-t border-[rgba(243,238,228,0.08)] bg-[#14141a]">
-        <div className="max-w-[1440px] mx-auto px-4 md:px-6 py-10">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 mb-8">
-            {/* Brand */}
-            <div>
-              <div className="flex items-center gap-2.5 mb-3">
-                <div className="w-8 h-8 rounded-full border border-[#c9a227]/40 flex items-center justify-center">
-                  <Mic2 className="w-3.5 h-3.5 text-[#c9a227]" />
-                </div>
-                <div className="leading-tight">
-                  <div className="text-sm font-medium text-white tracking-wide">ZIONITEFM</div>
-                  <div className="text-[9px] text-[#9c958a] tracking-widest uppercase">The Voice of Redemption</div>
-                </div>
-              </div>
-              <p className="text-xs text-[#9c958a] leading-relaxed">
-                A Digital Ministry of<br />The Redemption Project
-              </p>
-            </div>
-
-            {/* Quick Links */}
-            <div>
-              <h4 className="text-xs font-medium text-white uppercase tracking-wider mb-3">Quick Links</h4>
-              <div className="space-y-2">
-                {["Home","Live Radio","Sermons","Prayer Wall","Events","About Us"].map(item=>{
-                  const paths = ["/","/live","/archive","/prayer","/events","/about"]
-                  const i = ["Home","Live Radio","Sermons","Prayer Wall","Events","About Us"].indexOf(item)
-                  return (
-                    <Link key={item} to={paths[i]} className="block text-xs text-[#9c958a] hover:text-[#c9a227] transition-colors">{item}</Link>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Contact */}
-            <div>
-              <h4 className="text-xs font-medium text-white uppercase tracking-wider mb-3">Contact</h4>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs text-[#9c958a]"><MapPin className="w-3.5 h-3.5 text-[#c9a227]" /> Lagos, Nigeria</div>
-                <div className="flex items-center gap-2 text-xs text-[#9c958a]"><Mail className="w-3.5 h-3.5 text-[#c9a227]" /> theredemptionprojectministries@gmail.com</div>
-                <div className="flex items-center gap-2 text-xs text-[#9c958a]"><Radio className="w-3.5 h-3.5 text-[#c9a227]" /> 24/7 Live Streaming</div>
-              </div>
-            </div>
-
-            {/* Subscribe */}
-            <div>
-              <h4 className="text-xs font-medium text-white uppercase tracking-wider mb-3">Subscribe to Updates</h4>
-              {subState === 'done' ? (
-                <p className="text-xs text-green-400 py-2">✓ Subscribed! Thank you.</p>
-              ) : (
-                <form onSubmit={handleSubscribe} className="flex flex-col gap-2">
-                  <input type="email" required placeholder="Enter your email" value={subEmail}
-                    onChange={e => setSubEmail(e.target.value)}
-                    className="w-full bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] rounded-lg px-3 py-2.5 text-xs text-white placeholder-[#9c958a] outline-none" />
-                  <button type="submit" disabled={subState === 'loading'}
-                    className="w-full bg-[#c9a227] hover:bg-[#e0bd5a] text-[#1b1208] text-xs font-semibold px-4 py-2.5 rounded-lg transition-colors disabled:opacity-60">
-                    {subState === 'loading' ? 'Subscribing…' : 'Subscribe'}
-                  </button>
-                </form>
-              )}
-              {subState === 'error' && <p className="text-[10px] text-red-400 mt-1">Failed to subscribe. Try again.</p>}
-              <div className="flex items-center gap-3 mt-4">
-                <a href="#" className="text-[#9c958a] hover:text-[#c9a227] transition-colors"><Facebook className="w-4 h-4" /></a>
-                <a href="#" className="text-[#9c958a] hover:text-[#c9a227] transition-colors"><Instagram className="w-4 h-4" /></a>
-                <a href="#" className="text-[#9c958a] hover:text-[#c9a227] transition-colors"><Youtube className="w-4 h-4" /></a>
-                <a href="#" className="text-[#9c958a] hover:text-[#c9a227] transition-colors"><Twitter className="w-4 h-4" /></a>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-[rgba(243,238,228,0.06)] pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-[10px] text-[#9c958a]">© 2025 ZioniteFM. All Rights Reserved.</p>
-            <div className="flex items-center gap-4">
-              <Link to="/privacy" className="text-[10px] text-[#9c958a] hover:text-[#c9a227] transition-colors">Privacy Policy</Link>
-              <Link to="/terms" className="text-[10px] text-[#9c958a] hover:text-[#c9a227] transition-colors">Terms of Use</Link>
-            </div>
-          </div>
+      {/* ══ FOOTER ══ */}
+      <footer style={{ borderTop: '1px solid var(--line)', padding: '40px 24px', maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
+        <div>
+          <div className="font-bebas" style={{ fontSize: 18, letterSpacing: '.06em' }}>Sure Word Radio</div>
+          <div style={{ fontSize: 11, color: 'var(--ash)' }}>The whole word to the whole world</div>
         </div>
+        <div style={{ display: 'flex', gap: 20, fontSize: 13, color: 'var(--ash)' }}>
+          <Link to="/live" style={{ transition: 'color .15s' }} className="hover:!text-[var(--sunrise)]">Radio</Link>
+          <Link to="/archive" style={{ transition: 'color .15s' }} className="hover:!text-[var(--sunrise)]">Sermons</Link>
+          <Link to="/print" style={{ transition: 'color .15s' }} className="hover:!text-[var(--sunrise)]">Print</Link>
+          <Link to="/donate" style={{ transition: 'color .15s' }} className="hover:!text-[var(--sunrise)]">Give</Link>
+          <Link to="/about" style={{ transition: 'color .15s' }} className="hover:!text-[var(--sunrise)]">Contact</Link>
+        </div>
+        <div className="font-mono" style={{ fontSize: 12, color: 'var(--ash)' }}>© 2026 Sure Word Media</div>
       </footer>
 
+      {/* Responsive overrides */}
       <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; transform: scaleY(1); }
-          50% { opacity: 0.6; transform: scaleY(0.7); }
+        @media (max-width: 900px) {
+          .hero-grid { grid-template-columns: 1fr !important; text-align: center; }
+          .playlist-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>

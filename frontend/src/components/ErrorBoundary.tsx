@@ -24,7 +24,7 @@ export default class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('ErrorBoundary caught:', error, errorInfo)
 
-    // Auto-reload once on chunk-load failures (stale deploy — old JS chunk URL no longer exists)
+    // Auto-reload once on chunk-load failures (stale deploy � old JS chunk URL no longer exists)
     const isChunkError =
       error.message?.includes('Failed to fetch dynamically imported module') ||
       error.message?.includes('Importing a module script failed') ||
@@ -51,20 +51,20 @@ export default class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--ink)', color: 'var(--parchment)' }}>
           <div className="max-w-md w-full text-center">
-            <div className="w-16 h-16 rounded-2xl bg-[#c9a227]/10 border border-[#c9a227]/20 flex items-center justify-center mx-auto mb-6">
-              <Radio className="w-8 h-8 text-[#c9a227]" />
+            <div className="w-16 h-16 rounded-2xl bg-[#E05A1A]/10 border border-[#E05A1A]/20 flex items-center justify-center mx-auto mb-6">
+              <Radio className="w-8 h-8 text-[#E05A1A]" />
             </div>
             <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: 'Cormorant Garamond, Georgia, serif' }}>Something went wrong</h1>
-            <p className="text-sm text-[#9c958a] mb-6">We&apos;re sorry, an unexpected error occurred. Try refreshing the page or going back home.</p>
+            <p className="text-sm text-[#9a7c60] mb-6">We&apos;re sorry, an unexpected error occurred. Try refreshing the page or going back home.</p>
             {this.state.error && (
-              <div className="mb-6 p-3 rounded-lg bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] text-left">
-                <p className="text-[10px] text-[#9c958a] font-mono break-all">{this.state.error.message}</p>
+              <div className="mb-6 p-3 rounded-lg bg-[#2f1206] border border-[rgba(240,190,100,0.08)] text-left">
+                <p className="text-[10px] text-[#9a7c60] font-mono break-all">{this.state.error.message}</p>
               </div>
             )}
             <div className="flex items-center justify-center gap-3">
               <button
                 onClick={() => window.location.reload()}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-bold transition-all duration-300 bg-[#c9a227] text-[#1b1208] hover:bg-[#e0bd5a]"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-bold transition-all duration-300 bg-[#E05A1A] text-[#1b1208] hover:bg-[#F5A623]"
               >
                 <RefreshCw className="w-4 h-4" /> Refresh
               </button>
@@ -82,3 +82,4 @@ export default class ErrorBoundary extends Component<Props, State> {
     return this.props.children
   }
 }
+

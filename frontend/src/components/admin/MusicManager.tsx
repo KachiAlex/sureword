@@ -60,7 +60,7 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
       let audioUrl = form.audio_url
       let coverUrl = ''
 
-      // ── Step 1: Upload files directly to Cloudinary (signed) ──
+      // -- Step 1: Upload files directly to Cloudinary (signed) --
       // Use fetch (not axios) so the global Authorization header isn't sent to Cloudinary
       if (file) {
         const { data: sig } = await axios.get(`${API_BASE}/api/music/signature?folder=zionite/music/audio`, {
@@ -94,7 +94,7 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
         coverUrl = up.secure_url
       }
 
-      // ── Step 2: Save metadata + Cloudinary URLs to backend ──
+      // -- Step 2: Save metadata + Cloudinary URLs to backend --
       await axios.post(`${API_BASE}/api/music`, {
         title: form.title,
         artist: form.artist,
@@ -172,7 +172,7 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
           {mode === 'file' ? (
             <div>
               <label className="block text-xs mb-1.5" style={{ color: 'var(--dim)' }}>
-                Audio File <span style={{ color: 'var(--dim)' }}>(MP3, WAV, AAC, OGG, FLAC, M4A, WEBM — max 25MB)</span>
+                Audio File <span style={{ color: 'var(--dim)' }}>(MP3, WAV, AAC, OGG, FLAC, M4A, WEBM � max 25MB)</span>
               </label>
               <input
                 ref={fileInputRef}
@@ -255,7 +255,7 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
           </div>
           <div>
             <label className="block text-xs mb-1.5" style={{ color: 'var(--dim)' }}>
-              Cover image <span style={{ color: 'var(--dim)' }}>(JPG, PNG, WEBP — max 10MB)</span>
+              Cover image <span style={{ color: 'var(--dim)' }}>(JPG, PNG, WEBP � max 10MB)</span>
             </label>
             <input
               ref={coverInputRef}
@@ -332,3 +332,4 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
     </div>
   )
 }
+

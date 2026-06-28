@@ -8,3 +8,4 @@ export function usePageTitle(title: string) {
     return () => { document.title = base }
   }, [title])
 }
+

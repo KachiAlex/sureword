@@ -87,7 +87,7 @@ interface Props {
   initialMusicVolume?: number
 }
 
-/* ── MonitorStatus (visual indicator only — audio handled by mixMonitorAudioRef) ─────────── */
+/* -- MonitorStatus (visual indicator only � audio handled by mixMonitorAudioRef) ----------- */
 function MonitorStatus({ stream, enabled }: { stream: MediaStream | null; enabled: boolean }) {
   const active = enabled && !!stream && stream.active
   return (
@@ -119,13 +119,13 @@ export default function RadioStudio({
   const [micMuted, setMicMuted] = useState(false)
   const [micGain, setMicGain] = useState(80)
 
-  /* ── Background music mixer state ── */
+  /* -- Background music mixer state -- */
   const [musicVolume, setMusicVolume] = useState(initialMusicVolume)
   const [musicPlaying, setMusicPlaying] = useState(false)
   const [musicLoop, setMusicLoop] = useState(true)
   const musicName = initialMusicName || ''
 
-  /* ── Chat state ── */
+  /* -- Chat state -- */
   const [chatMessages, setChatMessages] = useState<any[]>([])
   const [chatUsers, setChatUsers] = useState<{ user_id: string; user_name: string }[]>([])
   const [chatInput, setChatInput] = useState('')
@@ -134,7 +134,7 @@ export default function RadioStudio({
   const chatScrollRef = useRef<HTMLDivElement>(null)
   const prevMsgLenRef = useRef(0)
 
-  /* ── Mixer Audio graph refs ── */
+  /* -- Mixer Audio graph refs -- */
   const mixerCtxRef = useRef<AudioContext | null>(null)
   const mixerDestRef = useRef<MediaStreamAudioDestinationNode | null>(null)
   const micGainNodeRef = useRef<GainNode | null>(null)
@@ -159,7 +159,7 @@ export default function RadioStudio({
 
   const isLive = status === 'live'
 
-  /* ── Screen wake lock + Android foreground service ── */
+  /* -- Screen wake lock + Android foreground service -- */
   const wakeLockRef = useRef<any>(null)
   useEffect(() => {
     if (!isLive) {
@@ -192,7 +192,7 @@ export default function RadioStudio({
     }
   }, [isLive])
 
-  /* ── Enumerate mic devices & watch for hotplug ── */
+  /* -- Enumerate mic devices & watch for hotplug -- */
   async function enumerateDevices() {
     try {
       const devices = await navigator.mediaDevices.enumerateDevices()
@@ -317,7 +317,7 @@ export default function RadioStudio({
     finally { setChatSending(false) }
   }
 
-  /* ── Mixer helpers ── */
+  /* -- Mixer helpers -- */
   function getOrCreateMixer(): { ctx: AudioContext; dest: MediaStreamAudioDestinationNode; micGain: GainNode; musicGain: GainNode } {
     if (mixerCtxRef.current && mixerDestRef.current && micGainNodeRef.current && musicGainNodeRef.current) {
       return { ctx: mixerCtxRef.current, dest: mixerDestRef.current, micGain: micGainNodeRef.current, musicGain: musicGainNodeRef.current }
@@ -396,7 +396,7 @@ export default function RadioStudio({
         audio: deviceId ? { deviceId: { exact: deviceId } } : true
       })
 
-      /* ── Build mixer graph ── */
+      /* -- Build mixer graph -- */
       const { ctx, dest, micGain: micGNode } = getOrCreateMixer()
       if (ctx.state === 'suspended') ctx.resume().catch(() => {})
 
@@ -448,7 +448,7 @@ export default function RadioStudio({
         }
       }
 
-      // Cloud recording — stream all blobs into memory for upload on end
+      // Cloud recording � stream all blobs into memory for upload on end
       const cloudMime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus' : 'audio/webm'
       cloudMimeRef.current = cloudMime
@@ -647,7 +647,7 @@ export default function RadioStudio({
   }
 
   const isNative = typeof (window as any).Capacitor !== 'undefined' && (window as any).Capacitor?.isNativePlatform?.()
-  const streamUrl = `${isNative ? 'https://www.zionite.online' : window.location.origin}/live${broadcastId ? `/${broadcastId}` : ''}`
+  const streamUrl = `${isNative ? 'https://www.surewordradio.org' : window.location.origin}/live${broadcastId ? `/${broadcastId}` : ''}`
 
   return (
     <div>
@@ -711,7 +711,7 @@ export default function RadioStudio({
 
       {isLive && (
         <div className="mx-6 mt-4 p-3 rounded-xl text-sm flex items-center gap-2"
-          style={{ background: 'rgba(201,162,39,0.1)', color: '#c9a227', border: '1px solid rgba(201,162,39,0.2)' }}>
+          style={{ background: 'rgba(201,162,39,0.1)', color: '#E05A1A', border: '1px solid rgba(201,162,39,0.2)' }}>
           <Zap className="w-4 h-4" />
           Keep this screen on during broadcast. Audio will pause if the app is backgrounded or the screen locks.
         </div>
@@ -745,8 +745,8 @@ export default function RadioStudio({
         {/* Recording Status */}
         {uploadProgress === 'uploading' && (
           <div className="flex items-center gap-2 text-xs px-4 py-2 rounded-lg animate-pulse"
-            style={{ background: 'rgba(201,162,39,0.1)', color: '#c9a227', border: '1px solid rgba(201,162,39,0.2)' }}>
-            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading recording to cloud — do not close the browser...
+            style={{ background: 'rgba(201,162,39,0.1)', color: '#E05A1A', border: '1px solid rgba(201,162,39,0.2)' }}>
+            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading recording to cloud � do not close the browser...
           </div>
         )}
         {uploadProgress === 'done' && recordingUrl && (
@@ -756,7 +756,7 @@ export default function RadioStudio({
             Recording saved. Auto-deletes in 90 days.
             <button
               onClick={() => downloadRecording(broadcastId)}
-              className="ml-auto underline hover:opacity-80" style={{ color: '#c9a227' }}>
+              className="ml-auto underline hover:opacity-80" style={{ color: '#E05A1A' }}>
               Download
             </button>
           </div>
@@ -765,7 +765,7 @@ export default function RadioStudio({
           <div className="flex items-center gap-2 text-xs px-4 py-2 rounded-lg"
             style={{ background: 'rgba(220,38,38,0.1)', color: '#fca5a5', border: '1px solid rgba(220,38,38,0.2)' }}>
             <Wifi className="w-3.5 h-3.5" /> {recordingStatus}
-            <button onClick={retryUpload} className="ml-auto underline hover:opacity-80 text-[#c9a227]">Retry</button>
+            <button onClick={retryUpload} className="ml-auto underline hover:opacity-80 text-[#E05A1A]">Retry</button>
           </div>
         )}
         {uploadProgress === 'idle' && recordingStatus && (
@@ -912,7 +912,7 @@ export default function RadioStudio({
                 if (musicGainNodeRef.current) musicGainNodeRef.current.gain.value = v / 100
               }}
               className="flex-1 h-2 rounded-lg appearance-none cursor-pointer"
-              style={{ background: `linear-gradient(to right, #c9a227 ${musicVolume}%, var(--line) ${musicVolume}%)` }} />
+              style={{ background: `linear-gradient(to right, #E05A1A ${musicVolume}%, var(--line) ${musicVolume}%)` }} />
             <span className="text-xs font-mono w-8 text-right">{musicVolume}%</span>
           </div>
           {!isLive && musicBufferRef.current && (
@@ -927,7 +927,7 @@ export default function RadioStudio({
           )}
         </div>
 
-        {/* Live Chat Panel — broadcaster can see and reply to listeners */}
+        {/* Live Chat Panel � broadcaster can see and reply to listeners */}
         <div className="rounded-xl p-4 flex flex-col" style={{ background: 'var(--ink)', border: '1px solid var(--line)' }}>
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium flex items-center gap-2">
@@ -1078,3 +1078,4 @@ export default function RadioStudio({
     </div>
   )
 }
+

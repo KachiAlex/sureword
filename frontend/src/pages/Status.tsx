@@ -102,7 +102,7 @@ export default function Status() {
                   </div>
                 </div>
                 <span className={`text-sm font-medium ${data.streaming === 'live' ? 'text-primary-600' : 'text-gray-600'}`}>
-                  {data.streaming === 'live' ? '🔴 Live Broadcast Active' : 'Idle'}
+                  {data.streaming === 'live' ? '?? Live Broadcast Active' : 'Idle'}
                 </span>
               </div>
 
@@ -127,7 +127,7 @@ export default function Status() {
                   <span className="text-sm">Last checked</span>
                 </div>
                 <span className="text-sm text-gray-500">
-                  {data.timestamp ? new Date(data.timestamp).toLocaleString() : '—'}
+                  {data.timestamp ? new Date(data.timestamp).toLocaleString() : '�'}
                 </span>
               </div>
             </div>
@@ -147,3 +147,4 @@ export default function Status() {
     </div>
   )
 }
+

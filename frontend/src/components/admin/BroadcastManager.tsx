@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import { API_BASE } from '../../lib/api'
 import {
@@ -90,7 +90,7 @@ function MicMeter({ stream }: { stream: MediaStream | null }) {
   }, [stream])
 
   return (
-    <canvas ref={canvasRef} width={320} height={48} className="w-full rounded-lg bg-[#14141a]" />
+    <canvas ref={canvasRef} width={320} height={48} className="w-full rounded-lg bg-[#230d02]" />
   )
 }
 
@@ -193,108 +193,108 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
 
     return (
       <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
-        <div className="w-full sm:max-w-lg max-h-[90vh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-[#14141a] border border-[rgba(243,238,228,0.08)] overflow-hidden">
+        <div className="w-full sm:max-w-lg max-h-[90vh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-[#230d02] border border-[rgba(240,190,100,0.08)] overflow-hidden">
 
           {/* Header */}
-          <div className="flex items-start justify-between px-4 py-3.5 border-b border-[rgba(243,238,228,0.06)] flex-shrink-0">
+          <div className="flex items-start justify-between px-4 py-3.5 border-b border-[rgba(240,190,100,0.06)] flex-shrink-0">
             <div className="flex items-center gap-3 min-w-0">
               {b.thumbnail_url
                 ? <img src={b.thumbnail_url} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" alt="" />
-                : <div className="w-10 h-10 rounded-lg bg-[#1c1d24] flex items-center justify-center flex-shrink-0"><Radio className="w-5 h-5 text-[#c9a227]/40" /></div>
+                : <div className="w-10 h-10 rounded-lg bg-[#2f1206] flex items-center justify-center flex-shrink-0"><Radio className="w-5 h-5 text-[#E05A1A]/40" /></div>
               }
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-white truncate">{b.title}</p>
-                {b.speaker && <p className="text-[10px] text-[#c9a227] mt-0.5 flex items-center gap-1"><User className="w-3 h-3" />{b.speaker}</p>}
+                {b.speaker && <p className="text-[10px] text-[#E05A1A] mt-0.5 flex items-center gap-1"><User className="w-3 h-3" />{b.speaker}</p>}
               </div>
             </div>
-            <button onClick={closeBroadcastDetail} className="p-1.5 rounded-md hover:bg-[rgba(243,238,228,0.06)] text-[#9c958a] transition-colors flex-shrink-0 ml-2">
+            <button onClick={closeBroadcastDetail} className="p-1.5 rounded-md hover:bg-[rgba(240,190,100,0.06)] text-[#9a7c60] transition-colors flex-shrink-0 ml-2">
               <X className="w-4 h-4" />
             </button>
           </div>
 
           <div className="overflow-y-auto flex-1">
             {/* Meta info */}
-            <div className="px-4 py-3 flex items-center gap-4 border-b border-[rgba(243,238,228,0.04)]">
+            <div className="px-4 py-3 flex items-center gap-4 border-b border-[rgba(240,190,100,0.04)]">
               <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                 b.status === 'live' ? 'bg-[#4ade80]/10 text-[#4ade80]' :
-                b.status === 'ended' ? 'bg-[rgba(243,238,228,0.06)] text-[#9c958a]' :
+                b.status === 'ended' ? 'bg-[rgba(240,190,100,0.06)] text-[#9a7c60]' :
                 'bg-[#eab308]/10 text-[#eab308]'
               }`}>{b.status}</span>
               {b.started_at && (
-                <span className="text-[10px] text-[#9c958a] flex items-center gap-1">
+                <span className="text-[10px] text-[#9a7c60] flex items-center gap-1">
                   <Calendar className="w-3 h-3" />{new Date(b.started_at).toLocaleDateString()}
                 </span>
               )}
               {duration !== null && (
-                <span className="text-[10px] text-[#9c958a] flex items-center gap-1">
+                <span className="text-[10px] text-[#9a7c60] flex items-center gap-1">
                   <Clock className="w-3 h-3" />{duration}m
                 </span>
               )}
             </div>
 
             {b.description && (
-              <div className="px-4 py-3 border-b border-[rgba(243,238,228,0.04)]">
-                <p className="text-[11px] text-[#9c958a] leading-relaxed">{b.description}</p>
+              <div className="px-4 py-3 border-b border-[rgba(240,190,100,0.04)]">
+                <p className="text-[11px] text-[#9a7c60] leading-relaxed">{b.description}</p>
               </div>
             )}
 
             {/* Recording player */}
             {b.recording_url ? (
-              <div className="px-4 py-4 border-b border-[rgba(243,238,228,0.04)]">
-                <p className="text-[10px] font-semibold text-[#9c958a] uppercase tracking-wider mb-3">Recording</p>
+              <div className="px-4 py-4 border-b border-[rgba(240,190,100,0.04)]">
+                <p className="text-[10px] font-semibold text-[#9a7c60] uppercase tracking-wider mb-3">Recording</p>
                 <audio
                   controls
                   src={b.recording_url}
                   className="w-full h-10"
-                  style={{ accentColor: '#c9a227' }}
+                  style={{ accentColor: '#E05A1A' }}
                   onPlay={() => {}}
                   onPause={() => {}}
                 />
                 {b.recorded_at && (
-                  <p className="text-[10px] text-[#9c958a] mt-2">
+                  <p className="text-[10px] text-[#9a7c60] mt-2">
                     Saved {new Date(b.recorded_at).toLocaleDateString()} · expires {new Date(new Date(b.recorded_at).getTime() + 90*24*60*60*1000).toLocaleDateString()}
                   </p>
                 )}
                 <button
                   onClick={() => downloadRecording(b.id)}
-                  className="mt-3 flex items-center gap-1.5 w-fit text-[11px] font-medium text-[#c9a227] hover:text-[#e0bd5a] transition-colors"
+                  className="mt-3 flex items-center gap-1.5 w-fit text-[11px] font-medium text-[#E05A1A] hover:text-[#F5A623] transition-colors"
                 >
                   <Download className="w-3.5 h-3.5" /> Download recording
                 </button>
               </div>
             ) : b.status === 'ended' ? (
-              <div className="px-4 py-4 border-b border-[rgba(243,238,228,0.04)]">
-                <p className="text-[10px] font-semibold text-[#9c958a] uppercase tracking-wider mb-2">Recording</p>
-                <p className="text-[11px] text-[#9c958a]/60">No recording available for this broadcast.</p>
+              <div className="px-4 py-4 border-b border-[rgba(240,190,100,0.04)]">
+                <p className="text-[10px] font-semibold text-[#9a7c60] uppercase tracking-wider mb-2">Recording</p>
+                <p className="text-[11px] text-[#9a7c60]/60">No recording available for this broadcast.</p>
               </div>
             ) : null}
 
             {/* Chat history */}
             <div className="px-4 py-4">
-              <p className="text-[10px] font-semibold text-[#9c958a] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <p className="text-[10px] font-semibold text-[#9a7c60] uppercase tracking-wider mb-3 flex items-center gap-1.5">
                 <MessageSquare className="w-3.5 h-3.5" /> Chat Replay
-                {chatHistory.length > 0 && <span className="text-[#c9a227]">{chatHistory.length}</span>}
+                {chatHistory.length > 0 && <span className="text-[#E05A1A]">{chatHistory.length}</span>}
               </p>
               {chatLoading ? (
-                <div className="flex items-center gap-2 text-[11px] text-[#9c958a]">
+                <div className="flex items-center gap-2 text-[11px] text-[#9a7c60]">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading chat...
                 </div>
               ) : chatHistory.length === 0 ? (
-                <p className="text-[11px] text-[#9c958a]/60">No chat messages for this broadcast.</p>
+                <p className="text-[11px] text-[#9a7c60]/60">No chat messages for this broadcast.</p>
               ) : (
                 <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                   {chatHistory.map(msg => (
                     <div key={msg.id} className="flex gap-2">
-                      <div className="w-5 h-5 rounded-full bg-[#1c1d24] flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <User className="w-3 h-3 text-[#9c958a]" />
+                      <div className="w-5 h-5 rounded-full bg-[#2f1206] flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <User className="w-3 h-3 text-[#9a7c60]" />
                       </div>
                       <div className="min-w-0">
-                        <span className="text-[10px] font-medium text-[#c9a227]">
+                        <span className="text-[10px] font-medium text-[#E05A1A]">
                           {msg.user_name || msg.guest_name || 'Guest'}
                         </span>
-                        {msg.is_private && <span className="ml-1 text-[9px] text-[#9c958a]">(private)</span>}
-                        <p className="text-[11px] text-[rgba(243,238,228,0.8)] break-words">{msg.message}</p>
-                        <p className="text-[9px] text-[#9c958a]/50 mt-0.5">{new Date(msg.created_at).toLocaleTimeString()}</p>
+                        {msg.is_private && <span className="ml-1 text-[9px] text-[#9a7c60]">(private)</span>}
+                        <p className="text-[11px] text-[rgba(240,190,100,0.8)] break-words">{msg.message}</p>
+                        <p className="text-[9px] text-[#9a7c60]/50 mt-0.5">{new Date(msg.created_at).toLocaleTimeString()}</p>
                       </div>
                     </div>
                   ))}
@@ -305,7 +305,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
 
           {/* Footer actions */}
           {b.status === 'live' && (
-            <div className="px-4 py-3 border-t border-[rgba(243,238,228,0.06)] flex gap-2 flex-shrink-0">
+            <div className="px-4 py-3 border-t border-[rgba(240,190,100,0.06)] flex gap-2 flex-shrink-0">
               <button onClick={() => { closeBroadcastDetail(); openStudio(b) }}
                 className="flex-1 flex items-center justify-center gap-1.5 bg-[#4ade80]/10 hover:bg-[#4ade80]/20 text-[#4ade80] text-[11px] font-medium py-2 rounded-lg transition-colors">
                 <Monitor className="w-3.5 h-3.5" /> Open Studio
@@ -317,7 +317,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
             </div>
           )}
           {b.status === 'scheduled' && (
-            <div className="px-4 py-3 border-t border-[rgba(243,238,228,0.06)] flex-shrink-0">
+            <div className="px-4 py-3 border-t border-[rgba(240,190,100,0.06)] flex-shrink-0">
               <button onClick={() => { closeBroadcastDetail(); startBroadcast(b.id) }} disabled={actionLoading}
                 className="w-full flex items-center justify-center gap-1.5 bg-[#4ade80]/10 hover:bg-[#4ade80]/20 text-[#4ade80] text-[11px] font-medium py-2 rounded-lg transition-colors disabled:opacity-50">
                 <Play className="w-3.5 h-3.5" /> Go Live
@@ -598,10 +598,10 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-sm font-bold text-white tracking-wide">Broadcast Studio</h2>
-            <p className="text-[10px] text-[#9c958a] mt-0.5">Create, manage and go live from one place</p>
+            <p className="text-[10px] text-[#9a7c60] mt-0.5">Create, manage and go live from one place</p>
           </div>
           <button onClick={openSetup}
-            className="flex items-center gap-1.5 bg-[#c9a227] hover:bg-[#e0bd5a] text-[#1b1208] text-[11px] font-medium px-3 py-1.5 rounded-lg transition-colors">
+            className="flex items-center gap-1.5 bg-[#E05A1A] hover:bg-[#F5A623] text-[#1b1208] text-[11px] font-medium px-3 py-1.5 rounded-lg transition-colors">
             <Plus className="w-3.5 h-3.5" /> New Broadcast
           </button>
         </div>
@@ -611,44 +611,44 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
           {[
             { label: 'Live Now', value: broadcasts.filter(b => b.status === 'live').length, color: '#4ade80' },
             { label: 'Scheduled', value: broadcasts.filter(b => b.status === 'scheduled').length, color: '#eab308' },
-            { label: 'Total', value: broadcasts.length, color: '#c9a227' },
+            { label: 'Total', value: broadcasts.length, color: '#E05A1A' },
           ].map((s, i) => (
-            <div key={i} className="p-3 rounded-xl bg-[#14141a] border border-[rgba(243,238,228,0.06)] text-center">
+            <div key={i} className="p-3 rounded-xl bg-[#230d02] border border-[rgba(240,190,100,0.06)] text-center">
               <p className="text-lg font-bold" style={{ color: s.color }}>{s.value}</p>
-              <p className="text-[10px] text-[#9c958a]">{s.label}</p>
+              <p className="text-[10px] text-[#9a7c60]">{s.label}</p>
             </div>
           ))}
         </div>
 
         {/* Broadcast list */}
-        <div className="rounded-xl overflow-hidden bg-[#14141a] border border-[rgba(243,238,228,0.06)]">
-          <div className="px-4 py-3 border-b border-[rgba(243,238,228,0.06)] bg-[rgba(243,238,228,0.02)]">
+        <div className="rounded-xl overflow-hidden bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
+          <div className="px-4 py-3 border-b border-[rgba(240,190,100,0.06)] bg-[rgba(240,190,100,0.02)]">
             <h3 className="text-xs font-semibold text-white flex items-center gap-2">
-              <Radio className="w-3.5 h-3.5 text-[#c9a227]" /> All Broadcasts
+              <Radio className="w-3.5 h-3.5 text-[#E05A1A]" /> All Broadcasts
             </h3>
           </div>
           {broadcasts.length === 0 ? (
-            <div className="p-8 text-center text-[#9c958a] text-xs">
+            <div className="p-8 text-center text-[#9a7c60] text-xs">
               <Radio className="w-8 h-8 mx-auto mb-3 opacity-20" />
               <p>No broadcasts yet. Create your first broadcast to go live.</p>
             </div>
           ) : (
-            <div className="divide-y divide-[rgba(243,238,228,0.04)]">
+            <div className="divide-y divide-[rgba(240,190,100,0.04)]">
               {broadcasts.map(b => (
                 <div key={b.id}
-                  className="px-4 py-3 flex items-center justify-between hover:bg-[rgba(243,238,228,0.04)] transition-colors cursor-pointer"
+                  className="px-4 py-3 flex items-center justify-between hover:bg-[rgba(240,190,100,0.04)] transition-colors cursor-pointer"
                   onClick={() => openBroadcastDetail(b)}>
                   <div className="min-w-0 flex items-center gap-3">
                     {b.thumbnail_url ? (
                       <img src={b.thumbnail_url} alt="" className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
                     ) : (
-                      <div className="w-8 h-8 rounded-lg bg-[#1c1d24] flex items-center justify-center flex-shrink-0">
-                        <Radio className="w-4 h-4 text-[#c9a227]/40" />
+                      <div className="w-8 h-8 rounded-lg bg-[#2f1206] flex items-center justify-center flex-shrink-0">
+                        <Radio className="w-4 h-4 text-[#E05A1A]/40" />
                       </div>
                     )}
                     <div>
                       <p className="text-xs font-medium text-white truncate">{b.title}</p>
-                      <p className="text-[10px] text-[#9c958a] mt-0.5">
+                      <p className="text-[10px] text-[#9a7c60] mt-0.5">
                         {b.speaker ? `${b.speaker} · ` : ''}{b.status === 'live' ? 'Live now' : b.started_at ? new Date(b.started_at).toLocaleString() : 'Scheduled'}
                       </p>
                     </div>
@@ -656,7 +656,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                       b.status === 'live' ? 'bg-[#4ade80]/10 text-[#4ade80]' :
-                      b.status === 'ended' ? 'bg-[rgba(243,238,228,0.06)] text-[#9c958a]' :
+                      b.status === 'ended' ? 'bg-[rgba(240,190,100,0.06)] text-[#9a7c60]' :
                       'bg-[#eab308]/10 text-[#eab308]'
                     }`}>
                       {b.status}
@@ -665,7 +665,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
                       <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] animate-pulse flex-shrink-0" />
                     )}
                     {b.status === 'ended' && b.recording_url && (
-                      <span title="Recording available" className="p-1 rounded-md bg-[#c9a227]/10 text-[#c9a227]">
+                      <span title="Recording available" className="p-1 rounded-md bg-[#E05A1A]/10 text-[#E05A1A]">
                         <Download className="w-3 h-3" />
                       </span>
                     )}
@@ -684,16 +684,16 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     return (
       <div className="space-y-5">
         <button onClick={() => setView('list')}
-          className="flex items-center gap-1.5 text-[11px] text-[#9c958a] hover:text-white transition-colors">
+          className="flex items-center gap-1.5 text-[11px] text-[#9a7c60] hover:text-white transition-colors">
           <ArrowLeft className="w-3.5 h-3.5" /> Back to broadcasts
         </button>
 
-        <div className="rounded-xl bg-[#14141a] border border-[rgba(243,238,228,0.06)] overflow-hidden">
-          <div className="px-5 py-4 border-b border-[rgba(243,238,228,0.06)]">
+        <div className="rounded-xl bg-[#230d02] border border-[rgba(240,190,100,0.06)] overflow-hidden">
+          <div className="px-5 py-4 border-b border-[rgba(240,190,100,0.06)]">
             <h3 className="text-xs font-bold text-white flex items-center gap-2">
-              <Radio className="w-4 h-4 text-[#c9a227]" /> New Broadcast
+              <Radio className="w-4 h-4 text-[#E05A1A]" /> New Broadcast
             </h3>
-            <p className="text-[10px] text-[#9c958a] mt-1">
+            <p className="text-[10px] text-[#9a7c60] mt-1">
               {setupPage === 1 ? 'Step 1 of 2: Enter broadcast details.' : 'Step 2 of 2: Test audio and upload soundtrack.'}
             </p>
           </div>
@@ -709,65 +709,65 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
               /* ── PAGE 1: Broadcast Details ── */
               <>
                 <div>
-                  <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider mb-1.5">Broadcast Title *</label>
+                  <label className="block text-[10px] font-medium text-[#9a7c60] uppercase tracking-wider mb-1.5">Broadcast Title *</label>
                   <input type="text" value={title} onChange={e => setTitle(e.target.value)}
                     placeholder="e.g., Sunday Morning Service"
-                    className="w-full rounded-lg px-3 py-2.5 text-xs bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors"
+                    className="w-full rounded-lg px-3 py-2.5 text-xs bg-[#2f1206] border border-[rgba(240,190,100,0.08)] text-white outline-none focus:border-[#E05A1A]/40 transition-colors"
                   />
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider mb-1.5">Broadcast Thumbnail</label>
+                    <label className="block text-[10px] font-medium text-[#9a7c60] uppercase tracking-wider mb-1.5">Broadcast Thumbnail</label>
                     <div className="flex items-center gap-3">
-                      <label className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] text-[#9c958a] text-xs cursor-pointer hover:border-[#c9a227]/40 transition-colors">
+                      <label className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#2f1206] border border-[rgba(240,190,100,0.08)] text-[#9a7c60] text-xs cursor-pointer hover:border-[#E05A1A]/40 transition-colors">
                         <Plus className="w-3 h-3" /> Upload Image
                         <input type="file" accept="image/*" onChange={handleThumbnailChange} className="hidden" />
                       </label>
                       {thumbnailPreview && (
-                        <div className="w-12 h-12 rounded-lg overflow-hidden border border-[rgba(243,238,228,0.08)]">
+                        <div className="w-12 h-12 rounded-lg overflow-hidden border border-[rgba(240,190,100,0.08)]">
                           <img src={thumbnailPreview} alt="Thumbnail preview" className="w-full h-full object-cover" />
                         </div>
                       )}
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                    <label className="block text-[10px] font-medium text-[#9a7c60] uppercase tracking-wider mb-1.5 flex items-center gap-1">
                       <BookOpen className="w-3 h-3" /> Scripture Reference
                     </label>
                     <input type="text" value={scripture} onChange={e => setScripture(e.target.value)}
                       placeholder="e.g., Romans 8:1-17"
-                      className="w-full rounded-lg px-3 py-2.5 text-xs bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors"
+                      className="w-full rounded-lg px-3 py-2.5 text-xs bg-[#2f1206] border border-[rgba(240,190,100,0.08)] text-white outline-none focus:border-[#E05A1A]/40 transition-colors"
                     />
                   </div>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                    <label className="block text-[10px] font-medium text-[#9a7c60] uppercase tracking-wider mb-1.5 flex items-center gap-1">
                       <Mic className="w-3 h-3" /> Speaker
                     </label>
                     <input type="text" value={speaker} onChange={e => setSpeaker(e.target.value)}
                       placeholder="e.g., Pastor Daniel Akins"
-                      className="w-full rounded-lg px-3 py-2.5 text-xs bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors"
+                      className="w-full rounded-lg px-3 py-2.5 text-xs bg-[#2f1206] border border-[rgba(240,190,100,0.08)] text-white outline-none focus:border-[#E05A1A]/40 transition-colors"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider mb-1.5">Description</label>
+                    <label className="block text-[10px] font-medium text-[#9a7c60] uppercase tracking-wider mb-1.5">Description</label>
                     <textarea value={description} onChange={e => setDescription(e.target.value)} rows={1}
                       placeholder="Optional description..."
-                      className="w-full rounded-lg px-3 py-2.5 text-xs bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors resize-none"
+                      className="w-full rounded-lg px-3 py-2.5 text-xs bg-[#2f1206] border border-[rgba(240,190,100,0.08)] text-white outline-none focus:border-[#E05A1A]/40 transition-colors resize-none"
                     />
                   </div>
                 </div>
 
                 {audioDevices.length > 0 && (
                   <div>
-                    <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                    <label className="block text-[10px] font-medium text-[#9a7c60] uppercase tracking-wider mb-1.5 flex items-center gap-1">
                       <Mic className="w-3 h-3" /> Microphone Device
                     </label>
                     <select value={selectedDevice} onChange={e => setSelectedDevice(e.target.value)}
-                      className="w-full rounded-lg px-3 py-2.5 text-xs bg-[#1c1d24] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors">
+                      className="w-full rounded-lg px-3 py-2.5 text-xs bg-[#2f1206] border border-[rgba(240,190,100,0.08)] text-white outline-none focus:border-[#E05A1A]/40 transition-colors">
                       <option value="">Default microphone</option>
                       {audioDevices.map(d => (
                         <option key={d.deviceId} value={d.deviceId}>
@@ -779,57 +779,57 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
                 )}
 
                 <button type="button" onClick={() => setShowAdvanced(!showAdvanced)}
-                  className="flex items-center gap-1.5 text-[11px] text-[#9c958a] hover:text-white transition-colors">
+                  className="flex items-center gap-1.5 text-[11px] text-[#9a7c60] hover:text-white transition-colors">
                   {showAdvanced ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                   Advanced Settings
                 </button>
 
                 {showAdvanced && (
-                  <div className="rounded-xl bg-[#1c1d24] border border-[rgba(243,238,228,0.06)] p-4 space-y-3">
+                  <div className="rounded-xl bg-[#2f1206] border border-[rgba(240,190,100,0.06)] p-4 space-y-3">
                     <h4 className="text-[11px] font-semibold text-white flex items-center gap-1.5">
-                      <ExternalLink className="w-3.5 h-3.5 text-[#c9a227]" /> Stream Configuration
+                      <ExternalLink className="w-3.5 h-3.5 text-[#E05A1A]" /> Stream Configuration
                     </h4>
                     <div className="grid md:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[10px] text-[#9c958a] mb-1">Church Online URL</label>
+                        <label className="block text-[10px] text-[#9a7c60] mb-1">Church Online URL</label>
                         <input type="text" value={churchOnlineUrl} onChange={e => setChurchOnlineUrl(e.target.value)}
                           placeholder="https://online.church/your-church"
-                          className="w-full rounded-lg px-3 py-2 text-xs bg-[#14141a] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors"
+                          className="w-full rounded-lg px-3 py-2 text-xs bg-[#230d02] border border-[rgba(240,190,100,0.08)] text-white outline-none focus:border-[#E05A1A]/40 transition-colors"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] text-[#9c958a] mb-1">RTMP Ingest URL</label>
+                        <label className="block text-[10px] text-[#9a7c60] mb-1">RTMP Ingest URL</label>
                         <input type="text" value={rtmpUrl} onChange={e => setRtmpUrl(e.target.value)}
                           placeholder="rtmp://live.churchonline.com/live"
-                          className="w-full rounded-lg px-3 py-2 text-xs bg-[#14141a] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors"
+                          className="w-full rounded-lg px-3 py-2 text-xs bg-[#230d02] border border-[rgba(240,190,100,0.08)] text-white outline-none focus:border-[#E05A1A]/40 transition-colors"
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-[10px] text-[#9c958a] mb-1">Stream Key</label>
+                      <label className="block text-[10px] text-[#9a7c60] mb-1">Stream Key</label>
                       <input type="password" value={streamKey} onChange={e => setStreamKey(e.target.value)}
                         placeholder="Your stream key"
-                        className="w-full rounded-lg px-3 py-2 text-xs bg-[#14141a] border border-[rgba(243,238,228,0.08)] text-white outline-none focus:border-[#c9a227]/40 transition-colors"
+                        className="w-full rounded-lg px-3 py-2 text-xs bg-[#230d02] border border-[rgba(240,190,100,0.08)] text-white outline-none focus:border-[#E05A1A]/40 transition-colors"
                       />
                     </div>
-                    <div className="border-t border-[rgba(243,238,228,0.06)] pt-3 mt-1 md:col-span-2">
+                    <div className="border-t border-[rgba(240,190,100,0.06)] pt-3 mt-1 md:col-span-2">
                       <h4 className="text-[11px] font-semibold text-white flex items-center gap-1.5 mb-2">
-                        <HardDrive className="w-3.5 h-3.5 text-[#c9a227]" /> Local Recording
+                        <HardDrive className="w-3.5 h-3.5 text-[#E05A1A]" /> Local Recording
                       </h4>
                       <label className="flex items-center gap-2 mb-2 cursor-pointer">
                         <input type="checkbox" checked={recordEnabled} onChange={e => toggleRecordEnabled(e.target.checked)}
-                          className="w-3.5 h-3.5 rounded border-[rgba(243,238,228,0.2)] bg-[#14141a] text-[#c9a227] focus:ring-[#c9a227]" />
-                        <span className="text-[11px] text-[#9c958a]">Auto-record broadcasts to local folder</span>
+                          className="w-3.5 h-3.5 rounded border-[rgba(240,190,100,0.2)] bg-[#230d02] text-[#E05A1A] focus:ring-[#E05A1A]" />
+                        <span className="text-[11px] text-[#9a7c60]">Auto-record broadcasts to local folder</span>
                       </label>
                       {recordEnabled && (
                         <div className="flex items-center gap-2">
                           {recordDirName ? (
-                            <span className="text-[11px] text-[#9c958a]">Folder: <span className="text-white">{recordDirName}</span></span>
+                            <span className="text-[11px] text-[#9a7c60]">Folder: <span className="text-white">{recordDirName}</span></span>
                           ) : (
                             <span className="text-[11px] text-[#fca5a5]">No folder selected</span>
                           )}
                           <button type="button" onClick={pickRecordDirectory}
-                            className="text-[11px] text-[#c9a227] hover:text-[#e0bd5a] transition-colors flex items-center gap-1">
+                            className="text-[11px] text-[#E05A1A] hover:text-[#F5A623] transition-colors flex items-center gap-1">
                             <Folder className="w-3 h-3" /> {recordDirName ? 'Change' : 'Choose Folder'}
                           </button>
                         </div>
@@ -840,11 +840,11 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
 
                 <div className="flex items-center justify-between pt-2">
                   <button type="button" onClick={() => setView('list')}
-                    className="text-[11px] text-[#9c958a] hover:text-white transition-colors px-3 py-2">
+                    className="text-[11px] text-[#9a7c60] hover:text-white transition-colors px-3 py-2">
                     Cancel
                   </button>
                   <button type="button" onClick={goToPage2}
-                    className="flex items-center gap-1.5 bg-[#c9a227] hover:bg-[#e0bd5a] text-[#1b1208] text-[11px] font-medium px-5 py-2.5 rounded-lg transition-colors">
+                    className="flex items-center gap-1.5 bg-[#E05A1A] hover:bg-[#F5A623] text-[#1b1208] text-[11px] font-medium px-5 py-2.5 rounded-lg transition-colors">
                     Next <ChevronDown className="w-3.5 h-3.5 rotate-[-90deg]" />
                   </button>
                 </div>
@@ -853,9 +853,9 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
               /* ── PAGE 2: Audio Pre-Flight ── */
               <>
                 {/* Mic Test Meter */}
-                <div className="rounded-lg bg-[#1c1d24] border border-[rgba(243,238,228,0.06)] p-4 space-y-3">
+                <div className="rounded-lg bg-[#2f1206] border border-[rgba(240,190,100,0.06)] p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider flex items-center gap-1">
+                    <label className="block text-[10px] font-medium text-[#9a7c60] uppercase tracking-wider flex items-center gap-1">
                       <Mic className="w-3 h-3" /> Microphone Test
                     </label>
                     {micTestActive ? (
@@ -871,7 +871,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
                     )}
                   </div>
                   {micTestActive && <MicMeter stream={micTestStream} />}
-                  <p className="text-[10px] text-[#9c958a]">
+                  <p className="text-[10px] text-[#9a7c60]">
                     {micTestActive
                       ? 'Speak into your microphone. You should see the bars moving.'
                       : 'Click "Test Mic" to verify your microphone is working before going live.'}
@@ -879,17 +879,17 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
                 </div>
 
                 {/* Soundtrack Upload */}
-                <div className="rounded-lg bg-[#1c1d24] border border-[rgba(243,238,228,0.06)] p-4 space-y-3">
-                  <label className="block text-[10px] font-medium text-[#9c958a] uppercase tracking-wider flex items-center gap-1">
+                <div className="rounded-lg bg-[#2f1206] border border-[rgba(240,190,100,0.06)] p-4 space-y-3">
+                  <label className="block text-[10px] font-medium text-[#9a7c60] uppercase tracking-wider flex items-center gap-1">
                     <Music className="w-3 h-3" /> Background Soundtrack
                   </label>
                   <label className="relative flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg transition-colors"
-                    style={{ background: 'rgba(243,238,228,0.03)', border: '1px dashed rgba(243,238,228,0.15)' }}>
-                    <Upload className="w-4 h-4 flex-shrink-0 text-[#c9a227]" />
+                    style={{ background: 'rgba(240,190,100,0.03)', border: '1px dashed rgba(240,190,100,0.15)' }}>
+                    <Upload className="w-4 h-4 flex-shrink-0 text-[#E05A1A]" />
                     <span className="text-xs truncate" style={{ color: musicName ? 'var(--parchment)' : 'var(--dim)' }}>
                       {musicLoading ? 'Decoding audio...' : musicName || 'Upload background music (MP3, WAV, OGG…)'}
                     </span>
-                    {musicLoading && <Loader2 className="w-3.5 h-3.5 animate-spin ml-auto flex-shrink-0 text-[#c9a227]" />}
+                    {musicLoading && <Loader2 className="w-3.5 h-3.5 animate-spin ml-auto flex-shrink-0 text-[#E05A1A]" />}
                     <input type="file" accept="audio/*"
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       style={{ zIndex: 10 }}
@@ -903,16 +903,16 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
                   {musicBuffer && (
                     <div className="space-y-2">
                       <div className="flex items-center gap-3">
-                        <Music className="w-3 h-3 text-[#c9a227]" />
+                        <Music className="w-3 h-3 text-[#E05A1A]" />
                         <span className="text-[11px] text-white">{musicName}</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-[10px] text-[#9c958a] w-12">Volume</span>
+                        <span className="text-[10px] text-[#9a7c60] w-12">Volume</span>
                         <input type="range" min={0} max={100} value={musicVolume}
                           onChange={e => setMusicVolume(parseInt(e.target.value))}
                           className="flex-1 h-2 rounded-lg appearance-none cursor-pointer"
-                          style={{ background: `linear-gradient(to right, #c9a227 ${musicVolume}%, rgba(243,238,228,0.1) ${musicVolume}%)` }} />
-                        <span className="text-[10px] font-mono w-6 text-right text-[#9c958a]">{musicVolume}%</span>
+                          style={{ background: `linear-gradient(to right, #E05A1A ${musicVolume}%, rgba(240,190,100,0.1) ${musicVolume}%)` }} />
+                        <span className="text-[10px] font-mono w-6 text-right text-[#9a7c60]">{musicVolume}%</span>
                       </div>
                     </div>
                   )}
@@ -920,7 +920,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
 
                 <div className="flex items-center justify-between pt-2">
                   <button type="button" onClick={() => setSetupPage(1)}
-                    className="text-[11px] text-[#9c958a] hover:text-white transition-colors px-3 py-2 flex items-center gap-1">
+                    className="text-[11px] text-[#9a7c60] hover:text-white transition-colors px-3 py-2 flex items-center gap-1">
                     <ChevronDown className="w-3.5 h-3.5 rotate-90" /> Back
                   </button>
                   <button type="button" onClick={createAndGoLive} disabled={creating}
@@ -942,7 +942,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <button onClick={() => { setView('list'); onRefresh() }}
-          className="flex items-center gap-1.5 text-[11px] text-[#9c958a] hover:text-white transition-colors">
+          className="flex items-center gap-1.5 text-[11px] text-[#9a7c60] hover:text-white transition-colors">
           <ArrowLeft className="w-3.5 h-3.5" /> Back to broadcasts
         </button>
         <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${
@@ -974,3 +974,4 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     </div>
   )
 }
+

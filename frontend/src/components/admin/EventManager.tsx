@@ -254,7 +254,7 @@ export default function EventManager() {
                 <Users className="w-4 h-4" style={{ color: 'var(--gold)' }} /> Attendees
               </h3>
               <p className="text-[11px] mt-0.5" style={{ color: 'var(--dim)' }}>
-                {rsvpStats.total} RSVPs · {rsvpStats.guestTotal} additional guests
+                {rsvpStats.total} RSVPs � {rsvpStats.guestTotal} additional guests
               </p>
             </div>
             <button onClick={() => setViewRsvps(null)} className="text-[var(--dim)] hover:text-white"><X className="w-4 h-4" /></button>
@@ -309,7 +309,7 @@ export default function EventManager() {
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm truncate">{evt.title}</p>
                 <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--dim)' }}>
-                  {evt.date}{evt.time ? ` · ${evt.time}` : ''}{evt.location ? ` · ${evt.location}` : ''}
+                  {evt.date}{evt.time ? ` � ${evt.time}` : ''}{evt.location ? ` � ${evt.location}` : ''}
                 </p>
                 <div className="flex flex-wrap items-center gap-2 mt-2">
                   {evt.category && (
@@ -342,3 +342,4 @@ export default function EventManager() {
     </div>
   )
 }
+

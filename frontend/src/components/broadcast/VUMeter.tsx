@@ -144,7 +144,7 @@ function drawMeter(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, lev
     if (isPeak) {
       ctx.fillStyle = '#f87171'
     } else if (isActive) {
-      // Gradient from green → yellow → red
+      // Gradient from green ? yellow ? red
       const pct = i / segments
       if (pct < 0.6) ctx.fillStyle = '#4ade80'
       else if (pct < 0.8) ctx.fillStyle = '#facc15'
@@ -159,7 +159,7 @@ function drawMeter(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, lev
   }
 
   // Numeric readout
-  ctx.fillStyle = '#c9a227'
+  ctx.fillStyle = '#E05A1A'
   ctx.font = 'bold 14px monospace'
   ctx.textAlign = 'right'
   ctx.fillText(`${Math.round(level).toString().padStart(2, '0')} dB`, canvas.width - padding, barY - 6)
@@ -170,3 +170,4 @@ function drawMeter(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, lev
   ctx.textAlign = 'left'
   ctx.fillText(`Peak: ${Math.round(peak)}%`, padding, barY - 6)
 }
+

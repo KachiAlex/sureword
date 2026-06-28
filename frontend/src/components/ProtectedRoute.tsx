@@ -15,7 +15,7 @@ export default function ProtectedRoute({ children, allowedRoles, fallback = '/lo
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--ink)' }}>
-        <div className="w-8 h-8 border-2 border-[#c9a227] border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-[#E05A1A] border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -34,3 +34,4 @@ export default function ProtectedRoute({ children, allowedRoles, fallback = '/lo
 
   return <>{children}</>
 }
+

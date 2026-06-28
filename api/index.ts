@@ -1,4 +1,4 @@
-import express, { Request, Response, NextFunction } from 'express'
+﻿import express, { Request, Response, NextFunction } from 'express'
 import cors from 'cors'
 import { neon } from '@neondatabase/serverless'
 import bcrypt from 'bcryptjs'
@@ -43,6 +43,15 @@ const uploadImage = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    cb(null, allowed.includes(file.mimetype))
+  }
+})
+
+const uploadPdf = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['application/pdf']
     cb(null, allowed.includes(file.mimetype))
   }
 })
@@ -281,6 +290,38 @@ async function _doInitDb() {
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`)
 
+  // Print media tables
+  await dbQuery(`CREATE TABLE IF NOT EXISTS print_media (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    category TEXT DEFAULT 'tract',
+    pdf_url TEXT NOT NULL,
+    thumbnail_url TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`)
+
+  // Sermon radio playlist tables
+  await dbQuery(`CREATE TABLE IF NOT EXISTS sermon_playlists (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`)
+  await dbQuery(`CREATE TABLE IF NOT EXISTS sermon_playlist_items (
+    id TEXT PRIMARY KEY,
+    playlist_id TEXT NOT NULL,
+    sermon_id TEXT NOT NULL,
+    order_index INTEGER DEFAULT 0,
+    duration_minutes INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (playlist_id) REFERENCES sermon_playlists(id) ON DELETE CASCADE
+  )`)
+
   // Migrations for existing tables
   try { await dbQuery(`ALTER TABLE stream_listeners ADD COLUMN IF NOT EXISTS platform TEXT DEFAULT 'web'`) } catch {}
   try { await dbQuery(`ALTER TABLE donations ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'completed'`) } catch {}
@@ -302,7 +343,7 @@ async function _doInitDb() {
   if (!admin) {
     const hash = await bcrypt.hash('admin123', 10)
     await dbQuery(`INSERT INTO users (id, email, password_hash, name, role) VALUES ($1,$2,$3,$4,$5)`,
-      ['admin-1', 'admin@zionite.online', hash, 'Admin User', 'admin'])
+      ['admin-1', 'admin@surewordradio.org', hash, 'Admin User', 'admin'])
   }
 }
 
@@ -355,7 +396,7 @@ function configureVapid() {
   if (_vapidConfigured) return
   const vapidPublic = process.env.VAPID_PUBLIC_KEY || 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U'
   const vapidPrivate = process.env.VAPID_PRIVATE_KEY || ''
-  const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:admin@zionite.online'
+  const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:admin@surewordradio.org'
   if (vapidPrivate) {
     webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate)
     _vapidConfigured = true
@@ -405,7 +446,7 @@ async function sendEmailNotifications(subject: string, body: string, _url: strin
   let sent = 0, failed = 0
   for (const user of users) {
     try {
-      await transporter.sendMail({ from, to: user.email, subject, text: body + '\n\nVisit ZioniteFM: https://www.zionite.online' + _url })
+      await transporter.sendMail({ from, to: user.email, subject, text: body + '\n\nVisit SUREWORD RADIO: https://www.surewordradio.org' + _url })
       sent++
     } catch { failed++ }
   }
@@ -566,7 +607,7 @@ app.patch('/broadcasts/:id/start', auth, requireRole('admin', 'broadcaster'), as
     await dbQuery("UPDATE broadcasts SET status='live', started_at=NOW() WHERE id=$1", [req.params.id])
     res.json({ success: true })
     // Notify subscribers asynchronously
-    broadcastNotification('broadcast_live', broadcast?.title || 'Live Broadcast', 'A broadcast is now live on ZioniteFM', `/live/${req.params.id}`).catch(() => {})
+    broadcastNotification('broadcast_live', broadcast?.title || 'Live Broadcast', 'A broadcast is now live on SUREWORD RADIO', `/live/${req.params.id}`).catch(() => {})
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
@@ -689,7 +730,7 @@ app.post('/sermons', auth, requireRole('admin'), async (req: AuthReq, res) => {
       [id, title, description || null, scripture_reference || null, speaker || null, series || null,
        audio_url || null, video_url || null, thumbnail_url || null, sermonDate, duration || 0])
     res.status(201).json({ sermon: { id, title, description, scripture_reference, speaker, series, audio_url, video_url, thumbnail_url, date: sermonDate, duration } })
-    broadcastNotification('sermon', 'New Sermon Available', `${title} by ${speaker || 'ZioniteFM'}`, `/sermons/${id}`).catch(() => {})
+    broadcastNotification('sermon', 'New Sermon Available', `${title} by ${speaker || 'SUREWORD RADIO'}`, `/sermons/${id}`).catch(() => {})
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
@@ -867,7 +908,7 @@ app.post('/music', auth, requireRole('admin'), upload.fields([{ name: 'audio', m
     await dbQuery(`INSERT INTO music (id, title, artist, album, genre, audio_url, cover_url, duration, lyrics, file_format, file_size) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [id, title, artist || '', album || '', genre || '', audio_url, finalCoverUrl || '', parseInt(duration) || 0, lyrics || '', file_format, file_size])
     res.status(201).json({ id, title })
-    broadcastNotification('music', 'New Music on ZioniteFM', `${title} by ${artist || 'ZioniteFM'}`, `/music`).catch(() => {})
+    broadcastNotification('music', 'New Music on SUREWORD RADIO', `${title} by ${artist || 'SUREWORD RADIO'}`, `/music`).catch(() => {})
   } catch (e: any) { res.status(500).json({ error: e.message || 'Upload failed' }) }
 })
 
@@ -1715,6 +1756,198 @@ app.delete('/auth/webauthn/credentials/:credId', auth, async (req: AuthReq, res)
     await initDb()
     await dbQuery('DELETE FROM webauthn_credentials WHERE id=$1 AND user_id=$2', [req.params.credId, req.user!.id])
     res.json({ ok: true })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+// ── Print Media routes ───────────────────────────────────────
+app.get('/print-media', async (_req, res) => {
+  try {
+    await initDb()
+    const rows = await dbQuery("SELECT * FROM print_media WHERE is_active=TRUE ORDER BY created_at DESC")
+    res.json({ printMedia: rows })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.post('/print-media', auth, requireRole('admin'), uploadPdf.single('pdf'), async (req: AuthReq, res) => {
+  try {
+    await initDb()
+    const { title, description, category } = req.body
+    if (!title) { res.status(400).json({ error: 'Title is required' }); return }
+    let pdf_url = req.body.pdf_url || ''
+    if (req.file) {
+      pdf_url = await uploadToCloudinary(req.file.buffer, 'sureword/print', 'raw')
+    }
+    if (!pdf_url) { res.status(400).json({ error: 'PDF file or URL is required' }); return }
+    const id = uuidv4()
+    await dbQuery(`INSERT INTO print_media (id, title, description, category, pdf_url) VALUES ($1,$2,$3,$4,$5)`,
+      [id, title, description || '', category || 'tract', pdf_url])
+    res.status(201).json({ id, title, pdf_url })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.patch('/print-media/:id', auth, requireRole('admin'), async (req: AuthReq, res) => {
+  try {
+    await initDb()
+    const { title, description, category, is_active } = req.body
+    await dbQuery(`UPDATE print_media SET title=COALESCE($1,title), description=COALESCE($2,description), category=COALESCE($3,category), is_active=COALESCE($4,is_active) WHERE id=$5`,
+      [title || null, description || null, category || null, typeof is_active === 'boolean' ? is_active : null, req.params.id])
+    res.json({ success: true })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.delete('/print-media/:id', auth, requireRole('admin'), async (req, res) => {
+  try {
+    await initDb()
+    await dbQuery('DELETE FROM print_media WHERE id=$1', [req.params.id])
+    res.json({ success: true })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+// ── Sermon Radio Playlist routes ─────────────────────────────
+app.get('/sermons/radio/current', async (_req, res) => {
+  try {
+    await initDb()
+    const now = new Date()
+    const playlist = await dbGet(
+      `SELECT * FROM sermon_playlists WHERE is_active=TRUE AND start_time <= $1 AND (end_time IS NULL OR end_time >= $1) ORDER BY start_time DESC LIMIT 1`,
+      [now.toISOString()]
+    )
+    if (!playlist) { res.json({ current: null }); return }
+
+    const items = await dbQuery(
+      `SELECT sp.id as item_id, sp.sermon_id, sp.order_index, sp.duration_minutes,
+              s.title, s.speaker, s.audio_url, s.thumbnail_url, s.description, s.scripture_reference
+       FROM sermon_playlist_items sp
+       JOIN sermons s ON s.id = sp.sermon_id
+       WHERE sp.playlist_id=$1
+       ORDER BY sp.order_index ASC`,
+      [playlist.id]
+    )
+    if (!items || items.length === 0) { res.json({ current: null }); return }
+
+    const startTime = new Date(playlist.start_time).getTime()
+    const elapsedMs = now.getTime() - startTime
+    const elapsedMin = elapsedMs / (1000 * 60)
+
+    let cumulativeMin = 0
+    let currentItem = null
+    let currentOffsetMin = 0
+    for (const item of items) {
+      const dur = item.duration_minutes || 30
+      if (elapsedMin >= cumulativeMin && elapsedMin < cumulativeMin + dur) {
+        currentItem = item
+        currentOffsetMin = elapsedMin - cumulativeMin
+        break
+      }
+      cumulativeMin += dur
+    }
+
+    // If elapsed exceeds total playlist duration, loop back
+    if (!currentItem) {
+      const totalDuration = items.reduce((sum: number, it: any) => sum + (it.duration_minutes || 30), 0)
+      if (totalDuration > 0) {
+        const loopedMin = elapsedMin % totalDuration
+        cumulativeMin = 0
+        for (const item of items) {
+          const dur = item.duration_minutes || 30
+          if (loopedMin >= cumulativeMin && loopedMin < cumulativeMin + dur) {
+            currentItem = item
+            currentOffsetMin = loopedMin - cumulativeMin
+            break
+          }
+          cumulativeMin += dur
+        }
+      }
+    }
+
+    res.json({
+      current: currentItem ? {
+        itemId: currentItem.item_id,
+        sermonId: currentItem.sermon_id,
+        title: currentItem.title,
+        speaker: currentItem.speaker,
+        audioUrl: currentItem.audio_url,
+        thumbnailUrl: currentItem.thumbnail_url,
+        description: currentItem.description,
+        scriptureReference: currentItem.scripture_reference,
+        offsetSeconds: Math.floor(currentOffsetMin * 60),
+      } : null,
+      playlist: { id: playlist.id, title: playlist.title, startTime: playlist.start_time }
+    })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.get('/sermon-playlists', auth, requireRole('admin'), async (_req, res) => {
+  try {
+    await initDb()
+    const rows = await dbQuery('SELECT * FROM sermon_playlists ORDER BY created_at DESC')
+    res.json({ playlists: rows })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.post('/sermon-playlists', auth, requireRole('admin'), async (req: AuthReq, res) => {
+  try {
+    await initDb()
+    const { title, description, start_time, end_time } = req.body
+    if (!title || !start_time) { res.status(400).json({ error: 'Title and start_time are required' }); return }
+    const id = uuidv4()
+    await dbQuery(`INSERT INTO sermon_playlists (id, title, description, start_time, end_time) VALUES ($1,$2,$3,$4,$5)`,
+      [id, title, description || '', start_time, end_time || null])
+    res.status(201).json({ id, title, start_time })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.patch('/sermon-playlists/:id', auth, requireRole('admin'), async (req: AuthReq, res) => {
+  try {
+    await initDb()
+    const { title, description, start_time, end_time, is_active } = req.body
+    await dbQuery(
+      `UPDATE sermon_playlists SET title=COALESCE($1,title), description=COALESCE($2,description), start_time=COALESCE($3,start_time), end_time=COALESCE($4,end_time), is_active=COALESCE($5,is_active) WHERE id=$6`,
+      [title || null, description || null, start_time || null, end_time !== undefined ? end_time : null, typeof is_active === 'boolean' ? is_active : null, req.params.id]
+    )
+    res.json({ success: true })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.delete('/sermon-playlists/:id', auth, requireRole('admin'), async (req, res) => {
+  try {
+    await initDb()
+    await dbQuery('DELETE FROM sermon_playlists WHERE id=$1', [req.params.id])
+    res.json({ success: true })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.get('/sermon-playlists/:id/items', auth, requireRole('admin'), async (req, res) => {
+  try {
+    await initDb()
+    const rows = await dbQuery(
+      `SELECT sp.id, sp.sermon_id, sp.order_index, sp.duration_minutes, s.title, s.speaker
+       FROM sermon_playlist_items sp
+       JOIN sermons s ON s.id = sp.sermon_id
+       WHERE sp.playlist_id=$1 ORDER BY sp.order_index`,
+      [req.params.id]
+    )
+    res.json({ items: rows })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.post('/sermon-playlists/:id/items', auth, requireRole('admin'), async (req: AuthReq, res) => {
+  try {
+    await initDb()
+    const { sermon_id, order_index, duration_minutes } = req.body
+    if (!sermon_id) { res.status(400).json({ error: 'sermon_id is required' }); return }
+    const id = uuidv4()
+    await dbQuery(`INSERT INTO sermon_playlist_items (id, playlist_id, sermon_id, order_index, duration_minutes) VALUES ($1,$2,$3,$4,$5)`,
+      [id, req.params.id, sermon_id, order_index || 0, duration_minutes || 30])
+    res.status(201).json({ id, sermon_id, order_index })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
+app.delete('/sermon-playlists/:id/items/:itemId', auth, requireRole('admin'), async (req, res) => {
+  try {
+    await initDb()
+    await dbQuery('DELETE FROM sermon_playlist_items WHERE id=$1 AND playlist_id=$2', [req.params.itemId, req.params.id])
+    res.json({ success: true })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 

@@ -15,7 +15,7 @@ function resumeAllAudioContexts() {
   }
 }
 
-// Poll every 8s — Android WebView may suspend AudioContext silently;
+// Poll every 8s � Android WebView may suspend AudioContext silently;
 // this keeps it alive whether the app is foregrounded or backgrounded.
 setInterval(resumeAllAudioContexts, 8000)
 
@@ -29,8 +29,8 @@ document.addEventListener('visibilitychange', () => {
   if (isNative) {
     try {
       const { App: CapApp } = await import('@capacitor/app')
-      // isActive=true means app came back to foreground — resume any paused contexts
-      // isActive=false means backgrounded — still attempt resume as Android may not
+      // isActive=true means app came back to foreground � resume any paused contexts
+      // isActive=false means backgrounded � still attempt resume as Android may not
       // immediately suspend but we want to pre-emptively keep audio alive
       CapApp.addListener('appStateChange', ({ isActive: _ }) => {
         resumeAllAudioContexts()
@@ -66,7 +66,7 @@ if ('serviceWorker' in navigator) {
           if (!newWorker || !registration.active) return
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'activated') {
-              // New build deployed — reload to get fresh assets
+              // New build deployed � reload to get fresh assets
               window.location.reload()
             }
           })
@@ -83,3 +83,4 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </React.StrictMode>
 )
+

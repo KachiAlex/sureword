@@ -59,7 +59,7 @@ export async function downloadWithTags(opts: TagOptions): Promise<void> {
         mimeType: mime
       })
     } catch {
-      // Cover fetch failed — embed tags without cover
+      // Cover fetch failed � embed tags without cover
     }
   }
 
@@ -75,3 +75,4 @@ export async function downloadWithTags(opts: TagOptions): Promise<void> {
   document.body.removeChild(a)
   setTimeout(() => URL.revokeObjectURL(objUrl), 10000)
 }
+

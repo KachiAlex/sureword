@@ -37,7 +37,7 @@ function SpiritualHealthForm() {
       <textarea className="w-full rounded-xl px-4 py-2.5 text-sm outline-none" style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--parchment)' }}
         placeholder="Optional message / reflection" rows={3} value={message} onChange={e => setMessage(e.target.value)} />
       <button type="submit" disabled={sending}
-        className="flex items-center gap-2 bg-[#c9a227] hover:bg-[#e0bd5a] text-[#1b1208] text-sm font-semibold px-5 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
+        className="flex items-center gap-2 bg-[#E05A1A] hover:bg-[#F5A623] text-[#1b1208] text-sm font-semibold px-5 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
         {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
         Send Scripture to Everyone
       </button>
@@ -110,16 +110,16 @@ export default function AdminSettings() {
   return (
     <div className="space-y-5 max-w-3xl">
 
-      {/* ── Push Notification Stats ── */}
+      {/* -- Push Notification Stats -- */}
       <div className="grid grid-cols-2 gap-4">
         <div className={card} style={cardStyle}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[rgba(201,162,39,0.12)] flex items-center justify-center">
-              <Bell className="w-5 h-5 text-[#c9a227]" />
+              <Bell className="w-5 h-5 text-[#E05A1A]" />
             </div>
             <div>
-              <p className="text-xs text-[#9c958a]">Push Subscribers</p>
-              <p className="text-2xl font-bold text-white">{subCount ?? '—'}</p>
+              <p className="text-xs text-[#9a7c60]">Push Subscribers</p>
+              <p className="text-2xl font-bold text-white">{subCount ?? '�'}</p>
             </div>
           </div>
         </div>
@@ -129,19 +129,19 @@ export default function AdminSettings() {
               <Mail className="w-5 h-5 text-[#3b82f6]" />
             </div>
             <div>
-              <p className="text-xs text-[#9c958a]">Email Subscribers</p>
-              <p className="text-2xl font-bold text-white">{newsletterCount ?? '—'}</p>
+              <p className="text-xs text-[#9a7c60]">Email Subscribers</p>
+              <p className="text-2xl font-bold text-white">{newsletterCount ?? '�'}</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Broadcast Push Notification ── */}
+      {/* -- Broadcast Push Notification -- */}
       <div className={card} style={cardStyle}>
         <h3 className="font-semibold flex items-center gap-2 text-sm text-white">
-          <Send className="w-4 h-4 text-[#c9a227]" /> Broadcast Push Notification
+          <Send className="w-4 h-4 text-[#E05A1A]" /> Broadcast Push Notification
         </h3>
-        <p className="text-xs text-[#9c958a]">Send a push notification to all subscribed devices.</p>
+        <p className="text-xs text-[#9a7c60]">Send a push notification to all subscribed devices.</p>
         <form onSubmit={sendPushBroadcast} className="space-y-3">
           <input className={inputCls} style={inputStyle} placeholder="Notification title" value={pushForm.title}
             onChange={e => setPushForm({ ...pushForm, title: e.target.value })} />
@@ -150,7 +150,7 @@ export default function AdminSettings() {
           <input className={inputCls} style={inputStyle} placeholder="URL to open (optional, e.g. /events)" value={pushForm.url}
             onChange={e => setPushForm({ ...pushForm, url: e.target.value })} />
           <button type="submit" disabled={sending}
-            className="flex items-center gap-2 bg-[#c9a227] hover:bg-[#e0bd5a] text-[#1b1208] text-sm font-semibold px-5 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
+            className="flex items-center gap-2 bg-[#E05A1A] hover:bg-[#F5A623] text-[#1b1208] text-sm font-semibold px-5 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             Send to All Subscribers
           </button>
@@ -162,21 +162,21 @@ export default function AdminSettings() {
         </form>
       </div>
 
-      {/* ── Spiritual Health Monitor ── */}
+      {/* -- Spiritual Health Monitor -- */}
       <div className={card} style={cardStyle}>
         <h3 className="font-semibold flex items-center gap-2 text-sm text-white">
-          <BookOpen className="w-4 h-4 text-[#c9a227]" /> Spiritual Health Monitor
+          <BookOpen className="w-4 h-4 text-[#E05A1A]" /> Spiritual Health Monitor
         </h3>
-        <p className="text-xs text-[#9c958a]">Send a daily scripture to everyone via push notification and email.</p>
+        <p className="text-xs text-[#9a7c60]">Send a daily scripture to everyone via push notification and email.</p>
         <SpiritualHealthForm />
       </div>
 
-      {/* ── Your Push Notification Toggle ── */}
+      {/* -- Your Push Notification Toggle -- */}
       <div className={card} style={cardStyle}>
         <h3 className="font-semibold flex items-center gap-2 text-sm text-white">
-          <Bell className="w-4 h-4 text-[#c9a227]" /> Your Push Notifications
+          <Bell className="w-4 h-4 text-[#E05A1A]" /> Your Push Notifications
         </h3>
-        <p className="text-xs text-[#9c958a]">
+        <p className="text-xs text-[#9a7c60]">
           {!pushSupported
             ? 'Push notifications are not supported in this browser.'
             : pushEnabled
@@ -188,7 +188,7 @@ export default function AdminSettings() {
             className={`flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-xl disabled:opacity-50 transition-colors ${
               pushEnabled
                 ? 'bg-[rgba(239,68,68,0.1)] hover:bg-[rgba(239,68,68,0.2)] text-[#ef4444] border border-[#ef4444]/20'
-                : 'bg-[#c9a227] hover:bg-[#e0bd5a] text-[#1b1208]'
+                : 'bg-[#E05A1A] hover:bg-[#F5A623] text-[#1b1208]'
             }`}>
             {loadingPush ? <Loader2 className="w-4 h-4 animate-spin" /> : pushEnabled ? <BellOff className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
             {pushEnabled ? 'Disable Notifications' : 'Enable Notifications'}
@@ -196,18 +196,18 @@ export default function AdminSettings() {
         )}
       </div>
 
-      {/* ── Biometric Authentication ── */}
+      {/* -- Biometric Authentication -- */}
       <div className={card} style={cardStyle}>
         <h3 className="font-semibold flex items-center gap-2 text-sm text-white">
-          <Fingerprint className="w-4 h-4 text-[#c9a227]" /> Biometric Login
+          <Fingerprint className="w-4 h-4 text-[#E05A1A]" /> Biometric Login
         </h3>
         {!biometricSupported ? (
-          <p className="text-xs text-[#9c958a]">
+          <p className="text-xs text-[#9a7c60]">
             Biometric login (fingerprint / Face ID) is not supported on this device or browser.
           </p>
         ) : (
           <>
-            <p className="text-xs text-[#9c958a]">
+            <p className="text-xs text-[#9a7c60]">
               Register this device's fingerprint or Face ID to sign in without a password.
             </p>
             {credentials.length > 0 && (
@@ -216,10 +216,10 @@ export default function AdminSettings() {
                   <div key={c.id} className="flex items-center justify-between px-3 py-2.5 rounded-xl"
                     style={{ background: 'var(--ink)', border: '1px solid var(--line)' }}>
                     <div className="flex items-center gap-2.5">
-                      <Smartphone className="w-4 h-4 text-[#9c958a]" />
+                      <Smartphone className="w-4 h-4 text-[#9a7c60]" />
                       <div>
                         <p className="text-sm text-white font-medium">{c.device_name}</p>
-                        <p className="text-[10px] text-[#9c958a]">Registered {new Date(c.created_at).toLocaleDateString()}</p>
+                        <p className="text-[10px] text-[#9a7c60]">Registered {new Date(c.created_at).toLocaleDateString()}</p>
                       </div>
                     </div>
                     <button onClick={() => removeBiometric(c.id)} disabled={loadingBiometric}
@@ -232,14 +232,14 @@ export default function AdminSettings() {
             )}
             {!biometricRegistered && (
               <button onClick={registerBiometric} disabled={loadingBiometric}
-                className="flex items-center gap-2 bg-[#c9a227] hover:bg-[#e0bd5a] text-[#1b1208] text-sm font-semibold px-5 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
+                className="flex items-center gap-2 bg-[#E05A1A] hover:bg-[#F5A623] text-[#1b1208] text-sm font-semibold px-5 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
                 {loadingBiometric ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
                 Register This Device
               </button>
             )}
             {biometricRegistered && (
               <button onClick={registerBiometric} disabled={loadingBiometric}
-                className="flex items-center gap-2 text-sm text-[#c9a227] hover:underline disabled:opacity-50">
+                className="flex items-center gap-2 text-sm text-[#E05A1A] hover:underline disabled:opacity-50">
                 <Fingerprint className="w-4 h-4" /> Add Another Device
               </button>
             )}
@@ -247,10 +247,10 @@ export default function AdminSettings() {
         )}
       </div>
 
-      {/* ── Change Password ── */}
+      {/* -- Change Password -- */}
       <div className={card} style={cardStyle}>
         <h3 className="font-semibold flex items-center gap-2 text-sm text-white">
-          <Lock className="w-4 h-4 text-[#c9a227]" /> Change Password
+          <Lock className="w-4 h-4 text-[#E05A1A]" /> Change Password
         </h3>
         <form onSubmit={changePassword} className="space-y-3 max-w-md">
           <input type="password" placeholder="Current password" value={pwdForm.current} className={inputCls} style={inputStyle}
@@ -260,7 +260,7 @@ export default function AdminSettings() {
           <input type="password" placeholder="Confirm new password" value={pwdForm.confirm} className={inputCls} style={inputStyle}
             onChange={e => setPwdForm({ ...pwdForm, confirm: e.target.value })} />
           <button type="submit" disabled={changing}
-            className="flex items-center gap-2 bg-[#c9a227] hover:bg-[#e0bd5a] text-[#1b1208] text-sm font-semibold px-5 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
+            className="flex items-center gap-2 bg-[#E05A1A] hover:bg-[#F5A623] text-[#1b1208] text-sm font-semibold px-5 py-2.5 rounded-xl disabled:opacity-50 transition-colors">
             {changing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
             Update Password
           </button>
@@ -268,19 +268,20 @@ export default function AdminSettings() {
         </form>
       </div>
 
-      {/* ── Contact Info ── */}
+      {/* -- Contact Info -- */}
       <div className={card} style={cardStyle}>
         <h3 className="font-semibold flex items-center gap-2 text-sm text-white">
-          <Users className="w-4 h-4 text-[#c9a227]" /> Ministry Contact
+          <Users className="w-4 h-4 text-[#E05A1A]" /> Ministry Contact
         </h3>
         <div className="space-y-2 text-sm">
-          <div className="flex items-center gap-2 text-[#9c958a]">
-            <Mail className="w-4 h-4 text-[#c9a227]" />
-            <span>theredemptionprojectministries@gmail.com</span>
+          <div className="flex items-center gap-2 text-[#9a7c60]">
+            <Mail className="w-4 h-4 text-[#E05A1A]" />
+            <span>info@surewordradio.org</span>
           </div>
-          <p className="text-xs text-[#9c958a]">All newsletter subscriptions and contact enquiries route to this address.</p>
+          <p className="text-xs text-[#9a7c60]">All newsletter subscriptions and contact enquiries route to this address.</p>
         </div>
       </div>
     </div>
   )
 }
+

@@ -1,4 +1,4 @@
-import axios from 'axios'
+﻿import axios from 'axios'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 const isNative = typeof (window as any).Capacitor !== 'undefined' && (window as any).Capacitor?.isNativePlatform?.()
@@ -22,6 +22,10 @@ export interface EventItem { id: string; title: string; description: string; dat
 export interface MusicTrack { id: string; title: string; artist: string; album: string; genre: string; audio_url: string; cover_url: string; duration: number; lyrics: string }
 export interface User { id: string; email: string; name?: string; role: string; created_at?: string }
 export interface Prayer { id: string; name: string | null; request: string; is_anonymous: boolean; prayers_count: number; created_at: string }
+export interface PrintMedia { id: string; title: string; description: string; category: string; pdf_url: string; thumbnail_url?: string; is_active: boolean; created_at: string }
+export interface SermonPlaylist { id: string; title: string; description: string; start_time: string; end_time?: string; is_active: boolean; created_at: string }
+export interface SermonPlaylistItem { id: string; playlist_id: string; sermon_id: string; order_index: number; duration_minutes: number; title?: string; speaker?: string }
+export interface RadioCurrent { itemId: string; sermonId: string; title: string; speaker: string; audioUrl: string; thumbnailUrl?: string; description?: string; scriptureReference?: string; offsetSeconds: number }
 
 /* ─── Queries ─── */
 export function useBroadcasts() {
@@ -170,3 +174,36 @@ export function useCreateDonation() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['donations'] }),
   })
 }
+
+export function usePrintMedia() {
+  return useQuery<PrintMedia[]>({ queryKey: ['print-media'], queryFn: async () => {
+    const { data } = await api.get('/print-media')
+    return data.printMedia as PrintMedia[]
+  }})
+}
+
+export function useRadioCurrent() {
+  return useQuery<{ current: RadioCurrent | null; playlist: { id: string; title: string; startTime: string } | null }>({
+    queryKey: ['sermons', 'radio', 'current'],
+    queryFn: async () => {
+      const { data } = await api.get('/sermons/radio/current')
+      return { current: data.current, playlist: data.playlist }
+    },
+    refetchInterval: 60000,
+  })
+}
+
+export function useSermonPlaylists() {
+  return useQuery<SermonPlaylist[]>({ queryKey: ['sermon-playlists'], queryFn: async () => {
+    const { data } = await api.get('/sermon-playlists')
+    return data.playlists as SermonPlaylist[]
+  }})
+}
+
+export function useSermonPlaylistItems(playlistId?: string) {
+  return useQuery<SermonPlaylistItem[]>({ queryKey: ['sermon-playlists', playlistId, 'items'], queryFn: async () => {
+    const { data } = await api.get(`/sermon-playlists/${playlistId}/items`)
+    return data.items as SermonPlaylistItem[]
+  }, enabled: !!playlistId })
+}
+

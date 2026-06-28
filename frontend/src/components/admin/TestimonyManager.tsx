@@ -76,8 +76,8 @@ export default function TestimonyManager() {
                       {t.status === 'approved' ? <CheckCircle className="w-3 h-3 text-green-400" /> : <Clock className="w-3 h-3 text-yellow-400" />}
                       {t.status}
                     </span>
-                    {t.is_anonymous && <span className="flex items-center gap-1 text-[#9c958a]"><User className="w-3 h-3" /> Anonymous</span>}
-                    {t.is_featured && <span className="flex items-center gap-1 text-[#c9a227]"><Star className="w-3 h-3" /> Featured</span>}
+                    {t.is_anonymous && <span className="flex items-center gap-1 text-[#9a7c60]"><User className="w-3 h-3" /> Anonymous</span>}
+                    {t.is_featured && <span className="flex items-center gap-1 text-[#E05A1A]"><Star className="w-3 h-3" /> Featured</span>}
                     <span>{new Date(t.created_at).toLocaleDateString()}</span>
                   </div>
                 </div>
@@ -85,7 +85,7 @@ export default function TestimonyManager() {
                   {t.status === 'pending' && (
                     <button onClick={() => handleStatus(t.id, 'approved', t.is_featured)} className="text-green-400 hover:text-green-300" title="Approve"><CheckCircle className="w-4 h-4" /></button>
                   )}
-                  <button onClick={() => handleStatus(t.id, t.status, !t.is_featured)} className={`hover:text-[#e0bd5a] ${t.is_featured ? 'text-[#c9a227]' : 'text-[#9c958a]'}`} title="Toggle Featured"><Star className="w-4 h-4" /></button>
+                  <button onClick={() => handleStatus(t.id, t.status, !t.is_featured)} className={`hover:text-[#F5A623] ${t.is_featured ? 'text-[#E05A1A]' : 'text-[#9a7c60]'}`} title="Toggle Featured"><Star className="w-4 h-4" /></button>
                   <button onClick={() => handleDelete(t.id)} className="text-red-400 hover:text-red-300"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
@@ -96,3 +96,4 @@ export default function TestimonyManager() {
     </div>
   )
 }
+

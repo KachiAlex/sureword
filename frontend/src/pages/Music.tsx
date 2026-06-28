@@ -98,8 +98,8 @@ export default function MusicPage() {
       await downloadWithTags({
         audioUrl: track.audio_url,
         title: track.title,
-        artist: track.artist || 'ZioniteFM',
-        album: track.album || 'ZioniteFM Music',
+        artist: track.artist || 'SUREWORD RADIO',
+        album: track.album || 'SUREWORD RADIO Music',
         genre: track.genre || 'Gospel',
         coverUrl: track.cover_url,
         filename: `${track.title}.mp3`
@@ -113,7 +113,7 @@ export default function MusicPage() {
     const shareUrl = `${window.location.origin}/music?track=${track.id}`
     const shareData = {
       title: track.title,
-      text: `Listen to "${track.title}" by ${track.artist || 'Unknown artist'} on ZioniteFM`,
+      text: `Listen to "${track.title}" by ${track.artist || 'Unknown artist'} on SUREWORD RADIO`,
       url: shareUrl
     }
     try {
@@ -286,3 +286,4 @@ export default function MusicPage() {
     </div>
   )
 }
+

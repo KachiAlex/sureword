@@ -112,7 +112,7 @@ export default function EventDetail() {
   return (
     <div className="min-h-screen py-8 lg:py-12" style={{ background: 'var(--ink)', color: 'var(--parchment)' }}>
       <div className="max-w-3xl mx-auto px-6">
-        <button onClick={() => navigate('/events')} className="text-sm mb-6 flex items-center gap-1.5 transition-colors hover:text-[#e0bd5a]" style={{ color: 'var(--gold)' }}>
+        <button onClick={() => navigate('/events')} className="text-sm mb-6 flex items-center gap-1.5 transition-colors hover:text-[#F5A623]" style={{ color: 'var(--gold)' }}>
           <ArrowLeft className="w-4 h-4" /> Back to Events
         </button>
 
@@ -187,3 +187,4 @@ export default function EventDetail() {
     </div>
   )
 }
+

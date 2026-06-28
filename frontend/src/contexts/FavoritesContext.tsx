@@ -89,3 +89,4 @@ export function useFavorites() {
   if (!ctx) throw new Error('useFavorites must be used within FavoritesProvider')
   return ctx
 }
+

@@ -34,9 +34,9 @@ interface ChatMessage {
   reactions?: Record<string, number>
 }
 
-const REACTION_EMOJIS = ['👍','❤️','🙏','😂','🔥','😮']
+const REACTION_EMOJIS = ['??','??','??','??','??','??']
 
-/* ── AudioBars (visualizer) ───────────────────────── */
+/* -- AudioBars (visualizer) ------------------------- */
 function AudioBars({ active }: { active: boolean }) {
   const [heights, setHeights] = useState<number[]>(Array(16).fill(20))
   useEffect(() => {
@@ -61,7 +61,7 @@ function AudioBars({ active }: { active: boolean }) {
   )
 }
 
-/* ── StreamPlayer (simple <audio> with backend live stream) ─────────────────────────────────── */
+/* -- StreamPlayer (simple <audio> with backend live stream) ----------------------------------- */
 function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: string; title?: string; thumbnailUrl?: string }) {
   const [started, setStarted] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -87,7 +87,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
       ? [{ src: thumbnailUrl, sizes: '512x512', type: 'image/jpeg' }]
       : [{ src: '/logo.png', sizes: '512x512', type: 'image/png' }]
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: broadcastTitle, artist: 'ZioniteFM', album: 'The Voice of Redemption', artwork
+      title: broadcastTitle, artist: 'SUREWORD RADIO', album: 'The Whole Word to the Whole World', artwork
     })
     navigator.mediaSession.setActionHandler('play', () => audioRef.current?.play().catch(() => {}))
     navigator.mediaSession.setActionHandler('pause', () => audioRef.current?.pause())
@@ -99,7 +99,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
   function handleStart() {
     if (!audioRef.current) return
     setStarted(true)
-    setStatusText('Connecting…')
+    setStatusText('Connecting�')
     userPausedRef.current = false
 
     sessionIdRef.current = Math.random().toString(36).slice(2) + Date.now().toString(36)
@@ -156,7 +156,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
     audio.onplay = () => { setIsPlaying(true); updateMediaSession(true); userPausedRef.current = false }
     audio.onpause = () => { setIsPlaying(false); updateMediaSession(false); userPausedRef.current = true }
     audio.onplaying = () => { setStatusText('Live') }
-    audio.onwaiting = () => { setStatusText('Buffering…') }
+    audio.onwaiting = () => { setStatusText('Buffering�') }
     audio.onstalled = () => { setStatusText('Stalled') }
     audio.onerror = () => { setStatusText('Connection error') }
     audioRef.current = audio
@@ -195,7 +195,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
   }, [showVolume])
 
   return (
-    <div className="mx-2 sm:mx-4 mt-3 mb-4 rounded-xl p-3 sm:p-4 bg-[#14141a] border border-[rgba(243,238,228,0.06)]">
+    <div className="mx-2 sm:mx-4 mt-3 mb-4 rounded-xl p-3 sm:p-4 bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <span className="relative flex h-2 w-2">
@@ -205,24 +205,24 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
           <span className="text-[11px] font-semibold tracking-wider text-white">LIVE AUDIO</span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-[10px] font-mono flex items-center gap-1 text-[#9c958a]">
+          <span className="text-[10px] font-mono flex items-center gap-1 text-[#9a7c60]">
             <Users className="w-3 h-3" /> {listenerCount}
           </span>
-          <span className="text-[10px] font-mono text-[#9c958a]">{statusText}</span>
+          <span className="text-[10px] font-mono text-[#9a7c60]">{statusText}</span>
         </div>
       </div>
 
       {!started ? (
         <button onClick={() => handleStart()}
-          className="w-full py-3.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99] bg-[#c9a227] text-[#1b1208]">
+          className="w-full py-3.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99] bg-[#E05A1A] text-[#1b1208]">
           <Headphones className="w-4 h-4" /> Tap to Start Listening
         </button>
       ) : (
         <div className="flex items-center gap-3">
           <button onClick={togglePlay}
             className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all hover:scale-105 active:scale-95"
-            style={{ background: isPlaying ? '#c9a227' : '#1c1d24', border: `2px solid ${isPlaying ? '#c9a227' : 'rgba(243,238,228,0.08)'}` }}>
-            {isPlaying ? <Pause className="w-4 h-4 text-[#1b1208]" /> : <Play className="w-4 h-4 text-[#c9a227] ml-0.5" />}
+            style={{ background: isPlaying ? '#E05A1A' : '#2f1206', border: `2px solid ${isPlaying ? '#E05A1A' : 'rgba(240,190,100,0.08)'}` }}>
+            {isPlaying ? <Pause className="w-4 h-4 text-[#1b1208]" /> : <Play className="w-4 h-4 text-[#E05A1A] ml-0.5" />}
           </button>
           <div className="flex-1 min-w-0">
             <AudioBars active={isPlaying} />
@@ -230,9 +230,9 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
           <div data-volume-ctrl="1" className="relative shrink-0 flex flex-col items-center">
             {/* Vertical slider popover */}
             {showVolume && (
-              <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 pb-2 pt-3 px-2 rounded-xl bg-[#1c1d24] border border-[rgba(243,238,228,0.1)] shadow-xl z-30"
+              <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 pb-2 pt-3 px-2 rounded-xl bg-[#2f1206] border border-[rgba(240,190,100,0.1)] shadow-xl z-30"
                 style={{ height: 120 }}>
-                <span className="text-[9px] font-mono text-[#9c958a]">{volume}</span>
+                <span className="text-[9px] font-mono text-[#9a7c60]">{volume}</span>
                 <input
                   type="range" min={0} max={100} value={volume}
                   onChange={e => setVolume(parseInt(e.target.value))}
@@ -242,7 +242,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
                     direction: 'rtl',
                     width: 4,
                     height: 72,
-                    background: `linear-gradient(to top, #c9a227 ${volume}%, rgba(243,238,228,0.08) ${volume}%)`,
+                    background: `linear-gradient(to top, #E05A1A ${volume}%, rgba(240,190,100,0.08) ${volume}%)`,
                     outline: 'none',
                   }}
                 />
@@ -254,7 +254,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
               style={{ background: showVolume ? 'rgba(201,162,39,0.15)' : 'transparent' }}
               title={`Volume: ${volume}%`}
             >
-              <VolumeIcon className="w-3.5 h-3.5" style={{ color: showVolume ? '#c9a227' : '#9c958a' }} />
+              <VolumeIcon className="w-3.5 h-3.5" style={{ color: showVolume ? '#E05A1A' : '#9a7c60' }} />
             </button>
           </div>
         </div>
@@ -414,24 +414,24 @@ export default function Live() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0f1016] text-[#f3eee4]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#c9a227]" />
+      <div className="min-h-screen flex items-center justify-center bg-[#0f1016] text-[#fff0d4]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#E05A1A]" />
       </div>
     )
   }
 
   if (!broadcast) {
     return (
-      <div className="min-h-screen bg-[#0f1016] text-[#f3eee4]">
+      <div className="min-h-screen bg-[#0f1016] text-[#fff0d4]">
         <div className="max-w-[1440px] mx-auto px-4 md:px-6 py-6">
-          <Link to="/" className="inline-flex items-center gap-2 text-xs text-[#9c958a] hover:text-white transition-colors mb-12">
+          <Link to="/" className="inline-flex items-center gap-2 text-xs text-[#9a7c60] hover:text-white transition-colors mb-12">
             <ArrowLeft className="w-4 h-4" /> Back to Home
           </Link>
           <div className="max-w-md mx-auto text-center py-20">
-            <Radio className="w-12 h-12 text-[#c9a227] mx-auto mb-5 opacity-60" />
+            <Radio className="w-12 h-12 text-[#E05A1A] mx-auto mb-5 opacity-60" />
             <h1 className="text-xl font-medium text-white mb-2 tracking-wide">No broadcast right now</h1>
-            <p className="text-sm text-[#9c958a] mb-8 leading-relaxed">Check back during scheduled service times or browse our sermon archive.</p>
-            <Link to="/archive" className="inline-flex items-center gap-2 bg-[#c9a227] hover:bg-[#e0bd5a] text-[#1b1208] text-xs font-semibold px-6 py-2.5 rounded-full transition-colors">
+            <p className="text-sm text-[#9a7c60] mb-8 leading-relaxed">Check back during scheduled service times or browse our sermon archive.</p>
+            <Link to="/archive" className="inline-flex items-center gap-2 bg-[#E05A1A] hover:bg-[#F5A623] text-[#1b1208] text-xs font-semibold px-6 py-2.5 rounded-full transition-colors">
               <BookOpen className="w-3.5 h-3.5" /> Browse Archive
             </Link>
           </div>
@@ -441,11 +441,11 @@ export default function Live() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0f1016] text-[#f3eee4]">
+    <div className="min-h-screen flex flex-col bg-[#0f1016] text-[#fff0d4]">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-[rgba(243,238,228,0.06)] bg-[#0f1016]/95 backdrop-blur-md">
+      <header className="sticky top-0 z-50 border-b border-[rgba(240,190,100,0.06)] bg-[#0f1016]/95 backdrop-blur-md">
         <div className="max-w-[1440px] mx-auto px-3 sm:px-4 md:px-6 h-14 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 text-xs text-[#9c958a] hover:text-white transition-colors">
+          <Link to="/" className="flex items-center gap-2 text-xs text-[#9a7c60] hover:text-white transition-colors">
             <ArrowLeft className="w-4 h-4" /><span className="hidden sm:inline">Back</span>
           </Link>
           <div className="text-center">
@@ -456,7 +456,7 @@ export default function Live() {
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#ef4444]" />
                 </span>
               )}
-              <span className="text-[10px] font-mono font-medium tracking-widest text-[#c9a227]">{broadcast.status === 'live' ? 'LIVE NOW' : 'ENDED'}</span>
+              <span className="text-[10px] font-mono font-medium tracking-widest text-[#E05A1A]">{broadcast.status === 'live' ? 'LIVE NOW' : 'ENDED'}</span>
             </div>
             <div className="text-xs font-medium text-white max-w-[200px] sm:max-w-xs truncate">{broadcast.title}</div>
           </div>
@@ -466,18 +466,18 @@ export default function Live() {
                 setChatOpen(o => !o)
                 setNewMsgCount(0)
               }}
-              className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-md bg-[rgba(243,238,228,0.06)] hover:bg-[rgba(243,238,228,0.1)] text-white transition-colors relative">
-              <MessageSquare className="w-3.5 h-3.5 text-[#c9a227]" />
+              className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-md bg-[rgba(240,190,100,0.06)] hover:bg-[rgba(240,190,100,0.1)] text-white transition-colors relative">
+              <MessageSquare className="w-3.5 h-3.5 text-[#E05A1A]" />
               <span className="hidden sm:inline">{chatOpen ? 'Hide Chat' : 'Open Chat'}</span>
               <span className="sm:hidden">Chat</span>
               {newMsgCount > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full text-[10px] font-semibold"
-                  style={{ background: '#c9a227', color: '#1b1208' }}>
+                  style={{ background: '#E05A1A', color: '#1b1208' }}>
                   {newMsgCount > 9 ? '9+' : newMsgCount}
                 </span>
               )}
             </button>
-            <span className="text-[11px] font-mono flex items-center gap-1 text-[#9c958a]"><Users className="w-3.5 h-3.5" /> {onlineCount}</span>
+            <span className="text-[11px] font-mono flex items-center gap-1 text-[#9a7c60]"><Users className="w-3.5 h-3.5" /> {onlineCount}</span>
           </div>
         </div>
       </header>
@@ -492,8 +492,8 @@ export default function Live() {
               </div>
               {broadcast.status === 'live' && <StreamPlayer broadcastId={broadcast.id} title={broadcast.title} thumbnailUrl={broadcast.thumbnail_url} />}
               {broadcast.scripture_reference && (
-                <div className="mx-4 mb-4 rounded-xl p-4 text-center bg-[#14141a] border border-[rgba(243,238,228,0.06)]">
-                  <div className="text-[10px] font-mono font-medium tracking-widest text-[#c9a227] mb-1.5">NOW READING</div>
+                <div className="mx-4 mb-4 rounded-xl p-4 text-center bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
+                  <div className="text-[10px] font-mono font-medium tracking-widest text-[#E05A1A] mb-1.5">NOW READING</div>
                   <div className="text-sm font-medium text-white">{broadcast.scripture_reference}</div>
                 </div>
               )}
@@ -504,24 +504,24 @@ export default function Live() {
                 {/* Broadcast info card */}
                 <div className="text-center space-y-3">
                   {broadcast.thumbnail_url ? (
-                    <div className="w-32 h-32 rounded-2xl overflow-hidden border border-[rgba(243,238,228,0.08)] mx-auto shadow-lg">
+                    <div className="w-32 h-32 rounded-2xl overflow-hidden border border-[rgba(240,190,100,0.08)] mx-auto shadow-lg">
                       <img src={broadcast.thumbnail_url} alt={broadcast.title} className="w-full h-full object-cover" />
                     </div>
                   ) : (
-                    <div className="w-16 h-16 rounded-full border border-[#c9a227]/20 flex items-center justify-center mx-auto">
-                      <Radio className="w-7 h-7 text-[#c9a227]" />
+                    <div className="w-16 h-16 rounded-full border border-[#E05A1A]/20 flex items-center justify-center mx-auto">
+                      <Radio className="w-7 h-7 text-[#E05A1A]" />
                     </div>
                   )}
                   <div>
                     <h2 className="text-lg font-semibold text-white">{broadcast.title}</h2>
                     {broadcast.speaker && (
-                      <p className="text-[11px] text-[#c9a227] mt-1 flex items-center justify-center gap-1">
+                      <p className="text-[11px] text-[#E05A1A] mt-1 flex items-center justify-center gap-1">
                         <User className="w-3 h-3" />{broadcast.speaker}
                       </p>
                     )}
-                    {broadcast.description && <p className="text-xs text-[#9c958a] mt-1 max-w-sm mx-auto">{broadcast.description}</p>}
+                    {broadcast.description && <p className="text-xs text-[#9a7c60] mt-1 max-w-sm mx-auto">{broadcast.description}</p>}
                     {broadcast.scripture_reference && (
-                      <p className="text-[11px] text-[#c9a227] mt-2 flex items-center justify-center gap-1"><BookOpen className="w-3 h-3" />{broadcast.scripture_reference}</p>
+                      <p className="text-[11px] text-[#E05A1A] mt-2 flex items-center justify-center gap-1"><BookOpen className="w-3 h-3" />{broadcast.scripture_reference}</p>
                     )}
                   </div>
                 </div>
@@ -534,12 +534,12 @@ export default function Live() {
 
         {/* Chat Section */}
         {chatOpen && (
-          <div className="w-full md:w-80 lg:w-96 border-l border-[rgba(243,238,228,0.06)] flex flex-col bg-[#14141a] max-h-[calc(100dvh-3.5rem)] md:max-h-none">
+          <div className="w-full md:w-80 lg:w-96 border-l border-[rgba(240,190,100,0.06)] flex flex-col bg-[#230d02] max-h-[calc(100dvh-3.5rem)] md:max-h-none">
             {/* Chat Header */}
-            <div className="p-4 border-b border-[rgba(243,238,228,0.06)]">
+            <div className="p-4 border-b border-[rgba(240,190,100,0.06)]">
               <div className="flex items-center justify-between mb-2.5">
                 <h3 className="flex items-center gap-2 text-sm font-medium text-white">
-                  <MessageSquare className="w-3.5 h-3.5 text-[#c9a227]" /> Chat
+                  <MessageSquare className="w-3.5 h-3.5 text-[#E05A1A]" /> Chat
                 </h3>
                 <div className="flex items-center gap-2">
                   <Link to="/donate"
@@ -547,20 +547,20 @@ export default function Live() {
                     style={{ background: 'rgba(201,162,39,0.12)', color: 'var(--gold)' }}>
                     <HandHeart className="w-3 h-3" /> Give
                   </Link>
-                  <span className="text-[10px] font-mono text-[#9c958a]">{onlineCount} active</span>
-                  <button onClick={() => setChatOpen(false)} className="md:hidden text-[#9c958a] p-0.5"><X className="w-4 h-4" /></button>
+                  <span className="text-[10px] font-mono text-[#9a7c60]">{onlineCount} active</span>
+                  <button onClick={() => setChatOpen(false)} className="md:hidden text-[#9a7c60] p-0.5"><X className="w-4 h-4" /></button>
                 </div>
               </div>
               {user && (
                 <div className="flex gap-1 rounded-lg p-0.5 bg-[#0f1016]">
                   <button onClick={() => { setChatMode('public'); setPrivateRecipient(null); }}
                     className="flex-1 flex items-center justify-center gap-1 text-[11px] py-1 rounded-md transition-colors"
-                    style={{ background: chatMode === 'public' ? '#c9a227' : 'transparent', color: chatMode === 'public' ? '#1b1208' : '#9c958a' }}>
+                    style={{ background: chatMode === 'public' ? '#E05A1A' : 'transparent', color: chatMode === 'public' ? '#1b1208' : '#9a7c60' }}>
                     <Globe className="w-3 h-3" /> Public
                   </button>
                   <button onClick={() => setChatMode('private')}
                     className="flex-1 flex items-center justify-center gap-1 text-[11px] py-1 rounded-md transition-colors"
-                    style={{ background: chatMode === 'private' ? '#c9a227' : 'transparent', color: chatMode === 'private' ? '#1b1208' : '#9c958a' }}>
+                    style={{ background: chatMode === 'private' ? '#E05A1A' : 'transparent', color: chatMode === 'private' ? '#1b1208' : '#9a7c60' }}>
                     <Lock className="w-3 h-3" /> Private
                   </button>
                 </div>
@@ -568,21 +568,21 @@ export default function Live() {
               {user && chatMode === 'private' && (
                 <div className="mt-2 relative">
                   <button onClick={() => setShowRecipientPicker(!showRecipientPicker)}
-                    className="w-full text-left text-[11px] flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[rgba(243,238,228,0.08)] bg-[#0f1016] text-[#9c958a]">
+                    className="w-full text-left text-[11px] flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[rgba(240,190,100,0.08)] bg-[#0f1016] text-[#9a7c60]">
                     {privateRecipient ? (
-                      <><User className="w-3 h-3 text-[#c9a227]" /><span className="text-white">{privateRecipient.user_name}</span></>
+                      <><User className="w-3 h-3 text-[#E05A1A]" /><span className="text-white">{privateRecipient.user_name}</span></>
                     ) : (<>Select recipient...</>)}
                     <ChevronDown className="w-3 h-3 ml-auto" />
                   </button>
                   {showRecipientPicker && (
-                    <div className="absolute top-full left-0 right-0 mt-1 rounded-md border border-[rgba(243,238,228,0.08)] bg-[#0f1016] z-10 overflow-hidden max-h-40 overflow-y-auto">
+                    <div className="absolute top-full left-0 right-0 mt-1 rounded-md border border-[rgba(240,190,100,0.08)] bg-[#0f1016] z-10 overflow-hidden max-h-40 overflow-y-auto">
                       {chatUsers.length === 0 ? (
-                        <div className="px-3 py-2 text-[11px] text-[#9c958a]">No active users yet</div>
+                        <div className="px-3 py-2 text-[11px] text-[#9a7c60]">No active users yet</div>
                       ) : (
                         chatUsers.map(u => (
                           <button key={u.user_id} onClick={() => { setPrivateRecipient(u); setShowRecipientPicker(false); }}
-                            className="w-full text-left px-3 py-2 text-[11px] flex items-center gap-1.5 hover:bg-[rgba(243,238,228,0.04)] transition-colors text-white">
-                            <User className="w-3 h-3 text-[#c9a227]" />{u.user_name}
+                            className="w-full text-left px-3 py-2 text-[11px] flex items-center gap-1.5 hover:bg-[rgba(240,190,100,0.04)] transition-colors text-white">
+                            <User className="w-3 h-3 text-[#E05A1A]" />{u.user_name}
                           </button>
                         ))
                       )}
@@ -603,30 +603,30 @@ export default function Live() {
                       <div className="relative group">
                         <div className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${isOwnMessage(msg) ? 'rounded-br-sm' : 'rounded-bl-sm'}`}
                           style={{
-                            background: isOwnMessage(msg) ? (msg.is_private ? '#4a3b2a' : '#c9a227') : (msg.is_private ? '#2a2a3a' : '#0f1016'),
-                            color: isOwnMessage(msg) && !msg.is_private ? '#1b1208' : '#f3eee4',
-                            border: msg.is_private ? '1px solid rgba(243,238,228,0.08)' : '1px solid rgba(243,238,228,0.05)'
+                            background: isOwnMessage(msg) ? (msg.is_private ? '#4a3b2a' : '#E05A1A') : (msg.is_private ? '#2a2a3a' : '#0f1016'),
+                            color: isOwnMessage(msg) && !msg.is_private ? '#1b1208' : '#fff0d4',
+                            border: msg.is_private ? '1px solid rgba(240,190,100,0.08)' : '1px solid rgba(240,190,100,0.05)'
                           }}>
                           <div className="flex items-center gap-1.5 mb-0.5">
-                            <span className="font-mono text-[10px] font-medium" style={{ color: isOwnMessage(msg) && !msg.is_private ? '#1b1208' : '#c9a227' }}>{displayName(msg)}</span>
+                            <span className="font-mono text-[10px] font-medium" style={{ color: isOwnMessage(msg) && !msg.is_private ? '#1b1208' : '#E05A1A' }}>{displayName(msg)}</span>
                             {msg.is_private && <Lock className="w-2.5 h-2.5 opacity-60" />}
-                            {msg.guest_name && <span className="text-[9px] px-1 rounded bg-[rgba(243,238,228,0.08)] text-[#9c958a]">guest</span>}
+                            {msg.guest_name && <span className="text-[9px] px-1 rounded bg-[rgba(240,190,100,0.08)] text-[#9a7c60]">guest</span>}
                           </div>
                           <p className="text-[13px] leading-relaxed">{msg.message}</p>
                           <span className="text-[9px] mt-0.5 block opacity-50 flex items-center gap-0.5">
                             <Clock className="w-2 h-2" /> {formatTime(msg.created_at)}
                           </span>
                         </div>
-                        {/* Reaction trigger button — visible on hover */}
+                        {/* Reaction trigger button � visible on hover */}
                         <button
                           onClick={() => setReactingTo(reactingTo === msg.id ? null : msg.id)}
-                          className={`absolute -bottom-1 ${isOwnMessage(msg) ? '-left-6' : '-right-6'} opacity-0 group-hover:opacity-100 transition-opacity text-sm leading-none p-0.5 rounded-full bg-[#1c1d24] border border-[rgba(243,238,228,0.08)]`}
+                          className={`absolute -bottom-1 ${isOwnMessage(msg) ? '-left-6' : '-right-6'} opacity-0 group-hover:opacity-100 transition-opacity text-sm leading-none p-0.5 rounded-full bg-[#2f1206] border border-[rgba(240,190,100,0.08)]`}
                           title="React"
                           data-reaction-btn="1"
-                        >😊</button>
+                        >??</button>
                         {/* Reaction picker */}
                         {reactingTo === msg.id && (
-                          <div data-reaction-picker="1" className={`absolute bottom-6 ${isOwnMessage(msg) ? 'right-0' : 'left-0'} flex gap-1 bg-[#1c1d24] border border-[rgba(243,238,228,0.1)] rounded-full px-2 py-1 shadow-xl z-20`}>
+                          <div data-reaction-picker="1" className={`absolute bottom-6 ${isOwnMessage(msg) ? 'right-0' : 'left-0'} flex gap-1 bg-[#2f1206] border border-[rgba(240,190,100,0.1)] rounded-full px-2 py-1 shadow-xl z-20`}>
                             {REACTION_EMOJIS.map(e => (
                               <button key={e} onClick={() => reactToMessage(msg.id, e)}
                                 className="text-lg leading-none hover:scale-125 transition-transform">{e}</button>
@@ -640,8 +640,8 @@ export default function Live() {
                           {reactionEntries.map(([emoji, count]) => (
                             <button key={emoji} onClick={() => reactToMessage(msg.id, emoji)}
                               className="flex items-center gap-0.5 text-[11px] px-1.5 py-0.5 rounded-full transition-colors hover:bg-[rgba(201,162,39,0.2)]"
-                              style={{ background: 'rgba(243,238,228,0.07)', border: '1px solid rgba(243,238,228,0.08)' }}>
-                              <span>{emoji}</span><span className="text-[#9c958a]">{count as number}</span>
+                              style={{ background: 'rgba(240,190,100,0.07)', border: '1px solid rgba(240,190,100,0.08)' }}>
+                              <span>{emoji}</span><span className="text-[#9a7c60]">{count as number}</span>
                             </button>
                           ))}
                         </div>
@@ -650,7 +650,7 @@ export default function Live() {
                   )
                 })}
                 {chatMessages.length === 0 && (
-                  <div className="text-center py-8 text-xs text-[#9c958a]">
+                  <div className="text-center py-8 text-xs text-[#9a7c60]">
                     <MessageSquare className="w-6 h-6 mx-auto mb-2 opacity-30" />
                     No messages yet.<br />Be the first to say something!
                   </div>
@@ -661,31 +661,31 @@ export default function Live() {
               {showScrollBtn && (
                 <button onClick={scrollToBottom}
                   className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-semibold shadow-lg transition-all animate-bounce-slow"
-                  style={{ background: '#c9a227', color: '#1b1208' }}>
+                  style={{ background: '#E05A1A', color: '#1b1208' }}>
                   <ArrowDown className="w-3 h-3" /> New messages
                 </button>
               )}
             </div>
 
             {/* Input */}
-            <div className="p-4 border-t border-[rgba(243,238,228,0.06)]">
+            <div className="p-4 border-t border-[rgba(240,190,100,0.06)]">
               {!user && !guestNameSet && (
                 <div className="mb-2 flex gap-1.5">
                   <input type="text" value={guestName} onChange={(e) => setGuestName(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter' && guestName.trim()) { sessionStorage.setItem('chat_guest_name', guestName.trim()); setGuestNameSet(true) }}}
                     placeholder="Your name to start chatting..." maxLength={20}
-                    className="flex-1 rounded-lg px-3 py-1.5 text-[11px] border border-[rgba(243,238,228,0.08)] bg-[#0f1016] text-[#f3eee4] placeholder-[#9c958a] outline-none focus:border-[#c9a227]/30" />
+                    className="flex-1 rounded-lg px-3 py-1.5 text-[11px] border border-[rgba(240,190,100,0.08)] bg-[#0f1016] text-[#fff0d4] placeholder-[#9a7c60] outline-none focus:border-[#E05A1A]/30" />
                   <button type="button" onClick={() => { if (guestName.trim()) { sessionStorage.setItem('chat_guest_name', guestName.trim()); setGuestNameSet(true) }}}
-                    className="px-2.5 py-1 rounded-lg bg-[#c9a227] text-[#1b1208] text-[11px] font-semibold shrink-0">
+                    className="px-2.5 py-1 rounded-lg bg-[#E05A1A] text-[#1b1208] text-[11px] font-semibold shrink-0">
                     OK
                   </button>
                 </div>
               )}
               {!user && guestNameSet && (
-                <div className="mb-2 flex items-center justify-between text-[10px] text-[#9c958a]">
+                <div className="mb-2 flex items-center justify-between text-[10px] text-[#9a7c60]">
                   <span>Chatting as <span className="text-white font-medium">{guestName}</span></span>
                   <button type="button" onClick={() => { sessionStorage.removeItem('chat_guest_name'); setGuestNameSet(false) }}
-                    className="text-[#c9a227] hover:underline">Change</button>
+                    className="text-[#E05A1A] hover:underline">Change</button>
                 </div>
               )}
               <form onSubmit={sendMessage}>
@@ -693,17 +693,17 @@ export default function Live() {
                   <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)}
                     disabled={!user && !guestNameSet}
                     placeholder={!user && !guestNameSet ? 'Enter your name above first...' : chatMode === 'private' && privateRecipient ? `Message ${privateRecipient.user_name}...` : 'Send a message...'}
-                    className="flex-1 rounded-lg px-3 py-2 text-sm border border-[rgba(243,238,228,0.08)] bg-[#0f1016] text-[#f3eee4] placeholder-[#9c958a] outline-none focus:border-[#c9a227]/30 disabled:opacity-50" />
+                    className="flex-1 rounded-lg px-3 py-2 text-sm border border-[rgba(240,190,100,0.08)] bg-[#0f1016] text-[#fff0d4] placeholder-[#9a7c60] outline-none focus:border-[#E05A1A]/30 disabled:opacity-50" />
                   <button type="submit" disabled={!newMessage.trim() || (chatMode === 'private' && !privateRecipient) || (!user && !guestNameSet)}
                     className="w-10 h-10 rounded-lg flex items-center justify-center transition-colors"
-                    style={{ background: newMessage.trim() && (chatMode !== 'private' || privateRecipient) ? '#c9a227' : 'rgba(243,238,228,0.08)', color: newMessage.trim() && (chatMode !== 'private' || privateRecipient) ? '#1b1208' : '#9c958a' }}>
+                    style={{ background: newMessage.trim() && (chatMode !== 'private' || privateRecipient) ? '#E05A1A' : 'rgba(240,190,100,0.08)', color: newMessage.trim() && (chatMode !== 'private' || privateRecipient) ? '#1b1208' : '#9a7c60' }}>
                     <Send className="w-4 h-4" />
                   </button>
                 </div>
               </form>
               {!user && (
-                <div className="mt-2 text-center text-[10px] text-[#9c958a]">
-                  <Link to="/login" className="underline hover:opacity-80 text-[#c9a227]">Sign in</Link> for private messaging
+                <div className="mt-2 text-center text-[10px] text-[#9a7c60]">
+                  <Link to="/login" className="underline hover:opacity-80 text-[#E05A1A]">Sign in</Link> for private messaging
                 </div>
               )}
             </div>
@@ -714,10 +714,11 @@ export default function Live() {
       {/* Mobile Chat Toggle */}
       {!chatOpen && (
         <button onClick={() => setChatOpen(true)}
-          className="md:hidden fixed bottom-4 right-4 w-12 h-12 rounded-full flex items-center justify-center bg-[#c9a227] text-[#1b1208] shadow-lg z-50">
+          className="md:hidden fixed bottom-4 right-4 w-12 h-12 rounded-full flex items-center justify-center bg-[#E05A1A] text-[#1b1208] shadow-lg z-50">
           <MessageSquare className="w-5 h-5" />
         </button>
       )}
     </div>
   )
 }
+
