@@ -202,16 +202,16 @@ async function _initDbInternal() {
     console.log('[DB] schedule seeded')
   }
 
-  const admin = await db.get('SELECT * FROM users WHERE role = $1', ['admin'])
+  const admin = await db.get('SELECT * FROM users WHERE email = $1', ['admin@sureword.com'])
   if (!admin) {
     const bcrypt = await import('bcryptjs')
     const hashFn = (bcrypt as any).default?.hash || (bcrypt as any).hash
     const hash = await hashFn('admin123', 10)
     await db.run(
       `INSERT INTO users (id, email, password_hash, name, role) VALUES ($1, $2, $3, $4, $5)`,
-      ['admin-1', 'admin@zionite.online', hash, 'Admin User', 'admin']
+      ['admin-1', 'admin@sureword.com', hash, 'Admin User', 'admin']
     )
-    console.log('[DB] admin seeded')
+    console.log('[DB] admin seeded: admin@sureword.com')
   }
   console.log('[DB] init complete')
   _dbInitDone = true
