@@ -16,31 +16,40 @@ export async function runMigrations() {
 
   const migrationDir = join(__dirname)
   const files = readdirSync(migrationDir)
-    .filter(f => f.endsWith('.sql'))
+    .filter(f => f.endsWith('.sql') || f.endsWith('.ts'))
+    .filter(f => f !== 'runner.ts')
     .sort()
 
   for (const file of files) {
-    const name = basename(file, '.sql')
+    const name = basename(file, file.endsWith('.ts') ? '.ts' : '.sql')
     const existing = await db.get('SELECT * FROM migrations WHERE name = $1', [name])
     if (existing) continue
 
     console.log(`[MIGRATION] applying ${name}...`)
-    const sql = readFileSync(join(migrationDir, file), 'utf-8')
-    // Strip single-line comments before splitting so semicolons inside comments don't break things
-    const cleaned = sql
-      .split('\n')
-      .map(line => line.replace(/\s*--.*$/, ''))
-      .join('\n')
-    const statements = cleaned.split(';').map(s => s.trim()).filter(s => s.length > 0)
 
-    for (const stmt of statements) {
-      try {
-        await db.query(stmt)
-      } catch (err: any) {
-        if (err.message?.includes('already exists') || err.message?.includes('duplicate column')) {
-          console.log(`[MIGRATION] ${name} skipped (already applied): ${err.message}`)
-        } else {
-          throw err
+    if (file.endsWith('.ts')) {
+      const mod = await import(join(migrationDir, file))
+      if (typeof mod.up === 'function') {
+        await mod.up(db)
+      }
+    } else {
+      const sql = readFileSync(join(migrationDir, file), 'utf-8')
+      // Strip single-line comments before splitting so semicolons inside comments don't break things
+      const cleaned = sql
+        .split('\n')
+        .map(line => line.replace(/\s*--.*$/, ''))
+        .join('\n')
+      const statements = cleaned.split(';').map(s => s.trim()).filter(s => s.length > 0)
+
+      for (const stmt of statements) {
+        try {
+          await db.query(stmt)
+        } catch (err: any) {
+          if (err.message?.includes('already exists') || err.message?.includes('duplicate column')) {
+            console.log(`[MIGRATION] ${name} skipped (already applied): ${err.message}`)
+          } else {
+            throw err
+          }
         }
       }
     }
