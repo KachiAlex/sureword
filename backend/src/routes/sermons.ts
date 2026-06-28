@@ -97,6 +97,18 @@ router.delete('/featured/:sermon_id', authenticateToken, requireRole('admin'), a
   }
 })
 
+// Radio current - returns the sermon currently on air
+router.get('/radio/current', async (req, res) => {
+  try {
+    await initDb()
+    const current = await db.get('SELECT * FROM sermons ORDER BY date DESC LIMIT 1')
+    res.json({ current: current || null, playlist: null })
+  } catch (err: any) {
+    console.error('[SERMONS] radio current error:', err.message)
+    res.status(500).json({ error: 'Failed to fetch current sermon' })
+  }
+})
+
 // Transcripts
 router.get('/:id/transcript', async (req, res) => {
   try {

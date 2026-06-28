@@ -118,13 +118,20 @@ export default function Home() {
       <StructuredData />
 
       {/* ══ HERO ══ */}
-      <section style={{ maxWidth: 1200, margin: '0 auto', padding: '70px 24px 60px' }}>
+      <section style={{
+        position: 'relative',
+        backgroundImage: 'linear-gradient(to right, rgba(22,6,0,.92) 0%, rgba(22,6,0,.72) 55%, rgba(22,6,0,.55) 100%), url(https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=1600&q=80)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        padding: '80px 24px 70px'
+      }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, alignItems: 'center' }} className="hero-grid">
           {/* Left */}
           <div>
             <div className="eyebrow">Online 24 / 7</div>
             <h1 className="font-bebas" style={{ fontSize: 'clamp(56px,7vw,88px)', lineHeight: .95, margin: '14px 0 8px', color: 'var(--white)' }}>
-              THE<br /><span style={{ color: 'var(--flame)' }}>WHOLE</span><br />WORD
+              THE <span style={{ color: 'var(--flame)' }}>WHOLE</span> WORD
             </h1>
             <p className="font-serif" style={{ fontSize: 'clamp(15px,1.8vw,19px)', color: 'var(--cream2)', fontStyle: 'italic', margin: '6px 0 28px' }}>
               To the whole world — live from the studio, anytime you need it.
@@ -216,6 +223,7 @@ export default function Home() {
               </div>
             </div>
           </div>
+        </div>
         </div>
       </section>
 

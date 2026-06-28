@@ -21,14 +21,6 @@
   ],
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/socket.io/(.*)",
-      "destination": "/api/index"
-    },
-    {
       "source": "/sw.js",
       "destination": "/sw.js"
     },

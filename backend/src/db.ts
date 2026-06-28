@@ -149,6 +149,10 @@ const SCHEMA_QUERIES = [
   `CREATE TABLE IF NOT EXISTS daily_verses (
     id TEXT PRIMARY KEY, title TEXT NOT NULL, content TEXT NOT NULL, reference TEXT, type TEXT DEFAULT 'verse',
     created_by TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS print_media (
+    id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, category TEXT DEFAULT 'tract',
+    pdf_url TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`
 ]
 
@@ -197,7 +201,8 @@ async function _initDbInternal() {
   const admin = await db.get('SELECT * FROM users WHERE role = $1', ['admin'])
   if (!admin) {
     const bcrypt = await import('bcryptjs')
-    const hash = await bcrypt.hash('admin123', 10)
+    const hashFn = (bcrypt as any).default?.hash || (bcrypt as any).hash
+    const hash = await hashFn('admin123', 10)
     await db.run(
       `INSERT INTO users (id, email, password_hash, name, role) VALUES ($1, $2, $3, $4, $5)`,
       ['admin-1', 'admin@zionite.online', hash, 'Admin User', 'admin']
