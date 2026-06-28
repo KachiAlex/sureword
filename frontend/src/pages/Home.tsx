@@ -7,7 +7,8 @@ import {
 } from '../lib/api'
 import type { Sermon } from '../lib/api'
 import StructuredData from '../components/StructuredData'
-import { Play, Pause, Headphones, BookOpen, Download } from 'lucide-react'
+import { Play, Pause, BookOpen, Download } from 'lucide-react'
+import { useMemo } from 'react'
 
 /* ── Logo SVGs ── */
 function SignalLogo({ size = 100 }: { size?: number }) {
@@ -25,17 +26,38 @@ function SignalLogo({ size = 100 }: { size?: number }) {
   )
 }
 
-/* ── Waveform bars ── */
-function Waveform() {
-  const bars = [40,70,90,50,65,35,80,55,70,40,85,60,45,75,50,30,65]
+/* ── Spectrum bars (signature motion) ── */
+function SpectrumBars() {
+  const bars = useMemo(() => {
+    const count = 80
+    return Array.from({ length: count }, () => ({
+      lo: Math.random() * 30 + 8,
+      hi: Math.random() * 60 + 30,
+      dur: (Math.random() * 0.8 + 0.5).toFixed(2),
+      delay: (Math.random() * 1).toFixed(2)
+    }))
+  }, [])
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 3, height: 40, margin: '14px 0' }}>
-      {bars.map((h, i) => (
-        <span key={i} style={{
-          width: 3, borderRadius: 2, background: 'var(--flame)', display: 'block',
-          height: `${h}%`, animation: `wv ${1 + (i % 3) * 0.25}s ease-in-out infinite`
-        }} />
-      ))}
+    <div style={{ position: 'relative', zIndex: 1, padding: '28px 0 0', overflow: 'hidden' }}>
+      <div style={{
+        fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase',
+        color: 'var(--ash)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8
+      }}>
+        <span>Live frequency</span>
+        <span style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+      </div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 56, width: '100%' }}>
+        {bars.map((b, i) => (
+          <span key={i} style={{
+            flex: 1, borderRadius: '1px 1px 0 0',
+            background: 'linear-gradient(to top,var(--flame2),var(--sunrise))',
+            opacity: .75, minHeight: 4,
+            height: `${b.lo}%`,
+            animation: `barjump ${b.dur}s ease-in-out infinite alternate`,
+            animationDelay: `${b.delay}s`
+          }} />
+        ))}
+      </div>
     </div>
   )
 }
@@ -49,7 +71,7 @@ function SermonListItem({ s, index, onPlay }: { s: Sermon; index: number; onPlay
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 14, background: 'var(--coal)',
-      border: '1px solid var(--line)', borderRadius: 6, padding: '12px 14px',
+      border: '1px solid var(--line)', borderRadius: 4, padding: '13px 16px',
       transition: 'border-color .15s, background .15s', cursor: 'pointer'
     }}
     className="hover-lift"
@@ -119,111 +141,201 @@ export default function Home() {
 
       {/* ══ HERO ══ */}
       <section style={{
-        position: 'relative',
-        backgroundImage: 'linear-gradient(to right, rgba(22,6,0,.92) 0%, rgba(22,6,0,.72) 55%, rgba(22,6,0,.55) 100%), url(https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=1600&q=80)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        padding: '80px 24px 70px'
+        position: 'relative', minHeight: '100vh', display: 'flex', flexDirection: 'column',
+        justifyContent: 'center', overflow: 'hidden', paddingTop: 64
       }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, alignItems: 'center' }} className="hero-grid">
-          {/* Left */}
-          <div>
-            <div className="eyebrow">Online 24 / 7</div>
-            <h1 className="font-bebas" style={{ fontSize: 'clamp(56px,7vw,88px)', lineHeight: .95, margin: '14px 0 8px', color: 'var(--white)' }}>
-              THE <span style={{ color: 'var(--flame)' }}>WHOLE</span> WORD
-            </h1>
-            <p className="font-serif" style={{ fontSize: 'clamp(15px,1.8vw,19px)', color: 'var(--cream2)', fontStyle: 'italic', margin: '6px 0 28px' }}>
-              To the whole world — live from the studio, anytime you need it.
-            </p>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              <Link to={isLive && broadcast ? `/live/${broadcast.id}` : '/live'} className="btn btn-flame">
-                <Headphones style={{ width: 16, height: 16 }} /> Listen Live Now
-              </Link>
-              <Link to="/archive" className="btn btn-out">Browse Sermons</Link>
+        {/* Stage glow — warm light from above */}
+        <div style={{
+          position: 'absolute', top: -180, left: '50%', transform: 'translateX(-50%)',
+          width: 1100, height: 900,
+          background: 'radial-gradient(ellipse at 50% 0%, rgba(224,90,26,.22) 0%, rgba(245,166,35,.06) 40%, transparent 70%)',
+          pointerEvents: 'none', zIndex: 0
+        }} />
+
+        {/* Ghost watermark */}
+        <div style={{
+          position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+          fontFamily: "'Bebas Neue',sans-serif", fontSize: 'clamp(120px,20vw,280px)',
+          letterSpacing: '.06em', whiteSpace: 'nowrap', color: 'var(--flame)', opacity: .04,
+          pointerEvents: 'none', zIndex: 0, userSelect: 'none', lineHeight: 1
+        }}>SURE WORD</div>
+
+        {/* Diagonal accent band */}
+        <div style={{
+          position: 'absolute', top: 0, right: -100,
+          width: 520, height: '100%',
+          background: 'linear-gradient(135deg, transparent 40%, rgba(224,90,26,.055) 40%, rgba(224,90,26,.055) 60%, transparent 60%)',
+          pointerEvents: 'none', zIndex: 0
+        }} />
+
+        <div style={{ position: 'relative', zIndex: 1, maxWidth: 1240, margin: '0 auto', padding: '0 32px', width: '100%' }}>
+          <div style={{
+            display: 'grid', gridTemplateColumns: '1fr 460px', gap: 0,
+            alignItems: 'center', minHeight: 'calc(100vh - 64px - 110px)', padding: '60px 0 0'
+          }} className="hero-stage">
+
+            {/* LEFT */}
+            <div style={{ paddingRight: 40 }}>
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 10,
+                background: 'rgba(224,90,26,.1)', border: '1px solid rgba(224,90,26,.25)',
+                borderLeft: '3px solid var(--flame)', padding: '8px 16px', marginBottom: 32,
+                fontSize: 11.5, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase',
+                color: 'var(--flame3)'
+              }}>
+                <span className="ldot" />
+                Broadcasting 24 hours · 7 days a week
+              </div>
+
+              {/* 3-line headline */}
+              <h1 aria-label="The Whole Word">
+                <span style={{
+                  display: 'block', fontFamily: "'Bebas Neue',sans-serif",
+                  fontSize: 'clamp(72px,9.5vw,136px)', lineHeight: .92,
+                  color: 'transparent', WebkitTextStroke: '1.5px rgba(255,240,212,.22)',
+                  letterSpacing: '.03em'
+                }}>THE</span>
+                <span style={{
+                  display: 'block', fontFamily: "'Bebas Neue',sans-serif",
+                  fontSize: 'clamp(80px,11vw,158px)', lineHeight: .92,
+                  color: 'var(--flame)', textShadow: '0 0 80px rgba(224,90,26,.3)',
+                  letterSpacing: '.03em'
+                }}>WHOLE</span>
+                <span style={{
+                  display: 'block', fontFamily: "'Bebas Neue',sans-serif",
+                  fontSize: 'clamp(72px,9.5vw,136px)', lineHeight: .92,
+                  color: 'var(--white)', letterSpacing: '.03em'
+                }}>WORD.</span>
+              </h1>
+
+              <p style={{
+                fontFamily: "'Playfair Display',serif", fontStyle: 'italic',
+                fontSize: 'clamp(16px,1.6vw,21px)', color: 'var(--cream2)',
+                margin: '22px 0 34px', lineHeight: 1.5, maxWidth: 440
+              }}>
+                To the whole world — live from the studio,<br />
+                every hour of every day.
+              </p>
+
+              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                <Link to={isLive && broadcast ? `/live/${broadcast.id}` : '/live'} className="btn btn-flame" style={{ fontSize: 15, padding: '14px 32px' }}>
+                  <svg viewBox="0 0 24 24" width={16} height={16} fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  Listen Live
+                </Link>
+                <Link to="/archive" className="btn btn-out" style={{ fontSize: 15, padding: '14px 32px' }}>Browse Sermons</Link>
+              </div>
+            </div>
+
+            {/* RIGHT: emblem */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+              <div style={{ position: 'relative', width: 340, height: 340, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {/* Concentric rings */}
+                <div style={{
+                  position: 'absolute', borderRadius: '50%', border: '1px solid var(--flame)',
+                  animation: 'ringpulse 3.5s ease-out infinite', width: 200, height: 200,
+                  animationDelay: '0s', opacity: .6, '--o': .6 } as any} />
+                <div style={{
+                  position: 'absolute', borderRadius: '50%', border: '1px solid var(--sunrise)',
+                  animation: 'ringpulse 3.5s ease-out infinite', width: 260, height: 260,
+                  animationDelay: '.9s', opacity: .35, '--o': .35 } as any} />
+                <div style={{
+                  position: 'absolute', borderRadius: '50%', border: '1px solid var(--flame)',
+                  animation: 'ringpulse 3.5s ease-out infinite', width: 320, height: 320,
+                  animationDelay: '1.8s', opacity: .18, '--o': .18 } as any} />
+                {/* Dotted orbit */}
+                <div style={{
+                  position: 'absolute', width: 240, height: 240, borderRadius: '50%',
+                  border: '1px dashed rgba(245,166,35,.25)', animation: 'spin 22s linear infinite'
+                }} />
+                {/* Emblem core */}
+                <div style={{
+                  width: 170, height: 170, borderRadius: '50%',
+                  background: 'radial-gradient(circle at 40% 35%, var(--panel2), var(--coal))',
+                  border: '2px solid var(--flame)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  zIndex: 2, boxShadow: '0 0 60px rgba(224,90,26,.2), inset 0 1px 0 rgba(255,240,212,.06)'
+                }}>
+                  <SignalLogo size={110} />
+                </div>
+                {/* Floating stats */}
+                <div style={{ position: 'absolute', top: 20, right: 20, textAlign: 'center' }}>
+                  <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 28, color: 'var(--sunrise)', lineHeight: 1 }}>248</div>
+                  <div style={{ fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--ash2)' }}>Listening now</div>
+                </div>
+                <div style={{ position: 'absolute', bottom: 30, left: 10, textAlign: 'center' }}>
+                  <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 28, color: 'var(--sunrise)', lineHeight: 1 }}>24/7</div>
+                  <div style={{ fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--ash2)' }}>Always on air</div>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Right: signal + now playing */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 0, alignItems: 'center' }}>
-            {/* Signal animation */}
-            <div style={{
-              position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 160, height: 160, flexShrink: 0, marginBottom: 24
-            }}>
-              <div className="signal-ring" style={{ width: '100%', height: '100%', animationDelay: '0s', opacity: .5 }} />
-              <div className="signal-ring" style={{ width: '130%', height: '130%', animationDelay: '1s', opacity: .3 }} />
-              <div className="signal-ring" style={{ width: '160%', height: '160%', animationDelay: '2s', opacity: .15 }} />
-              <div style={{
-                width: 100, height: 100, borderRadius: '50%', background: 'var(--panel)',
-                border: '2px solid var(--flame)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1
-              }}>
-                <SignalLogo size={72} />
-              </div>
-            </div>
-
-            {/* Now Playing Card */}
-            <div style={{ width: '100%', background: 'var(--panel)', border: '1px solid var(--line)', borderRadius: 8, overflow: 'hidden' }}>
-              <div style={{
-                background: 'linear-gradient(135deg,var(--flame2),var(--flame),var(--sunrise))',
-                padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-              }}>
-                <div className="font-bebas" style={{ fontSize: 15, letterSpacing: '.1em', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span className="ldot" style={{ width: 6, height: 6 }} /> Now Playing
-                </div>
-                <span style={{ fontSize: 11, fontWeight: 600 }}>{isLive ? 'LIVE BROADCAST' : 'ON AIR'}</span>
-              </div>
-              <div style={{ padding: 18 }}>
-                <div className="font-serif" style={{ fontSize: 19, marginBottom: 4, color: 'var(--white)' }}>
-                  {nowPlaying?.title || broadcast?.title || 'Grace That Never Fails'}
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--ash)' }}>
-                  {nowPlaying?.speaker || broadcast?.speaker || 'Pastor Emmanuel Osei'}
-                  {nowPlaying?.scriptureReference ? ` · ${nowPlaying.scriptureReference}` : ''}
-                </div>
-                <Waveform />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                  <span className="font-mono" style={{ fontSize: 11, color: 'var(--ash)' }}>24:18</span>
-                  <div style={{ flex: 1, height: 3, background: 'var(--mahog)', borderRadius: 2, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: '44%', background: 'linear-gradient(to right,var(--flame),var(--sunrise))', borderRadius: 2 }} />
-                  </div>
-                  <span className="font-mono" style={{ fontSize: 11, color: 'var(--ash)' }}>55:40</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
-                  {['prev','rewind','play','forward','next'].map((ctrl) => (
-                    <button key={ctrl}
-                      style={{
-                        background: ctrl === 'play' ? 'var(--flame)' : 'transparent',
-                        color: ctrl === 'play' ? '#fff' : 'var(--cream2)',
-                        border: 'none', borderRadius: '50%', padding: ctrl === 'play' ? 0 : 6,
-                        width: ctrl === 'play' ? 48 : 32, height: ctrl === 'play' ? 48 : 32,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'color .15s, background .15s'
-                      }}
-                      onClick={() => {
-                        if (ctrl === 'play') {
-                          if (nowPlaying) {
-                            if (currentTrack?.id === nowPlaying.itemId) togglePlay()
-                            else playTrack({ id: nowPlaying.itemId, title: nowPlaying.title, speaker: nowPlaying.speaker, audioUrl: nowPlaying.audioUrl, thumbnail: nowPlaying.thumbnailUrl, trackType: 'sermon' })
-                          }
-                        }
-                      }}>
-                      {ctrl === 'play' ? (
-                        npActive
-                          ? <Pause style={{ width: 18, height: 18 }} />
-                          : <Play style={{ width: 18, height: 18 }} />
-                      ) : (
-                        <span style={{ fontSize: 12, color: 'var(--ash)' }}>
-                          {ctrl === 'prev' ? '⏮' : ctrl === 'rewind' ? '⏪' : ctrl === 'forward' ? '⏩' : '⏭'}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Spectrum bars */}
+          <SpectrumBars />
         </div>
+
+        {/* Now Playing bar */}
+        <div style={{
+          position: 'relative', zIndex: 1,
+          background: 'rgba(15,4,0,.85)', borderTop: '1px solid var(--line2)',
+          backdropFilter: 'blur(12px)', padding: '0 32px'
+        }}>
+          <div style={{ maxWidth: 1240, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 20, height: 84 }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 7,
+              background: 'var(--flame)', padding: '5px 12px', borderRadius: 2,
+              fontSize: 11, fontWeight: 700, letterSpacing: '.08em',
+              color: '#fff', flexShrink: 0
+            }}>
+              <span className="ldot" style={{ width: 6, height: 6 }} />
+              NOW PLAYING
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--white)' }}>
+                {nowPlaying?.title || broadcast?.title || 'Grace That Never Fails'}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--ash2)' }}>
+                {nowPlaying?.speaker || broadcast?.speaker || 'Pastor Emmanuel Osei'}
+                {nowPlaying?.scriptureReference ? ` · ${nowPlaying.scriptureReference}` : ''}
+              </div>
+            </div>
+            {/* Progress */}
+            <div style={{ flex: 1, maxWidth: 320 }}>
+              <div style={{ height: 3, background: 'var(--panel2)', borderRadius: 2, overflow: 'hidden', marginBottom: 5 }}>
+                <div style={{ height: '100%', width: '38%', background: 'linear-gradient(to right,var(--flame),var(--sunrise))', borderRadius: 2 }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, color: 'var(--ash)', fontFamily: "'IBM Plex Mono',monospace" }}>
+                <span>24:18</span><span>55:40</span>
+              </div>
+            </div>
+            {/* Controls */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+              <button style={{ background: 'transparent', border: 'none', color: 'var(--ash2)', padding: 6, transition: 'color .15s' }}>
+                <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5"/></svg>
+              </button>
+              <button style={{
+                width: 42, height: 42, borderRadius: '50%', background: 'var(--flame)', border: 'none', color: '#fff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background .15s'
+              }}
+              onClick={() => {
+                if (nowPlaying) {
+                  if (currentTrack?.id === nowPlaying.itemId) togglePlay()
+                  else playTrack({ id: nowPlaying.itemId, title: nowPlaying.title, speaker: nowPlaying.speaker, audioUrl: nowPlaying.audioUrl, thumbnail: nowPlaying.thumbnailUrl, trackType: 'sermon' })
+                }
+              }}>
+                {npActive ? <Pause style={{ width: 18, height: 18 }} /> : <Play style={{ width: 18, height: 18 }} />}
+              </button>
+              <button style={{ background: 'transparent', border: 'none', color: 'var(--ash2)', padding: 6, transition: 'color .15s' }}>
+                <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+              </button>
+            </div>
+            {/* Volume */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--ash)' }}>
+              <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+              <div style={{ width: 72, height: 3, background: 'var(--panel2)', borderRadius: 2, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: '70%', background: 'var(--ash2)', borderRadius: 2 }} />
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -234,9 +346,9 @@ export default function Home() {
       <section style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px 60px' }}>
         <div style={{ marginBottom: 32 }}>
           <div className="eyebrow">Today on air</div>
-          <h2 className="font-bebas" style={{ fontSize: 'clamp(28px,3.5vw,38px)', margin: '8px 0 6px' }}>Program Schedule</h2>
-          <p style={{ color: 'var(--ash)', fontSize: 15, maxWidth: 520 }}>
-            What's broadcasting on Sure Word Radio today. Tune in or catch up in the archive.
+          <h2 className="font-bebas" style={{ fontSize: 'clamp(34px,4vw,52px)', margin: '8px 0 6px' }}>Program Schedule</h2>
+          <p style={{ color: 'var(--ash2)', fontSize: 15.5, maxWidth: 540, lineHeight: 1.6 }}>
+            What's broadcasting on Sure Word Radio today. Tune in or find it in the archive after.
           </p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 16 }}>
@@ -250,7 +362,7 @@ export default function Home() {
           ].map((s) => (
             <div key={s.hr + s.title} style={{
               background: s.now ? 'var(--mahog)' : 'var(--coal)',
-              border: '1px solid var(--line)', borderRadius: 6, padding: 16,
+              border: '1px solid var(--line)', borderRadius: 4, padding: '18px 20px',
               display: 'flex', gap: 14, alignItems: 'flex-start',
               transition: 'border-color .2s', cursor: 'pointer'
             }}
@@ -285,9 +397,9 @@ export default function Home() {
       <section style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px 60px' }}>
         <div style={{ marginBottom: 32 }}>
           <div className="eyebrow">Sermon library</div>
-          <h2 className="font-bebas" style={{ fontSize: 'clamp(28px,3.5vw,38px)', margin: '8px 0 6px' }}>Build Your Playlist</h2>
-          <p style={{ color: 'var(--ash)', fontSize: 15, maxWidth: 520 }}>
-            Add sermons to a queue that plays end-to-end for however long you need. Set it and let it run.
+          <h2 className="font-bebas" style={{ fontSize: 'clamp(34px,4vw,52px)', margin: '8px 0 6px' }}>Build Your Playlist</h2>
+          <p style={{ color: 'var(--ash2)', fontSize: 15.5, maxWidth: 540, lineHeight: 1.6 }}>
+            Queue up sermons to play end-to-end for however long you need. Set it and let the Word run.
           </p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 28, alignItems: 'flex-start' }} className="playlist-grid">
@@ -307,7 +419,7 @@ export default function Home() {
 
           {/* Queue card */}
           <div style={{
-            background: 'var(--panel)', border: '1px solid var(--line)', borderRadius: 8,
+            background: 'var(--panel)', border: '1px solid var(--line)', borderRadius: 4,
             overflow: 'hidden', position: 'sticky', top: 80
           }}>
             <div style={{
@@ -363,9 +475,9 @@ export default function Home() {
       <section style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px 60px' }}>
         <div style={{ marginBottom: 32 }}>
           <div className="eyebrow">Print media</div>
-          <h2 className="font-bebas" style={{ fontSize: 'clamp(28px,3.5vw,38px)', margin: '8px 0 6px' }}>Read & Download</h2>
-          <p style={{ color: 'var(--ash)', fontSize: 15, maxWidth: 520 }}>
-            Church bulletins, devotional magazines, and study guides — free to download anytime.
+          <h2 className="font-bebas" style={{ fontSize: 'clamp(34px,4vw,52px)', margin: '8px 0 6px' }}>Read & Download</h2>
+          <p style={{ color: 'var(--ash2)', fontSize: 15.5, maxWidth: 540, lineHeight: 1.6 }}>
+            Bulletins, devotional magazines, and study guides — free to download anytime.
           </p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 18 }}>
@@ -378,7 +490,7 @@ export default function Home() {
             const variants: Array<'a' | 'b' | 'c' | 'd'> = ['a', 'b', 'c', 'd']
             return (
               <div key={item.id} style={{
-                background: 'var(--coal)', border: '1px solid var(--line)', borderRadius: 6,
+                background: 'var(--coal)', border: '1px solid var(--line)', borderRadius: 4,
                 overflow: 'hidden', transition: 'border-color .2s, transform .2s', cursor: 'pointer'
               }}
               className="hover-lift"
@@ -405,14 +517,14 @@ export default function Home() {
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
         <div style={{
           background: 'linear-gradient(135deg,var(--mahog),var(--panel))',
-          border: '1px solid var(--line)', borderRadius: 8, padding: '40px 48px',
+          border: '1px solid var(--line2)', borderRadius: 4, padding: '48px 52px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           gap: 24, flexWrap: 'wrap', marginBottom: 60
         }}>
           <div>
-            <h2 className="font-bebas" style={{ fontSize: 'clamp(24px,3vw,34px)', marginBottom: 6 }}>Never miss a word</h2>
-            <p style={{ color: 'var(--ash)', fontSize: 15 }}>
-              Get notified when we go live, new sermons drop, and fresh resources arrive — right to your phone.
+            <h2 className="font-bebas" style={{ fontSize: 'clamp(28px,3.5vw,42px)', marginBottom: 6 }}>Never miss a word.</h2>
+            <p style={{ color: 'var(--ash2)', fontSize: 15.5 }}>
+              Get notified when we go live, new sermons drop, and fresh resources arrive.
             </p>
           </div>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -441,8 +553,14 @@ export default function Home() {
       {/* Responsive overrides */}
       <style>{`
         @media (max-width: 900px) {
-          .hero-grid { grid-template-columns: 1fr !important; text-align: center; }
+          .hero-stage { grid-template-columns: 1fr !important; text-align: center; padding: 40px 0 0 !important; }
+          .hero-stage > div:first-child { padding-right: 0 !important; }
+          .hero-stage > div:last-child { display: none !important; }
           .playlist-grid { grid-template-columns: 1fr !important; }
+        }
+        @media (max-width: 640px) {
+          .now-playing-bar > div > div:nth-child(4) { display: none !important; }
+          .now-playing-bar > div > div:nth-child(5) { display: none !important; }
         }
       `}</style>
     </div>

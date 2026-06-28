@@ -1,8 +1,7 @@
 ﻿import axios from 'axios'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
-const isNative = typeof (window as any).Capacitor !== 'undefined' && (window as any).Capacitor?.isNativePlatform?.()
-const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
 export const API_BASE = isDev ? '' : 'https://sureword.fly.dev'
 export const SOCKET_BASE = 'https://sureword.fly.dev'
 export const api = axios.create({ baseURL: `${API_BASE}/api`, timeout: 15000 })

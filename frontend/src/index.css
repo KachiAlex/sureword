@@ -11,16 +11,20 @@
 
   :root {
     /* ── New Sure Word Radio Palette ── */
-    --ember:   #160600;
-    --coal:    #230d02;
-    --mahog:   #2f1206;
-    --panel:   #3b1709;
-    --line:    rgba(240, 190, 100, .12);
+    --ember:   #0f0400;
+    --coal:    #1c0901;
+    --mahog:   #2b1005;
+    --panel:   #361408;
+    --panel2:  #421a0a;
+    --line:    rgba(245, 166, 35, .10);
+    --line2:   rgba(245, 166, 35, .18);
     --cream:   #fff0d4;
     --cream2:  #e8cfa0;
-    --ash:     #9a7c60;
+    --ash:     #8a6e52;
+    --ash2:    #b08c6a;
     --flame:   #E05A1A;
     --flame2:  #c94c10;
+    --flame3:  #ff6b2b;
     --sunrise: #F5A623;
     --sun2:    #f0c040;
     --white:   #fff8ee;
@@ -63,10 +67,10 @@
   .font-mono  { font-family: 'IBM Plex Mono', monospace; }
 
   .eyebrow {
-    font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
-    color: var(--sunrise); display: flex; align-items: center; gap: 7px;
+    font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--sunrise); display: flex; align-items: center; gap: 10px;
   }
-  .eyebrow::before { content: ''; width: 22px; height: 1px; background: var(--flame); }
+  .eyebrow::before { content: ''; width: 28px; height: 1px; background: var(--flame); }
 
   /* ── Buttons ── */
   .btn {
@@ -127,6 +131,10 @@
 @keyframes pulse { 0%,100%{ opacity:1; box-shadow:0 0 0 0 rgba(224,90,26,.5); } 50%{ opacity:.6; box-shadow:0 0 0 6px rgba(224,90,26,0); } }
 @keyframes expand { 0%{ transform:scale(.8); opacity:.5; } 100%{ transform:scale(1.1); opacity:0; } }
 @keyframes wv { 0%,100%{ transform:scaleY(1); } 50%{ transform:scaleY(.35); } }
+@keyframes lpulse { 0%,100%{ opacity:1; box-shadow:0 0 0 0 rgba(255,107,43,.6); } 60%{ opacity:.7; box-shadow:0 0 0 8px rgba(255,107,43,0); } }
+@keyframes ringpulse { 0%{ transform:scale(.9); opacity:var(--o,.5); } 100%{ transform:scale(1.05); opacity:0; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes barjump { 0%{ height:var(--lo,20%); } 100%{ height:var(--hi,90%); } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
