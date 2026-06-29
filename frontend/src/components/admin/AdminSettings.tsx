@@ -1,6 +1,5 @@
 ﻿import { useState, useEffect } from 'react'
-import axios from 'axios'
-import { API_BASE } from '../../lib/api'
+import { api } from '../../lib/api'
 import {
   Lock, Loader2, Bell, BellOff, Fingerprint, Trash2,
   Mail, Users, Send, CheckCircle, Smartphone, ShieldCheck, BookOpen
@@ -8,7 +7,6 @@ import {
 import { useNotifications } from '../../contexts/NotificationContext'
 
 function SpiritualHealthForm() {
-  const token = localStorage.getItem('token')
   const [scripture, setScripture] = useState('')
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
@@ -20,7 +18,7 @@ function SpiritualHealthForm() {
     setSending(true)
     setResult(null)
     try {
-      const r = await axios.post(`${API_BASE}/api/spiritual-health`, { scripture: scripture.trim(), message: message.trim() || null }, { headers: { Authorization: `Bearer ${token}` } })
+      const r = await api.post('/spiritual-health', { scripture: scripture.trim(), message: message.trim() || null })
       const counts = r.data
       setResult(`Sent! Push: ${counts.push?.sent || 0}, Email: ${counts.email?.sent || 0}, FCM: ${counts.fcm?.sent || 0}`)
       setScripture('')
@@ -47,7 +45,6 @@ function SpiritualHealthForm() {
 }
 
 export default function AdminSettings() {
-  const token = localStorage.getItem('token')
   const {
     pushEnabled, pushSupported, requestPush, disablePush, loadingPush,
     biometricSupported, biometricRegistered, registerBiometric, removeBiometric,
@@ -65,12 +62,11 @@ export default function AdminSettings() {
   const [newsletterCount, setNewsletterCount] = useState<number | null>(null)
 
   useEffect(() => {
-    if (!token) return
-    axios.get(`${API_BASE}/api/push/subscribers/count`, { headers: { Authorization: `Bearer ${token}` } })
+    api.get('/push/subscribers/count')
       .then(r => setSubCount(r.data.count)).catch(() => {})
-    axios.get(`${API_BASE}/api/newsletter/subscribers`, { headers: { Authorization: `Bearer ${token}` } })
+    api.get('/newsletter/subscribers')
       .then(r => setNewsletterCount(r.data.total)).catch(() => {})
-  }, [token])
+  }, [])
 
   async function changePassword(e: React.FormEvent) {
     e.preventDefault()
@@ -79,8 +75,7 @@ export default function AdminSettings() {
     setChanging(true)
     setPwdSuccess(false)
     try {
-      await axios.post(`${API_BASE}/api/auth/change-password`, { currentPassword: pwdForm.current, newPassword: pwdForm.newPass },
-        { headers: { Authorization: `Bearer ${token}` } })
+      await api.post('/auth/change-password', { currentPassword: pwdForm.current, newPassword: pwdForm.newPass })
       setPwdForm({ current: '', newPass: '', confirm: '' })
       setPwdSuccess(true)
     } catch (err: any) {
@@ -94,7 +89,7 @@ export default function AdminSettings() {
     setSending(true)
     setSendResult(null)
     try {
-      const r = await axios.post(`${API_BASE}/api/push/broadcast`, pushForm, { headers: { Authorization: `Bearer ${token}` } })
+      const r = await api.post('/push/broadcast', pushForm)
       setSendResult(r.data.message || 'Sent!')
       setPushForm({ title: '', body: '', url: '' })
     } catch (err: any) {

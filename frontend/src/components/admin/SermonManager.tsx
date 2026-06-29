@@ -1,6 +1,5 @@
 ﻿import { useState } from 'react'
-import axios from 'axios'
-import { API_BASE } from '../../lib/api'
+import { api } from '../../lib/api'
 import { Headphones, Plus, Loader2, Image, Upload, Cloud, Video, AudioLines, Star, Pencil, X, Save } from 'lucide-react'
 
 interface Sermon {
@@ -35,7 +34,6 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
   const [thumbnailPreview, setThumbnailPreview] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [uploadStep, setUploadStep] = useState('')
-  const token = localStorage.getItem('token')
 
   const featuredSermons = sermons.filter(s => s.is_featured)
   const featuredCount = featuredSermons.length
@@ -48,9 +46,7 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
   }
 
   async function uploadToCloudinary(file: File, folder: string): Promise<string> {
-    const { data: sig } = await axios.get(`${API_BASE}/api/music/signature?folder=${folder}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const { data: sig } = await api.get(`/music/signature?folder=${folder}`)
     const fd = new FormData()
     fd.append('file', file)
     fd.append('api_key', sig.apiKey)
@@ -66,9 +62,7 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
   async function toggleFeatured(s: Sermon) {
     setTogglingId(s.id)
     try {
-      await axios.patch(`${API_BASE}/api/sermons/${s.id}/featured`, { is_featured: !s.is_featured }, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      await api.patch(`/sermons/${s.id}/featured`, { is_featured: !s.is_featured })
       onRefresh()
     } catch {}
     finally { setTogglingId(null) }
@@ -122,11 +116,11 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
         thumbnail_url = await uploadToCloudinary(editThumbnailFile, 'zionite/sermons/thumbnails')
       }
       setEditStep('Saving...')
-      await axios.patch(`${API_BASE}/api/sermons/${editingSermon.id}`, {
+      await api.patch(`/sermons/${editingSermon.id}`, {
         ...editForm,
         thumbnail_url,
         duration: editForm.duration || undefined,
-      }, { headers: { Authorization: `Bearer ${token}` } })
+      })
       closeEdit()
       onRefresh()
     } catch (err: any) {
@@ -179,7 +173,7 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
       }
 
       setUploadStep('Saving sermon...')
-      await axios.post(`${API_BASE}/api/sermons`, {
+      await api.post('/sermons', {
         title: form.title,
         speaker: form.speaker,
         scripture_reference: form.scripture_reference,
@@ -189,7 +183,7 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
         video_url: form.video_url,
         audio_url: audioUrl,
         thumbnail_url: thumbnailUrl
-      }, { headers: { Authorization: `Bearer ${token}` } })
+      })
 
       resetForm()
       onRefresh()

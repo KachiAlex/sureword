@@ -1,6 +1,5 @@
 ﻿import { useState, useRef } from 'react'
-import axios from 'axios'
-import { API_BASE } from '../../lib/api'
+import { api } from '../../lib/api'
 import { Music, Plus, Loader2, Trash2, Link2, Upload, FileAudio, Image } from 'lucide-react'
 
 interface MusicTrack {
@@ -29,7 +28,6 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
   const [deleting, setDeleting] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const coverInputRef = useRef<HTMLInputElement>(null)
-  const token = localStorage.getItem('token')
 
   const acceptedTypes = '.mp3,.wav,.aac,.ogg,.flac,.m4a,.webm,.wma'
 
@@ -63,9 +61,7 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
       // -- Step 1: Upload files directly to Cloudinary (signed) --
       // Use fetch (not axios) so the global Authorization header isn't sent to Cloudinary
       if (file) {
-        const { data: sig } = await axios.get(`${API_BASE}/api/music/signature?folder=zionite/music/audio`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+        const { data: sig } = await api.get('/music/signature?folder=zionite/music/audio')
         const fd = new FormData()
         fd.append('file', file)
         fd.append('api_key', sig.apiKey)
@@ -79,9 +75,7 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
       }
 
       if (coverFile) {
-        const { data: sig } = await axios.get(`${API_BASE}/api/music/signature?folder=zionite/music/covers`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+        const { data: sig } = await api.get('/music/signature?folder=zionite/music/covers')
         const fd = new FormData()
         fd.append('file', coverFile)
         fd.append('api_key', sig.apiKey)
@@ -95,7 +89,7 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
       }
 
       // -- Step 2: Save metadata + Cloudinary URLs to backend --
-      await axios.post(`${API_BASE}/api/music`, {
+      await api.post('/music', {
         title: form.title,
         artist: form.artist,
         album: form.album,
@@ -104,7 +98,7 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
         cover_url: coverUrl,
         duration: parseInt(form.duration) || 0,
         lyrics: form.lyrics
-      }, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } })
+      })
 
       setForm({ title: '', artist: '', album: '', genre: '', duration: '', lyrics: '', audio_url: '' })
       setFile(null)
@@ -132,7 +126,7 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
     if (!confirm('Delete this track?')) return
     setDeleting(id)
     try {
-      await axios.delete(`${API_BASE}/api/music/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+      await api.delete(`/music/${id}`)
       onRefresh()
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to delete')

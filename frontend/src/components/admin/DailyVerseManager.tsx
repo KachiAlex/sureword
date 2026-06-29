@@ -1,6 +1,5 @@
 ﻿import { useState, useEffect } from 'react'
-import axios from 'axios'
-import { API_BASE } from '../../lib/api'
+import { api } from '../../lib/api'
 import { Send, BookOpen, Sparkles, Bell, Users } from 'lucide-react'
 
 interface DailyVerse {
@@ -24,14 +23,13 @@ export default function DailyVerseManager() {
   const [stats, setStats] = useState({ webPush: 0, fcm: 0 })
   const [fetching, setFetching] = useState(true)
 
-  const token = localStorage.getItem('token')
 
   async function loadData() {
     setFetching(true)
     try {
       const [versesRes, statsRes] = await Promise.all([
-        axios.get(`${API_BASE}/api/push/verses?limit=10`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
-        axios.get(`${API_BASE}/api/push/stats`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+        api.get('/push/verses?limit=10'),
+        api.get('/push/stats'),
       ])
       setVerses(versesRes.data.verses || [])
       setStats(statsRes.data || { webPush: 0, fcm: 0 })
@@ -51,10 +49,7 @@ export default function DailyVerseManager() {
     if (!title.trim() || !content.trim()) { setError('Title and content are required'); return }
     setLoading(true)
     try {
-      await axios.post(`${API_BASE}/api/push/verse`,
-        { title, content, reference, type },
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
+      await api.post('/push/verse', { title, content, reference, type })
       setSuccess('Sent! Push notifications delivered to all subscribers.')
       setTitle('')
       setContent('')

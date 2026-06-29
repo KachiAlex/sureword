@@ -1,7 +1,6 @@
 ﻿import { useEffect, useState, useRef } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import axios from 'axios'
-import { API_BASE, SOCKET_BASE } from '../lib/api'
+import { API_BASE, SOCKET_BASE, api } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { usePageTitle } from '../hooks/usePageTitle'
 import {
@@ -395,7 +394,7 @@ export default function Live() {
       if (user) {
         const payload: any = { message: text }
         if (chatMode === 'private' && privateRecipient) payload.recipientId = privateRecipient.user_id
-        await axios.post(`${API_BASE}/api/chat/${bid}`, payload, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+        await api.post(`/chat/${bid}`, payload)
       } else {
         await axios.post(`${API_BASE}/api/chat/${bid}/guest`, { message: text, guestName: guestName.trim() || 'Guest' })
       }

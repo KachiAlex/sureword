@@ -1,7 +1,6 @@
 ﻿import { useState, useEffect, useRef } from 'react'
-import axios from 'axios'
 import { io, Socket } from 'socket.io-client'
-import { API_BASE, SOCKET_BASE } from '../../lib/api'
+import { API_BASE, SOCKET_BASE, api } from '../../lib/api'
 import {
   Radio, Pause, Play, Square, Mic, MicOff, Volume2, Volume1, VolumeX,
   Copy, CheckCircle, Activity, Share2, Headphones, Wifi, Zap, HardDrive,
@@ -265,12 +264,9 @@ export default function RadioStudio({
   // Poll chat messages + active users for this broadcast
   useEffect(() => {
     if (!broadcastId) return
-    const token = localStorage.getItem('token')
     async function fetchChat() {
       try {
-        const { data } = await axios.get(`${API_BASE}/api/chat/${broadcastId}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {}
-        })
+        const { data } = await api.get(`/chat/${broadcastId}`)
         const messages = data.messages || []
         setChatMessages(messages)
         if (messages.length > prevMsgLenRef.current) {
@@ -281,7 +277,7 @@ export default function RadioStudio({
     }
     async function fetchUsers() {
       try {
-        const { data } = await axios.get(`${API_BASE}/api/chat/${broadcastId}/users`)
+        const { data } = await api.get(`/chat/${broadcastId}/users`)
         setChatUsers(data.users || [])
       } catch {}
     }
@@ -299,18 +295,12 @@ export default function RadioStudio({
   async function sendChatMessage(e: React.FormEvent) {
     e.preventDefault()
     if (!chatInput.trim() || !broadcastId) return
-    const token = localStorage.getItem('token')
-    if (!token) return
     setChatSending(true)
     try {
-      await axios.post(`${API_BASE}/api/chat/${broadcastId}`, { message: chatInput.trim() }, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      await api.post(`/chat/${broadcastId}`, { message: chatInput.trim() })
       setChatInput('')
       // Refresh immediately
-      const { data } = await axios.get(`${API_BASE}/api/chat/${broadcastId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const { data } = await api.get(`/chat/${broadcastId}`)
       setChatMessages(data.messages || [])
       prevMsgLenRef.current = data.messages?.length || 0
     } catch { setUploadError('Chat send failed') }
@@ -460,7 +450,7 @@ export default function RadioStudio({
 
       statsIntervalRef.current = setInterval(async () => {
         try {
-          const { data } = await axios.get(`${API_BASE}/api/stream/${broadcastId}/info`)
+          const { data } = await api.get(`/stream/${broadcastId}/info`)
           const times = chunkTimesRef.current
           let bitrate = 0
           if (times.length >= 2) {
@@ -495,10 +485,10 @@ export default function RadioStudio({
           }
           // HTTP fallback for persistence / replay
           try {
-            await axios.post(`${API_BASE}/api/stream/${broadcastId}/chunk`, {
+            await api.post(`/stream/${broadcastId}/chunk`, {
               chunkIndex: idx,
               chunkData: base64
-            }, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+            })
             setUploadError('')
           } catch { setUploadError('Upload failed - check connection') }
         }
@@ -549,8 +539,8 @@ export default function RadioStudio({
           const blob = new Blob(blobs, { type: mimeSnapshot })
           const formData = new FormData()
           formData.append('recording', blob, `broadcast_${idSnapshot}.webm`)
-          const { data } = await axios.post(`${API_BASE}/api/broadcasts/${idSnapshot}/recording`, formData, {
-            headers: { Authorization: `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'multipart/form-data' }
+          const { data } = await api.post(`/broadcasts/${idSnapshot}/recording`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
           })
           setRecordingUrl(data.recording_url)
           setUploadProgress('done')
@@ -585,8 +575,8 @@ export default function RadioStudio({
       const blob = new Blob(cloudBlobsRef.current, { type: cloudMimeRef.current })
       const formData = new FormData()
       formData.append('recording', blob, `broadcast_${broadcastId}.webm`)
-      const { data } = await axios.post(`${API_BASE}/api/broadcasts/${broadcastId}/recording`, formData, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'multipart/form-data' }
+      const { data } = await api.post(`/broadcasts/${broadcastId}/recording`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       })
       setRecordingUrl(data.recording_url)
       setUploadProgress('done')
@@ -623,9 +613,7 @@ export default function RadioStudio({
   useEffect(() => {
     if (!broadcastId) return
     return () => {
-      axios.delete(`${API_BASE}/api/stream/${broadcastId}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      }).catch(() => {})
+      api.delete(`/stream/${broadcastId}`).catch(() => {})
     }
   }, [broadcastId])
 
@@ -633,7 +621,7 @@ export default function RadioStudio({
     if (!isLive) return
     const interval = setInterval(async () => {
       try {
-        const { data } = await axios.get(`${API_BASE}/api/broadcasts/stats/overview`)
+        const { data } = await api.get('/broadcasts/stats/overview')
         setListenerCount(data.live || 0)
       } catch {}
     }, 5000)

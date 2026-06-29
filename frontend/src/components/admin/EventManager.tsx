@@ -1,6 +1,5 @@
 ﻿import { useState, useEffect } from 'react'
-import axios from 'axios'
-import { API_BASE } from '../../lib/api'
+import { api } from '../../lib/api'
 import {
   Calendar, Plus, X, Save, Trash2, Pencil, Users,
   Image, Loader2, Upload
@@ -42,12 +41,11 @@ export default function EventManager() {
   const [viewRsvps, setViewRsvps] = useState<string | null>(null)
   const [rsvps, setRsvps] = useState<Rsvp[]>([])
   const [rsvpStats, setRsvpStats] = useState({ total: 0, guestTotal: 0 })
-  const token = localStorage.getItem('token')
 
   async function fetchEvents() {
     setLoading(true)
     try {
-      const res = await axios.get(`${API_BASE}/api/events`)
+      const res = await api.get('/events')
       setEvents(res.data.events || [])
     } catch (err) {
       console.error('Failed to fetch events:', err)
@@ -90,9 +88,7 @@ export default function EventManager() {
   }
 
   async function uploadToCloudinary(file: File): Promise<string> {
-    const { data: sig } = await axios.get(`${API_BASE}/api/music/signature?folder=events`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const { data: sig } = await api.get('/music/signature?folder=events')
     const fd = new FormData()
     fd.append('file', file)
     fd.append('api_key', sig.apiKey)
@@ -117,9 +113,9 @@ export default function EventManager() {
       }
       const payload = { ...form, image_url: imageUrl }
       if (editingId) {
-        await axios.patch(`${API_BASE}/api/events/${editingId}`, payload, { headers: { Authorization: `Bearer ${token}` } })
+        await api.patch(`/events/${editingId}`, payload)
       } else {
-        await axios.post(`${API_BASE}/api/events`, payload, { headers: { Authorization: `Bearer ${token}` } })
+        await api.post('/events', payload)
       }
       setShowForm(false)
       resetForm()
@@ -135,7 +131,7 @@ export default function EventManager() {
   async function handleDelete(id: string) {
     if (!confirm('Delete this event?')) return
     try {
-      await axios.delete(`${API_BASE}/api/events/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+      await api.delete(`/events/${id}`)
       fetchEvents()
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to delete')
@@ -144,7 +140,7 @@ export default function EventManager() {
 
   async function toggleActive(evt: Event) {
     try {
-      await axios.patch(`${API_BASE}/api/events/${evt.id}`, { is_active: !evt.is_active }, { headers: { Authorization: `Bearer ${token}` } })
+      await api.patch(`/events/${evt.id}`, { is_active: !evt.is_active })
       fetchEvents()
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to update')
@@ -155,7 +151,7 @@ export default function EventManager() {
     setViewRsvps(eventId)
     setShowForm(false)
     try {
-      const { data } = await axios.get(`${API_BASE}/api/events/${eventId}/rsvps`, { headers: { Authorization: `Bearer ${token}` } })
+      const { data } = await api.get(`/events/${eventId}/rsvps`)
       setRsvps(data.rsvps || [])
       setRsvpStats({ total: data.total || 0, guestTotal: data.guestTotal || 0 })
     } catch (err: any) {

@@ -1,9 +1,8 @@
 ﻿import { lazy, Suspense, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../contexts/AuthContext'
-import { api, useBroadcasts, useSermons, useUsers, usePrayers, useMusic, useDashboardAnalytics, usePrintMedia, API_BASE } from '../lib/api'
+import { api, useBroadcasts, useSermons, useUsers, usePrayers, useMusic, useDashboardAnalytics, usePrintMedia } from '../lib/api'
 import {
   Users, Radio, Headphones, MessageSquare, Settings, Heart, Calendar,
   BookOpen, DollarSign, Pause, StopCircle, BarChart3,
@@ -130,10 +129,9 @@ export default function AdminDashboard() {
   useEffect(() => {
     const live = broadcasts.find(b => b.status === 'live')
     if (!live) { setGeoData({ byCountry: [], locations: [] }); return }
-    const token = localStorage.getItem('token')
     const fetchGeo = async () => {
       try {
-        const { data } = await axios.get(`${API_BASE}/api/stream/${live.id}/listeners/geo`, { headers: { Authorization: `Bearer ${token}` } })
+        const { data } = await api.get(`/stream/${live.id}/listeners/geo`)
         setGeoData({ byCountry: data.byCountry || [], locations: data.locations || [] })
       } catch {}
     }
@@ -168,13 +166,13 @@ export default function AdminDashboard() {
 
   async function fetchChat() {
     try {
-      const res = await axios.get(`${API_BASE}/api/broadcasts`)
+      const res = await api.get('/broadcasts')
       const bcs = res.data.broadcasts as any[]
       const allMessages: ChatMessage[] = []
       for (const b of bcs.slice(0, 5)) {
-        try { const msgRes = await axios.get(`${API_BASE}/api/chat/broadcast/${b.id}`); allMessages.push(...msgRes.data.messages) } catch {}
+        try { const msgRes = await api.get(`/chat/broadcast/${b.id}`); allMessages.push(...msgRes.data.messages) } catch {}
       }
-      try { const general = await axios.get(`${API_BASE}/api/chat/general`); allMessages.push(...general.data.messages) } catch {}
+      try { const general = await api.get('/chat/general'); allMessages.push(...general.data.messages) } catch {}
       setChatMessages(allMessages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()))
     } catch (err) { console.error('Failed to fetch chat:', err) }
   }
