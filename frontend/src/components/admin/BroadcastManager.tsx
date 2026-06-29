@@ -394,8 +394,9 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
         thumbnail_url: thumbnail_url || undefined,
         speaker: speaker || undefined,
       })
-      await api.patch(`/broadcasts/${data.id}/start`)
-      setBroadcastId(data.id)
+      const broadcastId = data.broadcast?.id || data.id
+      await api.patch(`/broadcasts/${broadcastId}/start`)
+      setBroadcastId(broadcastId)
       setThumbnailUrl(thumbnail_url || '')
       setStatus('live')
       setStartTime(new Date())
