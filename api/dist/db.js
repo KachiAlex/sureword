@@ -105,11 +105,17 @@ const SCHEMA_QUERIES = [
     `CREATE TABLE IF NOT EXISTS music (
     id TEXT PRIMARY KEY, title TEXT NOT NULL, artist TEXT, album TEXT, genre TEXT,
     audio_url TEXT NOT NULL, cover_url TEXT, duration INTEGER, lyrics TEXT,
-    file_format TEXT, file_size INTEGER, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    file_format TEXT, file_size INTEGER, play_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`,
+    `CREATE TABLE IF NOT EXISTS stream_chunks (
+    id TEXT PRIMARY KEY, broadcast_id TEXT NOT NULL, chunk_index INTEGER NOT NULL,
+    chunk_data TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`,
     `CREATE TABLE IF NOT EXISTS stream_listeners (
     id TEXT PRIMARY KEY, broadcast_id TEXT NOT NULL, session_id TEXT NOT NULL,
-    platform TEXT DEFAULT 'web', last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    platform TEXT DEFAULT 'web', last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ip TEXT, country TEXT, region TEXT, city TEXT
   )`,
     `CREATE TABLE IF NOT EXISTS donations (
     id TEXT PRIMARY KEY, name TEXT, email TEXT, amount NUMERIC NOT NULL,
@@ -125,6 +131,37 @@ const SCHEMA_QUERIES = [
     id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, goal_amount NUMERIC NOT NULL,
     current_amount NUMERIC DEFAULT 0, end_date TEXT, is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`,
+    `CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id TEXT PRIMARY KEY, endpoint TEXT NOT NULL UNIQUE, p256dh TEXT NOT NULL, auth TEXT NOT NULL,
+    user_id TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`,
+    `CREATE TABLE IF NOT EXISTS fcm_tokens (
+    id TEXT PRIMARY KEY, token TEXT NOT NULL UNIQUE, user_id TEXT, platform TEXT DEFAULT 'android',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`,
+    `CREATE TABLE IF NOT EXISTS daily_verses (
+    id TEXT PRIMARY KEY, title TEXT NOT NULL, content TEXT NOT NULL, reference TEXT, type TEXT DEFAULT 'verse',
+    created_by TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`,
+    `CREATE TABLE IF NOT EXISTS print_media (
+    id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, category TEXT DEFAULT 'tract',
+    pdf_url TEXT NOT NULL, thumbnail_url TEXT, is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`,
+    `CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id TEXT PRIMARY KEY, token TEXT NOT NULL UNIQUE, user_id TEXT NOT NULL,
+    expires_at TIMESTAMP NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`,
+    `CREATE TABLE IF NOT EXISTS sermon_playlists (
+    id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT,
+    start_time TIMESTAMPTZ NOT NULL, end_time TIMESTAMPTZ,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+    `CREATE TABLE IF NOT EXISTS sermon_playlist_items (
+    id TEXT PRIMARY KEY, playlist_id TEXT NOT NULL REFERENCES sermon_playlists(id) ON DELETE CASCADE,
+    sermon_id TEXT NOT NULL, order_index INTEGER NOT NULL DEFAULT 0,
+    duration_minutes INTEGER NOT NULL DEFAULT 30, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`
 ];
 let _dbInitPromise = null;
@@ -165,12 +202,13 @@ async function _initDbInternal() {
     `, [uuidv4(), uuidv4(), uuidv4()]);
         console.log('[DB] schedule seeded');
     }
-    const admin = await db.get('SELECT * FROM users WHERE role = $1', ['admin']);
+    const admin = await db.get('SELECT * FROM users WHERE email = $1', ['admin@sureword.com']);
     if (!admin) {
         const bcrypt = await import('bcryptjs');
-        const hash = await bcrypt.hash('admin123', 10);
-        await db.run(`INSERT INTO users (id, email, password_hash, name, role) VALUES ($1, $2, $3, $4, $5)`, ['admin-1', 'admin@zionite.online', hash, 'Admin User', 'admin']);
-        console.log('[DB] admin seeded');
+        const hashFn = bcrypt.default?.hash || bcrypt.hash;
+        const hash = await hashFn('admin123', 10);
+        await db.run(`INSERT INTO users (id, email, password_hash, name, role) VALUES ($1, $2, $3, $4, $5)`, ['admin-1', 'admin@sureword.com', hash, 'Admin User', 'admin']);
+        console.log('[DB] admin seeded: admin@sureword.com');
     }
     console.log('[DB] init complete');
     _dbInitDone = true;

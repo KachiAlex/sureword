@@ -17,13 +17,23 @@ import testimonyRoutes from './routes/testimonies.js';
 import campaignRoutes from './routes/campaigns.js';
 import analyticsRoutes from './routes/analytics.js';
 import searchRoutes from './routes/search.js';
+import relayRoutes from './routes/relay.js';
+import streamRoutes from './routes/stream.js';
+import pushRoutes from './routes/push.js';
+import printMediaRoutes from './routes/print-media.js';
+import bookmarkRoutes from './routes/bookmarks.js';
+import historyRoutes from './routes/history.js';
+import sermonPlaylistRoutes from './routes/sermon-playlists.js';
+import musicRoutes from './routes/music.js';
+import uploadsRoutes from './routes/uploads.js';
 import { cacheMiddleware } from './middleware/cache.js';
 // Sentry init
 if (process.env.SENTRY_DSN) {
     Sentry.init({ dsn: process.env.SENTRY_DSN, tracesSampleRate: 0.1 });
 }
 const app = express();
-app.use(cors({ origin: '*', credentials: true }));
+app.set('trust proxy', 1);
+app.use(cors({ origin: '*', credentials: false }));
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -70,6 +80,15 @@ app.use('/testimonies', testimonyRoutes);
 app.use('/campaigns', campaignRoutes);
 app.use('/analytics', analyticsRoutes);
 app.use('/search', cacheMiddleware(30000), searchRoutes);
+app.use('/relay', relayRoutes);
+app.use('/stream', streamRoutes);
+app.use('/push', pushRoutes);
+app.use('/print-media', printMediaRoutes);
+app.use('/bookmarks', bookmarkRoutes);
+app.use('/history', historyRoutes);
+app.use('/sermon-playlists', sermonPlaylistRoutes);
+app.use('/music', musicRoutes);
+app.use('/uploads', uploadsRoutes);
 // Sentry error handler (must be before 404)
 if (process.env.SENTRY_DSN) {
     app.use(Sentry.expressErrorHandler());

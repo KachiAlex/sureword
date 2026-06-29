@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
+import { v2 as cloudinary } from 'cloudinary';
 import { db, initDb } from '../db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { optimizeImage } from '../middleware/optimizeImage.js';
@@ -10,6 +11,14 @@ const uploadImage = multer({
     fileFilter: (_req, file, cb) => {
         const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
         cb(null, allowed.includes(file.mimetype));
+    }
+});
+const uploadRecording = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 500 * 1024 * 1024 }, // 500 MB
+    fileFilter: (_req, file, cb) => {
+        const allowed = ['audio/webm', 'audio/webm;codecs=opus', 'audio/ogg', 'audio/mp4'];
+        cb(null, allowed.some(t => file.mimetype.startsWith(t) || file.mimetype === t));
     }
 });
 const router = Router();
@@ -100,6 +109,56 @@ router.post('/:id/end', authenticateToken, requireRole('broadcaster', 'admin'), 
         res.status(500).json({ error: 'Failed to end broadcast' });
     }
 });
+router.patch('/:id/start', authenticateToken, requireRole('broadcaster', 'admin'), async (req, res) => {
+    try {
+        await initDb();
+        const broadcast = await db.get('SELECT * FROM broadcasts WHERE id = $1', [req.params.id]);
+        if (!broadcast) {
+            res.status(404).json({ error: 'Broadcast not found' });
+            return;
+        }
+        await db.run("UPDATE broadcasts SET status = 'live', started_at = COALESCE(started_at, CURRENT_TIMESTAMP) WHERE id = $1", [req.params.id]);
+        const updated = await db.get('SELECT * FROM broadcasts WHERE id = $1', [req.params.id]);
+        res.json({ broadcast: updated });
+    }
+    catch (err) {
+        console.error('[BROADCASTS] start error:', err.message);
+        res.status(500).json({ error: 'Failed to start broadcast' });
+    }
+});
+router.patch('/:id/pause', authenticateToken, requireRole('broadcaster', 'admin'), async (req, res) => {
+    try {
+        await initDb();
+        await db.run("UPDATE broadcasts SET status = 'paused' WHERE id = $1", [req.params.id]);
+        res.json({ success: true });
+    }
+    catch (err) {
+        console.error('[BROADCASTS] pause error:', err.message);
+        res.status(500).json({ error: 'Failed to pause broadcast' });
+    }
+});
+router.patch('/:id/resume', authenticateToken, requireRole('broadcaster', 'admin'), async (req, res) => {
+    try {
+        await initDb();
+        await db.run("UPDATE broadcasts SET status = 'live' WHERE id = $1", [req.params.id]);
+        res.json({ success: true });
+    }
+    catch (err) {
+        console.error('[BROADCASTS] resume error:', err.message);
+        res.status(500).json({ error: 'Failed to resume broadcast' });
+    }
+});
+router.patch('/:id/end', authenticateToken, requireRole('broadcaster', 'admin'), async (req, res) => {
+    try {
+        await initDb();
+        await db.run("UPDATE broadcasts SET status = 'ended', ended_at = COALESCE(ended_at, CURRENT_TIMESTAMP) WHERE id = $1", [req.params.id]);
+        res.json({ success: true });
+    }
+    catch (err) {
+        console.error('[BROADCASTS] end error:', err.message);
+        res.status(500).json({ error: 'Failed to end broadcast' });
+    }
+});
 router.get('/stats/overview', authenticateToken, requireRole('broadcaster', 'admin'), async (req, res) => {
     try {
         await initDb();
@@ -110,6 +169,72 @@ router.get('/stats/overview', authenticateToken, requireRole('broadcaster', 'adm
     catch (err) {
         console.error('[BROADCASTS] stats error:', err.message);
         res.status(500).json({ error: 'Failed to fetch stats' });
+    }
+});
+router.post('/:id/recording', authenticateToken, requireRole('broadcaster', 'admin'), uploadRecording.single('recording'), async (req, res) => {
+    try {
+        if (!req.file) {
+            res.status(400).json({ error: 'Recording file required' });
+            return;
+        }
+        await initDb();
+        const recording_url = await new Promise((resolve, reject) => {
+            cloudinary.uploader.upload_stream({ folder: 'zionite/broadcasts', resource_type: 'video', tags: ['broadcast_recording'] }, (err, result) => {
+                if (err || !result)
+                    reject(err || new Error('Upload failed'));
+                else
+                    resolve(result.secure_url);
+            }).end(req.file.buffer);
+        });
+        await db.run(`UPDATE broadcasts SET recording_url=$1, recorded_at=NOW() WHERE id=$2`, [recording_url, req.params.id]);
+        res.json({ recording_url });
+    }
+    catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+router.get('/:id/recording/download', authenticateToken, async (req, res) => {
+    try {
+        await initDb();
+        const row = await db.get(`SELECT title, recording_url FROM broadcasts WHERE id=$1`, [req.params.id]);
+        if (!row?.recording_url) {
+            res.status(404).json({ error: 'No recording found' });
+            return;
+        }
+        const response = await fetch(row.recording_url);
+        if (!response.ok) {
+            res.status(502).json({ error: 'Could not fetch recording' });
+            return;
+        }
+        const safe = row.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        res.setHeader('Content-Type', 'audio/webm');
+        res.setHeader('Content-Disposition', `attachment; filename="${safe}.webm"`);
+        const reader = response.body;
+        if (reader?.pipe) {
+            reader.pipe(res);
+        }
+        else {
+            const buf = Buffer.from(await response.arrayBuffer());
+            res.send(buf);
+        }
+    }
+    catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+router.patch('/:id/recording', authenticateToken, requireRole('broadcaster', 'admin'), async (req, res) => {
+    try {
+        await initDb();
+        const { recording_url } = req.body;
+        if (!recording_url) {
+            res.status(400).json({ error: 'recording_url required' });
+            return;
+        }
+        await db.run(`UPDATE broadcasts SET recording_url=$1 WHERE id=$2`, [recording_url, req.params.id]);
+        res.json({ success: true });
+    }
+    catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 export default router;
