@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS sermon_playlists (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id          TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   title       TEXT NOT NULL,
   description TEXT,
   start_time  TIMESTAMPTZ NOT NULL,
@@ -9,9 +9,9 @@ CREATE TABLE IF NOT EXISTS sermon_playlists (
 );
 
 CREATE TABLE IF NOT EXISTS sermon_playlist_items (
-  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  playlist_id      UUID NOT NULL REFERENCES sermon_playlists(id) ON DELETE CASCADE,
-  sermon_id        UUID NOT NULL REFERENCES sermons(id) ON DELETE CASCADE,
+  id               TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  playlist_id      TEXT NOT NULL REFERENCES sermon_playlists(id) ON DELETE CASCADE,
+  sermon_id        TEXT NOT NULL,
   order_index      INTEGER NOT NULL DEFAULT 0,
   duration_minutes INTEGER NOT NULL DEFAULT 30,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
