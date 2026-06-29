@@ -91,7 +91,7 @@ export interface User { id: string; email: string; name?: string; role: string; 
 export interface Prayer { id: string; name: string | null; request: string; is_anonymous: boolean; prayers_count: number; created_at: string }
 export interface PrintMedia { id: string; title: string; description: string; category: string; pdf_url: string; thumbnail_url?: string; is_active: boolean; page_count?: number; published_date?: string; created_at: string }
 export interface SermonPlaylist { id: string; title: string; description: string; start_time: string; end_time?: string; is_active: boolean; created_at: string }
-export interface SermonPlaylistItem { id: string; playlist_id: string; sermon_id: string; order_index: number; duration_minutes: number; title?: string; speaker?: string }
+export interface SermonPlaylistItem { id: string; playlist_id: string; sermon_id: string; order_index: number; duration_minutes: number; title?: string; speaker?: string; thumbnail_url?: string; audio_url?: string }
 export interface RadioCurrent { itemId: string; sermonId: string; title: string; speaker: string; audioUrl: string; thumbnailUrl?: string; description?: string; scriptureReference?: string; offsetSeconds: number }
 
 /* ─── Queries ─── */

@@ -97,12 +97,62 @@ router.delete('/featured/:sermon_id', authenticateToken, requireRole('admin'), a
   }
 })
 
-// Radio current - returns the sermon currently on air
-router.get('/radio/current', async (req, res) => {
+// Radio current - returns the sermon currently on air based on active playlist
+router.get('/radio/current', async (_req, res) => {
   try {
     await initDb()
-    const current = await db.get('SELECT * FROM sermons ORDER BY date DESC LIMIT 1')
-    res.json({ current: current || null, playlist: null })
+    const now = new Date()
+    const playlist = await db.get(
+      `SELECT * FROM sermon_playlists
+       WHERE is_active = TRUE AND start_time <= $1 AND (end_time IS NULL OR end_time >= $1)
+       ORDER BY start_time DESC LIMIT 1`,
+      [now.toISOString()]
+    )
+    if (!playlist) {
+      // Fall back to most recent sermon
+      const latest = await db.get('SELECT * FROM sermons ORDER BY date DESC LIMIT 1')
+      res.json({ current: latest ? { title: latest.title, speaker: latest.speaker, audioUrl: latest.audio_url, thumbnailUrl: latest.thumbnail_url, scriptureReference: latest.scripture_reference, offsetSeconds: 0 } : null, playlist: null })
+      return
+    }
+    const items = await db.all(
+      `SELECT spi.id as item_id, spi.sermon_id, spi.order_index, spi.duration_minutes,
+              s.title, s.speaker, s.audio_url, s.thumbnail_url, s.description, s.scripture_reference
+       FROM sermon_playlist_items spi
+       JOIN sermons s ON s.id = spi.sermon_id
+       WHERE spi.playlist_id = $1
+       ORDER BY spi.order_index ASC`,
+      [playlist.id]
+    )
+    if (!items || items.length === 0) { res.json({ current: null, playlist: null }); return }
+
+    const elapsedMin = (now.getTime() - new Date(playlist.start_time).getTime()) / 60000
+    const totalDuration = items.reduce((s: number, i: any) => s + (i.duration_minutes || 30), 0)
+    const loopedMin = totalDuration > 0 ? elapsedMin % totalDuration : 0
+
+    let cum = 0
+    let currentItem: any = null
+    let offsetMin = 0
+    for (const item of items) {
+      const dur = item.duration_minutes || 30
+      if (loopedMin >= cum && loopedMin < cum + dur) { currentItem = item; offsetMin = loopedMin - cum; break }
+      cum += dur
+    }
+    if (!currentItem) currentItem = items[0]
+
+    res.json({
+      current: {
+        itemId: currentItem.item_id,
+        sermonId: currentItem.sermon_id,
+        title: currentItem.title,
+        speaker: currentItem.speaker,
+        audioUrl: currentItem.audio_url,
+        thumbnailUrl: currentItem.thumbnail_url,
+        description: currentItem.description,
+        scriptureReference: currentItem.scripture_reference,
+        offsetSeconds: Math.floor(offsetMin * 60),
+      },
+      playlist: { id: playlist.id, title: playlist.title, startTime: playlist.start_time }
+    })
   } catch (err: any) {
     console.error('[SERMONS] radio current error:', err.message)
     res.status(500).json({ error: 'Failed to fetch current sermon' })
