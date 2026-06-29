@@ -74,11 +74,13 @@ export function authenticateToken(req: AuthenticatedRequest, res: Response, next
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any
+    const decoded = jwt.verify(token, JWT_SECRET, { clockTolerance: 60 }) as any
     req.user = decoded
     next()
-  } catch {
-    res.status(403).json({ error: 'Invalid or expired token' })
+  } catch (err: any) {
+    console.error('[AUTH] token verify error:', err.message, '| token prefix:', token.slice(0, 20) + '...')
+    const isExpired = err.name === 'TokenExpiredError'
+    res.status(isExpired ? 401 : 403).json({ error: isExpired ? 'Token expired' : 'Invalid or expired token' })
   }
 }
 

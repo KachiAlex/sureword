@@ -1,6 +1,5 @@
 ﻿import { useState, useEffect, useRef } from 'react'
-import axios from 'axios'
-import { API_BASE } from '../../lib/api'
+import { API_BASE, api } from '../../lib/api'
 import {
   Radio, Play, Square, Plus, Loader2, ArrowLeft,
   Mic, BookOpen, ExternalLink, AlertCircle, Monitor, ChevronDown, ChevronUp,
@@ -95,7 +94,6 @@ function MicMeter({ stream }: { stream: MediaStream | null }) {
 }
 
 export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts: Broadcast[]; onRefresh: () => void }) {
-  const token = localStorage.getItem('token')
   const [view, setView] = useState<StudioView>('list')
   const [selectedBroadcast, setSelectedBroadcast] = useState<Broadcast | null>(null)
   const [chatHistory, setChatHistory] = useState<ChatMsg[]>([])
@@ -107,9 +105,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     setChatHistory([])
     setChatLoading(true)
     try {
-      const { data } = await axios.get(`${API_BASE}/api/chat/${b.id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const { data } = await api.get(`/chat/${b.id}`)
       setChatHistory(data.messages || [])
     } catch {}
     finally { setChatLoading(false) }
@@ -124,7 +120,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
   async function downloadRecording(id: string) {
     try {
       const res = await fetch(`${API_BASE}/api/broadcasts/${id}/recording/download`, {
-        headers: { Authorization: `Bearer ${token || ''}` }
+        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
       })
       if (!res.ok) throw new Error(await res.text())
       const blob = await res.blob()
@@ -180,9 +176,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     const [b, setB] = useState<Broadcast>(initialB)
 
     useEffect(() => {
-      axios.get(`${API_BASE}/api/broadcasts/${initialB.id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).then(({ data }) => {
+      api.get(`/broadcasts/${initialB.id}`).then(({ data }) => {
         if (data.broadcast) setB(data.broadcast)
       }).catch(() => {})
     }, [initialB.id])
@@ -392,15 +386,15 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
       if (thumbnailFile) {
         thumbnail_url = await uploadThumbnail()
       }
-      const { data } = await axios.post(`${API_BASE}/api/broadcasts`, {
+      const { data } = await api.post('/broadcasts', {
         title, description, scripture_reference: scripture,
         church_online_url: churchOnlineUrl || undefined,
         rtmp_url: rtmpUrl || undefined,
         stream_key: streamKey || undefined,
         thumbnail_url: thumbnail_url || undefined,
         speaker: speaker || undefined,
-      }, { headers: { Authorization: `Bearer ${token}` } })
-      await axios.patch(`${API_BASE}/api/broadcasts/${data.id}/start`, {}, { headers: { Authorization: `Bearer ${token}` } })
+      })
+      await api.patch(`/broadcasts/${data.id}/start`)
       setBroadcastId(data.id)
       setThumbnailUrl(thumbnail_url || '')
       setStatus('live')
@@ -416,7 +410,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
   async function startBroadcast(id: string) {
     setActionLoading(true)
     try {
-      await axios.patch(`${API_BASE}/api/broadcasts/${id}/start`, {}, { headers: { Authorization: `Bearer ${token}` } })
+      await api.patch(`/broadcasts/${id}/start`)
       const b = broadcasts.find(x => x.id === id)
       if (b) {
         setBroadcastId(b.id)
@@ -440,7 +434,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     if (!broadcastId) return
     setActionLoading(true)
     try {
-      await axios.patch(`${API_BASE}/api/broadcasts/${broadcastId}/pause`, {}, { headers: { Authorization: `Bearer ${token}` } })
+      await api.patch(`/broadcasts/${broadcastId}/pause`)
       setStatus('paused')
       onRefresh()
     } catch (err: any) {
@@ -452,7 +446,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     if (!broadcastId) return
     setActionLoading(true)
     try {
-      await axios.patch(`${API_BASE}/api/broadcasts/${broadcastId}/resume`, {}, { headers: { Authorization: `Bearer ${token}` } })
+      await api.patch(`/broadcasts/${broadcastId}/resume`)
       setStatus('live')
       onRefresh()
     } catch (err: any) {
@@ -464,7 +458,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     if (!broadcastId) return
     setActionLoading(true)
     try {
-      await axios.patch(`${API_BASE}/api/broadcasts/${broadcastId}/end`, {}, { headers: { Authorization: `Bearer ${token}` } })
+      await api.patch(`/broadcasts/${broadcastId}/end`)
     } catch { /* ignore */ }
     // Wait for cloud recording upload to finish before navigating away
     if (uploadDone) {
@@ -569,8 +563,8 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     if (!thumbnailFile) return ''
     const formData = new FormData()
     formData.append('image', thumbnailFile)
-    const { data } = await axios.post(`${API_BASE}/api/uploads/image`, formData, {
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
+    const { data } = await api.post('/uploads/image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
     })
     return data.image_url || ''
   }
