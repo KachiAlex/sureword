@@ -1,5 +1,5 @@
 ﻿import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { API_BASE } from '../lib/api'
+import { api } from '../lib/api'
 
 interface NotificationContextType {
   pushEnabled: boolean
@@ -114,10 +114,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const token = localStorage.getItem('token')
     if (!token || !biometricSupported) return
-    fetch(`${API_BASE}/api/auth/webauthn/credentials`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(data => {
-        const creds = data.credentials || []
+    api.get('/auth/webauthn/credentials')
+      .then(r => {
+        const creds = r.data.credentials || []
         setCredentials(creds)
         setBiometricRegistered(creds.length > 0)
       })
@@ -253,11 +252,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   async function removeBiometric(credId: string) {
     setLoadingBiometric(true)
     try {
-      const token = localStorage.getItem('token')
-      await fetch(`${API_BASE}/api/auth/webauthn/credentials/${credId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      await api.delete(`/auth/webauthn/credentials/${credId}`)
       const updated = credentials.filter(c => c.id !== credId)
       setCredentials(updated)
       setBiometricRegistered(updated.length > 0)

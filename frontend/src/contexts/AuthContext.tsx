@@ -1,6 +1,6 @@
 ﻿import { createContext, useContext, useState, useEffect } from 'react'
 import axios from 'axios'
-import { API_BASE, api } from '../lib/api'
+import { api } from '../lib/api'
 
 interface User {
   id: string
@@ -41,15 +41,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try { setUser(JSON.parse(cachedUser)) } catch {}
       }
       try {
-        const { data } = await axios.get(`${API_BASE}/api/auth/verify`, { timeout: 8000 })
+        const { data } = await api.get('/auth/verify', { timeout: 8000 })
         setUser(data.user)
         localStorage.setItem('user', JSON.stringify(data.user))
-      } catch {
-        localStorage.removeItem('token')
-        localStorage.removeItem('refreshToken')
-        localStorage.removeItem('user')
-        delete axios.defaults.headers.common['Authorization']
-        setUser(null)
+      } catch (err: any) {
+        // 401 handled by api interceptor (attempts refresh, clears on failure)
+        // 403 = invalid token, clear session manually
+        if (err.response?.status === 403) {
+          localStorage.removeItem('token')
+          localStorage.removeItem('refreshToken')
+          localStorage.removeItem('user')
+          delete axios.defaults.headers.common['Authorization']
+          setUser(null)
+        }
       }
       setLoading(false)
     }
