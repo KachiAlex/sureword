@@ -503,3 +503,70 @@ export function useSermonPlaylistItems(playlistId?: string) {
   }, enabled: !!playlistId })
 }
 
+// ── Bookmarks ──────────────────────────────────────────────────
+export function useBookmarks(enabled = true) {
+  return useQuery<Sermon[]>({
+    queryKey: ['bookmarks'],
+    queryFn: async () => {
+      const { data } = await api.get('/bookmarks')
+      return data.sermons as Sermon[]
+    },
+    enabled,
+    staleTime: 30000,
+  })
+}
+
+export function useBookmarkIds(enabled = true) {
+  return useQuery<string[]>({
+    queryKey: ['bookmarks', 'ids'],
+    queryFn: async () => {
+      const { data } = await api.get('/bookmarks/ids')
+      return data.ids as string[]
+    },
+    enabled,
+    staleTime: 30000,
+  })
+}
+
+export function useToggleBookmark() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (sermonId: string) => api.post(`/bookmarks/${sermonId}`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['bookmarks'] })
+    },
+  })
+}
+
+// ── Listening History ──────────────────────────────────────────
+export function useListeningHistory(enabled = true) {
+  return useQuery<Sermon[]>({
+    queryKey: ['history'],
+    queryFn: async () => {
+      const { data } = await api.get('/history?limit=30')
+      return data.sermons as Sermon[]
+    },
+    enabled,
+    staleTime: 30000,
+  })
+}
+
+export function useRecordPlay() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ sermonId, progress = 0 }: { sermonId: string; progress?: number }) =>
+      api.post(`/history/${sermonId}`, { progress }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['history'] })
+    },
+  })
+}
+
+export function useClearHistory() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.delete('/history'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['history'] }),
+  })
+}
+

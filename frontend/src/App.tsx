@@ -29,6 +29,7 @@ const AboutUs = lazy(() => import('./pages/AboutUs'))
 const Donate = lazy(() => import('./pages/Donate'))
 const Print = lazy(() => import('./pages/Print'))
 const Search = lazy(() => import('./pages/Search'))
+const SermonSeries = lazy(() => import('./pages/SermonSeries'))
 
 function PageLoader() {
   return (
@@ -61,6 +62,7 @@ function AnimatedRoutes() {
         <Route path="/donate" element={<Donate />} />
         <Route path="/print" element={<Print />} />
         <Route path="/search" element={<Search />} />
+        <Route path="/series" element={<SermonSeries />} />
         <Route
           path="/dashboard"
           element={

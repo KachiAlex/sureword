@@ -1,7 +1,6 @@
 ﻿import { useEffect, useState, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import axios from 'axios'
-import { API_BASE } from '../lib/api'
+import { api, useRecordPlay } from '../lib/api'
 import { usePageTitle } from '../hooks/usePageTitle'
 import { useAudioPlayer } from '../contexts/AudioPlayerContext'
 import { useFavorites } from '../contexts/FavoritesContext'
@@ -31,6 +30,7 @@ export default function SermonDetail() {
   const navigate = useNavigate()
   const { currentTrack, isPlaying, playTrack, togglePlay } = useAudioPlayer()
   const { isFavorite, toggleFavorite } = useFavorites()
+  const recordPlay = useRecordPlay()
   const [sermon, setSermon] = useState<Sermon | null>(null)
   const [related, setRelated] = useState<Sermon[]>([])
   const [loading, setLoading] = useState(true)
@@ -47,11 +47,11 @@ export default function SermonDetail() {
     setLoading(true)
     setError('')
     try {
-      const { data } = await axios.get(`${API_BASE}/api/sermons/${id}`, { timeout: 8000 })
+      const { data } = await api.get(`/sermons/${id}`, { timeout: 8000 })
       setSermon(data.sermon)
       fetchRelated(data.sermon.id)
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to load sermon.')
+      setError((err as any).response?.data?.error || 'Failed to load sermon.')
     } finally {
       setLoading(false)
     }
@@ -59,7 +59,7 @@ export default function SermonDetail() {
 
   async function fetchRelated(excludeId: string) {
     try {
-      const { data } = await axios.get(`${API_BASE}/api/sermons`, { timeout: 8000 })
+      const { data } = await api.get('/sermons', { timeout: 8000 })
       const filtered = (data.sermons || [])
         .filter((s: Sermon) => s.id !== excludeId)
         .slice(0, 4)
@@ -87,6 +87,7 @@ export default function SermonDetail() {
       thumbnail: sermon.thumbnail_url,
       trackType: 'sermon'
     })
+    recordPlay.mutate({ sermonId: sermon.id })
   }
 
   const [downloading, setDownloading] = useState(false)

@@ -1,6 +1,6 @@
 ﻿import { memo, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { api } from '../lib/api'
+import { api, useBookmarks, useListeningHistory, useToggleBookmark, useClearHistory } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { useNotifications } from '../contexts/NotificationContext'
 import { useAudioPlayer } from '../contexts/AudioPlayerContext'
@@ -216,11 +216,23 @@ const SermonRow = memo(function SermonRow({ s }: { s: Sermon }) {
           </button>
         )}
         <span className="text-[10px] text-[#9a7c60]">{s.duration ? Math.round(s.duration/60)+' min' : '45 min'}</span>
-        <Bookmark className="w-3.5 h-3.5 text-[#9a7c60]" />
+        <BookmarkButton sermonId={s.id} />
       </div>
     </div>
   )
 })
+
+function BookmarkButton({ sermonId }: { sermonId: string }) {
+  const { data: ids = [] } = useBookmarks()
+  const toggle = useToggleBookmark()
+  const bookmarked = (ids as any[]).some((s: any) => (typeof s === 'string' ? s : s.id) === sermonId)
+  return (
+    <button onClick={() => toggle.mutate(sermonId)} disabled={toggle.isPending}
+      className="transition-colors" title={bookmarked ? 'Remove bookmark' : 'Save sermon'}>
+      <Bookmark className={`w-3.5 h-3.5 ${bookmarked ? 'text-[#E05A1A] fill-current' : 'text-[#9a7c60]'}`} />
+    </button>
+  )
+}
 
 /* --- Section panels --- */
 function ProfilePanel({ user }: { user: any }) {
@@ -263,12 +275,15 @@ function NotificationsPanel() {
   )
 }
 
-function SavedPanel({ sermons }: { sermons: Sermon[] }) {
+function SavedPanel() {
+  const { data: sermons = [], isLoading } = useBookmarks()
   return (
     <div className="space-y-5">
       <h2 className="text-base font-semibold text-white flex items-center gap-2"><Bookmark className="w-4 h-4 text-[#E05A1A]" /> Saved Sermons</h2>
       <div className="rounded-2xl border border-[rgba(240,190,100,0.08)] bg-[#2f1206] p-5">
-        {sermons.length === 0 ? (
+        {isLoading ? (
+          <div className="flex justify-center py-8"><div className="w-6 h-6 border-2 border-[#E05A1A] border-t-transparent rounded-full animate-spin" /></div>
+        ) : sermons.length === 0 ? (
           <div className="text-center py-8">
             <Bookmark className="w-10 h-10 text-[#9a7c60] mx-auto mb-3" />
             <p className="text-sm text-white font-medium mb-1">No saved sermons yet</p>
@@ -276,19 +291,31 @@ function SavedPanel({ sermons }: { sermons: Sermon[] }) {
             <Link to="/archive" className="inline-block mt-4 text-xs font-medium text-[#E05A1A] bg-[#E05A1A]/10 px-4 py-2 rounded-lg">Browse Sermons</Link>
           </div>
         ) : (
-          <div className="space-y-1">{sermons.map(s => <SermonRow key={s.id} s={s} />)}</div>
+          <div className="space-y-1">{sermons.map((s: any) => <SermonRow key={s.id} s={s} />)}</div>
         )}
       </div>
     </div>
   )
 }
 
-function HistoryPanel({ sermons }: { sermons: Sermon[] }) {
+function HistoryPanel() {
+  const { data: sermons = [], isLoading } = useListeningHistory()
+  const clearHistory = useClearHistory()
   return (
     <div className="space-y-5">
-      <h2 className="text-base font-semibold text-white flex items-center gap-2"><History className="w-4 h-4 text-[#E05A1A]" /> Listening History</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-semibold text-white flex items-center gap-2"><History className="w-4 h-4 text-[#E05A1A]" /> Listening History</h2>
+        {sermons.length > 0 && (
+          <button onClick={() => clearHistory.mutate()} disabled={clearHistory.isPending}
+            className="text-[11px] text-[#9a7c60] hover:text-[#ef4444] transition-colors disabled:opacity-50">
+            Clear history
+          </button>
+        )}
+      </div>
       <div className="rounded-2xl border border-[rgba(240,190,100,0.08)] bg-[#2f1206] p-5">
-        {sermons.length === 0 ? (
+        {isLoading ? (
+          <div className="flex justify-center py-8"><div className="w-6 h-6 border-2 border-[#E05A1A] border-t-transparent rounded-full animate-spin" /></div>
+        ) : sermons.length === 0 ? (
           <div className="text-center py-8">
             <History className="w-10 h-10 text-[#9a7c60] mx-auto mb-3" />
             <p className="text-sm text-white font-medium mb-1">No listening history</p>
@@ -296,7 +323,7 @@ function HistoryPanel({ sermons }: { sermons: Sermon[] }) {
             <Link to="/archive" className="inline-block mt-4 text-xs font-medium text-[#E05A1A] bg-[#E05A1A]/10 px-4 py-2 rounded-lg">Start Listening</Link>
           </div>
         ) : (
-          <div className="space-y-1">{sermons.map(s => <SermonRow key={s.id} s={s} />)}</div>
+          <div className="space-y-1">{sermons.map((s: any) => <SermonRow key={s.id} s={s} />)}</div>
         )}
       </div>
     </div>
@@ -456,8 +483,8 @@ export default function MemberDashboard() {
           {/* Section panels */}
           {activeSection === 'profile' && <ProfilePanel user={user} />}
           {activeSection === 'notifications' && <NotificationsPanel />}
-          {activeSection === 'saved' && <SavedPanel sermons={sermons} />}
-          {activeSection === 'history' && <HistoryPanel sermons={sermons} />}
+          {activeSection === 'saved' && <SavedPanel />}
+          {activeSection === 'history' && <HistoryPanel />}
           {activeSection === 'settings' && <SettingsPanel pushEnabled={pushEnabled} pushSupported={pushSupported} requestPush={requestPush} disablePush={disablePush} loadingPush={loadingPush} biometricSupported={biometricSupported} biometricRegistered={biometricRegistered} registerBiometric={registerBiometric} loadingBiometric={loadingBiometric} />}
 
           {activeSection === 'home' && <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">

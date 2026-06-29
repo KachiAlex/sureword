@@ -21,6 +21,8 @@ import relayRoutes from './routes/relay.js'
 import streamRoutes from './routes/stream.js'
 import pushRoutes from './routes/push.js'
 import printMediaRoutes from './routes/print-media.js'
+import bookmarkRoutes from './routes/bookmarks.js'
+import historyRoutes from './routes/history.js'
 import { cacheMiddleware } from './middleware/cache.js'
 
 // Sentry init
@@ -86,6 +88,8 @@ app.use('/relay', relayRoutes)
 app.use('/stream', streamRoutes)
 app.use('/push', pushRoutes)
 app.use('/print-media', printMediaRoutes)
+app.use('/bookmarks', bookmarkRoutes)
+app.use('/history', historyRoutes)
 
 // Sentry error handler (must be before 404)
 if (process.env.SENTRY_DSN) {

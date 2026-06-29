@@ -43,6 +43,7 @@ export default function Navbar() {
     { label: 'Home', path: '/' },
     { label: 'Radio', path: '/live' },
     { label: 'Sermons', path: '/archive' },
+    { label: 'Series', path: '/series' },
     { label: 'Print', path: '/print' },
     { label: 'Give', path: '/donate' },
     { label: 'About', path: '/about' },
