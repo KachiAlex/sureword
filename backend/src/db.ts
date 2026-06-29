@@ -112,7 +112,8 @@ const SCHEMA_QUERIES = [
   `CREATE TABLE IF NOT EXISTS music (
     id TEXT PRIMARY KEY, title TEXT NOT NULL, artist TEXT, album TEXT, genre TEXT,
     audio_url TEXT NOT NULL, cover_url TEXT, duration INTEGER, lyrics TEXT,
-    file_format TEXT, file_size INTEGER, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    file_format TEXT, file_size INTEGER, play_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE TABLE IF NOT EXISTS stream_chunks (
     id TEXT PRIMARY KEY, broadcast_id TEXT NOT NULL, chunk_index INTEGER NOT NULL,
@@ -157,6 +158,16 @@ const SCHEMA_QUERIES = [
   `CREATE TABLE IF NOT EXISTS refresh_tokens (
     id TEXT PRIMARY KEY, token TEXT NOT NULL UNIQUE, user_id TEXT NOT NULL,
     expires_at TIMESTAMP NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS sermon_playlists (
+    id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT,
+    start_time TIMESTAMPTZ NOT NULL, end_time TIMESTAMPTZ,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+  `CREATE TABLE IF NOT EXISTS sermon_playlist_items (
+    id TEXT PRIMARY KEY, playlist_id TEXT NOT NULL REFERENCES sermon_playlists(id) ON DELETE CASCADE,
+    sermon_id TEXT NOT NULL, order_index INTEGER NOT NULL DEFAULT 0,
+    duration_minutes INTEGER NOT NULL DEFAULT 30, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`
 ]
 
