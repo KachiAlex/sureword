@@ -7,7 +7,7 @@ import {
 } from '../lib/api'
 import type { Sermon } from '../lib/api'
 import StructuredData from '../components/StructuredData'
-import { Play, Pause, BookOpen, Download } from 'lucide-react'
+import { Play, Pause, BookOpen, Download, FileText } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
 /* ── Logo SVGs ── */
@@ -121,24 +121,6 @@ function SermonListItem({ s, index, onPlay }: { s: Sermon; index: number; onPlay
   )
 }
 
-/* ── Print card ── */
-function PrintThumb({ variant }: { variant: 'a' | 'b' | 'c' | 'd' }) {
-  const grads = {
-    a: 'linear-gradient(145deg,#2f1206,#e05a1a)',
-    b: 'linear-gradient(145deg,#1a0900,#f5a623)',
-    c: 'linear-gradient(145deg,#230d02,#c94c10)',
-    d: 'linear-gradient(145deg,#3b1709,#e8cfa0)',
-  }
-  const icons = { a: '📰', b: '📖', c: '🎓', d: '✝️' }
-  return (
-    <div style={{
-      height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      position: 'relative', background: grads[variant]
-    }}>
-      <span style={{ fontSize: 44, opacity: .7 }}>{icons[variant]}</span>
-    </div>
-  )
-}
 
 export default function Home() {
   usePageTitle('The Whole Word to the Whole World')
@@ -488,37 +470,53 @@ export default function Home() {
             Bulletins, devotional magazines, and study guides — free to download anytime.
           </p>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 18 }}>
-          {(printItems.length > 0 ? printItems : [
-            { id: '1', title: 'June Weekly Bulletin', description: 'Jun 28, 2026 · 4 pages', category: 'bulletin', pdf_url: '#' },
-            { id: '2', title: 'Sure Word Monthly', description: 'June 2026 · 28 pages', category: 'magazine', pdf_url: '#' },
-            { id: '3', title: 'Romans 5 Study Guide', description: 'May 2026 · 12 pages', category: 'study-guide', pdf_url: '#' },
-            { id: '4', title: 'Daily Devotional', description: 'Q2 2026 · 90 days', category: 'devotional', pdf_url: '#' },
-          ]).slice(0, 4).map((item, i) => {
-            const variants: Array<'a' | 'b' | 'c' | 'd'> = ['a', 'b', 'c', 'd']
-            return (
-              <div key={item.id} style={{
-                background: 'var(--coal)', border: '1px solid var(--line)', borderRadius: 4,
-                overflow: 'hidden', transition: 'border-color .2s, transform .2s', cursor: 'pointer'
-              }}
-              className="hover-lift"
-              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--sunrise)'; e.currentTarget.style.transform = 'translateY(-4px)' }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.transform = 'translateY(0)' }}>
-                <PrintThumb variant={variants[i % 4]} />
-                <div style={{ padding: '12px 14px' }}>
-                  <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 2, color: 'var(--white)' }}>{item.title}</div>
-                  <div style={{ fontSize: 11.5, color: 'var(--ash)' }}>{item.description}</div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
-                    <a href={item.pdf_url} target="_blank" rel="noopener noreferrer" className="btn btn-out btn-sm">
-                      <Download style={{ width: 14, height: 14 }} /> Download
-                    </a>
-                    <span style={{ fontSize: 11, color: 'var(--ash)' }}>PDF</span>
+        {printItems.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 24px', background: 'var(--coal)', border: '1px solid var(--line)', borderRadius: 6 }}>
+            <FileText style={{ width: 36, height: 36, margin: '0 auto 10px', color: 'var(--line)' }} />
+            <p style={{ color: 'var(--ash)', fontSize: 13 }}>No resources available yet. Check back soon.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 18 }}>
+            {printItems.slice(0, 4).map(item => {
+              const dateStr = item.published_date
+                ? new Date(item.published_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                : null
+              return (
+                <div key={item.id} style={{
+                  background: 'var(--coal)', border: '1px solid var(--line)', borderRadius: 4,
+                  overflow: 'hidden', transition: 'border-color .2s, transform .2s'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--sunrise)'; e.currentTarget.style.transform = 'translateY(-4px)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.transform = 'translateY(0)' }}>
+                  {item.thumbnail_url ? (
+                    <div style={{ height: 160, overflow: 'hidden' }}>
+                      <img src={item.thumbnail_url} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                  ) : (
+                    <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--panel2)', borderBottom: '1px solid var(--line)' }}>
+                      <div style={{ width: 56, height: 72, borderRadius: 3, background: 'rgba(224,90,26,.1)', border: '1px solid rgba(224,90,26,.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                        <FileText style={{ width: 22, height: 22, color: 'var(--flame3)' }} />
+                        <span style={{ fontSize: 7, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--flame3)' }}>PDF</span>
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ padding: '12px 14px' }}>
+                    <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 2, color: 'var(--white)' }}>{item.title}</div>
+                    <div style={{ fontSize: 11.5, color: 'var(--ash)' }}>
+                      {dateStr}{dateStr && item.page_count ? ' · ' : ''}{item.page_count ? `${item.page_count} pages` : ''}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+                      <a href={item.pdf_url} download target="_blank" rel="noopener noreferrer" className="btn btn-out btn-sm">
+                        <Download style={{ width: 14, height: 14 }} /> Download
+                      </a>
+                      <span style={{ fontSize: 11, color: 'var(--ash)' }}>PDF</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        )}
       </section>
 
       {/* ══ CTA STRIP ══ */}
