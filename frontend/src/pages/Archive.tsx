@@ -7,7 +7,8 @@ import { useAudioPlayer } from '../contexts/AudioPlayerContext'
 import { useFavorites } from '../contexts/FavoritesContext'
 import {
   Play, Pause, Calendar, BookOpen, Headphones, User, Search, AlertCircle,
-  Video, AudioLines, ArrowRight, Shuffle, Heart, ListMusic, BarChart3
+  Video, AudioLines, ArrowRight, Shuffle, Heart, ListMusic, BarChart3,
+  ChevronLeft, ChevronRight
 } from 'lucide-react'
 
 interface Sermon {
@@ -34,6 +35,8 @@ export default function Archive() {
   const [error, setError] = useState('')
   const [searchQ, setSearchQ] = useState('')
   const [filter, setFilter] = useState<'all' | 'favorites'>('all')
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 12
 
   useEffect(() => {
     fetchSermons()
@@ -61,6 +64,8 @@ export default function Archive() {
     if (filter === 'favorites') return matches && isFavorite(s.id, 'sermon')
     return matches
   })
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const audioSermons = filtered.filter(s => s.audio_url)
 
@@ -122,18 +127,18 @@ export default function Archive() {
             <input
               type="text"
               value={searchQ}
-              onChange={e => setSearchQ(e.target.value)}
+              onChange={e => { setSearchQ(e.target.value); setPage(1) }}
               placeholder="Search by title, speaker, or series..."
               className="w-full rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none transition-colors"
               style={{ background: 'var(--ink-2)', border: '1px solid var(--line)', color: 'var(--parchment)' }}
             />
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setFilter('all')} className="px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+            <button onClick={() => { setFilter('all'); setPage(1) }} className="px-3 py-2 rounded-lg text-xs font-medium transition-colors"
               style={{ background: filter === 'all' ? 'var(--gold)' : 'var(--ink-2)', color: filter === 'all' ? '#1b1208' : 'var(--parchment)', border: '1px solid var(--line)' }}>
               <ListMusic className="w-3.5 h-3.5 inline mr-1" />All
             </button>
-            <button onClick={() => setFilter('favorites')} className="px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+            <button onClick={() => { setFilter('favorites'); setPage(1) }} className="px-3 py-2 rounded-lg text-xs font-medium transition-colors"
               style={{ background: filter === 'favorites' ? 'var(--gold)' : 'var(--ink-2)', color: filter === 'favorites' ? '#1b1208' : 'var(--parchment)', border: '1px solid var(--line)' }}>
               <Heart className="w-3.5 h-3.5 inline mr-1" />Favorites
             </button>
@@ -182,7 +187,7 @@ export default function Archive() {
         {/* Sermons grid */}
         {!loading && filtered.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map(s => {
+            {paginated.map(s => {
               const isVideo = !!s.video_url && !s.audio_url
               const isAudio = !!s.audio_url && !s.video_url
               const hasBoth = !!s.audio_url && !!s.video_url
@@ -279,6 +284,29 @@ export default function Archive() {
                 </Link>
               )
             })}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {!loading && totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-10">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+              className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors disabled:opacity-30"
+              style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
+              <ChevronLeft className="w-4 h-4" style={{ color: 'var(--parchment)' }} />
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+              <button key={p} onClick={() => setPage(p)}
+                className="w-9 h-9 rounded-lg text-xs font-medium transition-colors"
+                style={{ background: p === page ? 'var(--gold)' : 'var(--ink-2)', color: p === page ? '#1b1208' : 'var(--parchment)', border: `1px solid ${p === page ? 'var(--gold)' : 'var(--line)'}` }}>
+                {p}
+              </button>
+            ))}
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+              className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors disabled:opacity-30"
+              style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
+              <ChevronRight className="w-4 h-4" style={{ color: 'var(--parchment)' }} />
+            </button>
           </div>
         )}
       </div>

@@ -33,14 +33,14 @@ const sidebarNav = [
   { label: 'Giving & Donations', path: '/donate', icon: DollarSign },
 ]
 const bottomNav = [
-  { label: 'Notifications', path: '/notifications', icon: Bell },
-  { label: 'Saved Items', path: '/saved', icon: Bookmark },
-  { label: 'Listening History', path: '/history', icon: History },
-  { label: 'My Profile', path: '/profile', icon: User },
-  { label: 'Settings', path: '/settings', icon: Settings },
+  { label: 'Notifications', section: 'notifications', icon: Bell },
+  { label: 'Saved Items', section: 'saved', icon: Bookmark },
+  { label: 'Listening History', section: 'history', icon: History },
+  { label: 'My Profile', section: 'profile', icon: User },
+  { label: 'Settings', section: 'settings', icon: Settings },
 ]
 
-function Sidebar({ activePath, mobileOpen, onClose }: { activePath: string; mobileOpen?: boolean; onClose?: () => void }) {
+function Sidebar({ activePath, activeSection, onSection, mobileOpen, onClose }: { activePath: string; activeSection: string; onSection: (s: string) => void; mobileOpen?: boolean; onClose?: () => void }) {
   return (
     <>
       {/* Mobile overlay */}
@@ -64,10 +64,10 @@ function Sidebar({ activePath, mobileOpen, onClose }: { activePath: string; mobi
         <p className="text-[10px] uppercase tracking-wider text-[#9a7c60] mb-3 ml-2">Menu</p>
         <nav className="space-y-0.5">
           {sidebarNav.map(item => {
-            const active = activePath === item.path || (item.path !== '/' && activePath.startsWith(item.path))
+            const active = activeSection === 'home' && (activePath === item.path || (item.path !== '/' && activePath.startsWith(item.path)))
             const Icon = item.icon
             return (
-              <Link key={item.label} to={item.path}
+              <Link key={item.label} to={item.path} onClick={() => onSection('home')}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-colors ${active ? 'bg-[#E05A1A]/10 text-[#E05A1A]' : 'text-[#9a7c60] hover:text-white hover:bg-[rgba(240,190,100,0.04)]'}`}>
                 <Icon className="w-4 h-4" /> {item.label}
               </Link>
@@ -78,14 +78,14 @@ function Sidebar({ activePath, mobileOpen, onClose }: { activePath: string; mobi
       <div className="mt-auto p-5 border-t border-[rgba(240,190,100,0.08)]">
         <nav className="space-y-0.5">
           {bottomNav.map(item => {
-            const active = activePath === item.path
+            const active = activeSection === item.section
             const Icon = item.icon
             return (
-              <Link key={item.label} to={item.path}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-colors ${active ? 'bg-[#E05A1A]/10 text-[#E05A1A]' : 'text-[#9a7c60] hover:text-white hover:bg-[rgba(240,190,100,0.04)]'}`}>
+              <button key={item.label} onClick={() => { onSection(item.section); onClose?.() }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-colors ${active ? 'bg-[#E05A1A]/10 text-[#E05A1A]' : 'text-[#9a7c60] hover:text-white hover:bg-[rgba(240,190,100,0.04)]'}`}>
                 <Icon className="w-4 h-4" />
                 {item.label}
-              </Link>
+              </button>
             )
           })}
         </nav>
@@ -223,6 +223,126 @@ const SermonRow = memo(function SermonRow({ s }: { s: Sermon }) {
   )
 })
 
+/* --- Section panels --- */
+function ProfilePanel({ user }: { user: any }) {
+  const initial = user?.name?.[0]?.toUpperCase() || 'L'
+  return (
+    <div className="space-y-5">
+      <h2 className="text-base font-semibold text-white flex items-center gap-2"><User className="w-4 h-4 text-[#E05A1A]" /> My Profile</h2>
+      <div className="rounded-2xl border border-[rgba(240,190,100,0.08)] bg-[#2f1206] p-6">
+        <div className="flex items-center gap-4 mb-6">
+          <div className="w-16 h-16 rounded-full bg-[#E05A1A] flex items-center justify-center text-[#1b1208] text-2xl font-bold">{initial}</div>
+          <div>
+            <p className="text-base font-medium text-white">{user?.name || 'Listener'}</p>
+            <p className="text-xs text-[#9a7c60]">{user?.email}</p>
+            <span className="inline-block mt-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded bg-[#E05A1A]/10 text-[#E05A1A]">{user?.role}</span>
+          </div>
+        </div>
+        <div className="space-y-3">
+          {[{ label: 'Full Name', value: user?.name || '—' }, { label: 'Email', value: user?.email || '—' }, { label: 'Member Since', value: user?.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '—' }].map(row => (
+            <div key={row.label} className="flex justify-between items-center py-2 border-b border-[rgba(240,190,100,0.06)]">
+              <span className="text-xs text-[#9a7c60]">{row.label}</span>
+              <span className="text-xs text-white font-medium">{row.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function NotificationsPanel() {
+  return (
+    <div className="space-y-5">
+      <h2 className="text-base font-semibold text-white flex items-center gap-2"><Bell className="w-4 h-4 text-[#E05A1A]" /> Notifications</h2>
+      <div className="rounded-2xl border border-[rgba(240,190,100,0.08)] bg-[#2f1206] p-6 text-center">
+        <Bell className="w-10 h-10 text-[#9a7c60] mx-auto mb-3" />
+        <p className="text-sm text-white font-medium mb-1">All caught up</p>
+        <p className="text-xs text-[#9a7c60]">No new notifications right now. We'll let you know when a broadcast goes live, a new sermon drops, or your prayer is answered.</p>
+      </div>
+    </div>
+  )
+}
+
+function SavedPanel({ sermons }: { sermons: Sermon[] }) {
+  return (
+    <div className="space-y-5">
+      <h2 className="text-base font-semibold text-white flex items-center gap-2"><Bookmark className="w-4 h-4 text-[#E05A1A]" /> Saved Sermons</h2>
+      <div className="rounded-2xl border border-[rgba(240,190,100,0.08)] bg-[#2f1206] p-5">
+        {sermons.length === 0 ? (
+          <div className="text-center py-8">
+            <Bookmark className="w-10 h-10 text-[#9a7c60] mx-auto mb-3" />
+            <p className="text-sm text-white font-medium mb-1">No saved sermons yet</p>
+            <p className="text-xs text-[#9a7c60]">Tap the bookmark icon on any sermon to save it here for later.</p>
+            <Link to="/archive" className="inline-block mt-4 text-xs font-medium text-[#E05A1A] bg-[#E05A1A]/10 px-4 py-2 rounded-lg">Browse Sermons</Link>
+          </div>
+        ) : (
+          <div className="space-y-1">{sermons.map(s => <SermonRow key={s.id} s={s} />)}</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function HistoryPanel({ sermons }: { sermons: Sermon[] }) {
+  return (
+    <div className="space-y-5">
+      <h2 className="text-base font-semibold text-white flex items-center gap-2"><History className="w-4 h-4 text-[#E05A1A]" /> Listening History</h2>
+      <div className="rounded-2xl border border-[rgba(240,190,100,0.08)] bg-[#2f1206] p-5">
+        {sermons.length === 0 ? (
+          <div className="text-center py-8">
+            <History className="w-10 h-10 text-[#9a7c60] mx-auto mb-3" />
+            <p className="text-sm text-white font-medium mb-1">No listening history</p>
+            <p className="text-xs text-[#9a7c60]">Sermons you play will appear here.</p>
+            <Link to="/archive" className="inline-block mt-4 text-xs font-medium text-[#E05A1A] bg-[#E05A1A]/10 px-4 py-2 rounded-lg">Start Listening</Link>
+          </div>
+        ) : (
+          <div className="space-y-1">{sermons.map(s => <SermonRow key={s.id} s={s} />)}</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function SettingsPanel({ pushEnabled, pushSupported, requestPush, disablePush, loadingPush, biometricSupported, biometricRegistered, registerBiometric, loadingBiometric }: any) {
+  return (
+    <div className="space-y-5">
+      <h2 className="text-base font-semibold text-white flex items-center gap-2"><Settings className="w-4 h-4 text-[#E05A1A]" /> Settings</h2>
+      <div className="rounded-2xl border border-[rgba(240,190,100,0.08)] bg-[#2f1206] p-5 space-y-5">
+        <div>
+          <p className="text-xs font-semibold text-white mb-1 flex items-center gap-1.5"><Bell className="w-3.5 h-3.5 text-[#E05A1A]" /> Push Notifications</p>
+          <p className="text-[11px] text-[#9a7c60] mb-3">Get alerted when we go live, new sermons drop, or you receive a reply.</p>
+          {!pushSupported ? (
+            <p className="text-[10px] text-[#9a7c60] border border-[rgba(240,190,100,0.08)] rounded-lg p-3">Not supported in this browser.</p>
+          ) : (
+            <button onClick={pushEnabled ? disablePush : requestPush} disabled={loadingPush}
+              className={`w-full py-2.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
+                pushEnabled ? 'bg-[rgba(239,68,68,0.1)] text-[#ef4444] border border-[#ef4444]/20 hover:bg-[rgba(239,68,68,0.2)]'
+                : 'bg-[#E05A1A] hover:bg-[#F5A623] text-[#1b1208]'}`}>
+              {loadingPush ? '...' : pushEnabled ? 'Disable Notifications' : 'Enable Notifications'}
+            </button>
+          )}
+        </div>
+        <div className="h-px bg-[rgba(240,190,100,0.08)]" />
+        <div>
+          <p className="text-xs font-semibold text-white mb-1 flex items-center gap-1.5"><Fingerprint className="w-3.5 h-3.5 text-[#E05A1A]" /> Biometric Login</p>
+          <p className="text-[11px] text-[#9a7c60] mb-3">Register your fingerprint or face ID for quick, passwordless sign-in.</p>
+          {!biometricSupported ? (
+            <p className="text-[10px] text-[#9a7c60] border border-[rgba(240,190,100,0.08)] rounded-lg p-3">Not supported on this device.</p>
+          ) : (
+            <button onClick={biometricRegistered ? undefined : registerBiometric} disabled={loadingBiometric || biometricRegistered}
+              className={`w-full py-2.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
+                biometricRegistered ? 'bg-[rgba(74,222,128,0.1)] text-[#4ade80] border border-[#4ade80]/20 cursor-default'
+                : 'bg-[#E05A1A] hover:bg-[#F5A623] text-[#1b1208]'}`}>
+              {loadingBiometric ? '...' : biometricRegistered ? '✓ Biometric Registered' : 'Register Biometric'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* --- MemberDashboard --- */
 export default function MemberDashboard() {
   const { user } = useAuth()
@@ -232,6 +352,7 @@ export default function MemberDashboard() {
   } = useNotifications()
   const navigate = useNavigate()
   const location = useLocation()
+  const [activeSection, setActiveSection] = useState('home')
   const [broadcast, setBroadcast] = useState<Broadcast|null>(null)
   const [sermons, setSermons] = useState<Sermon[]>([])
   const [prayers, setPrayers] = useState<Prayer[]>([])
@@ -318,7 +439,7 @@ export default function MemberDashboard() {
   return (
     <div className="min-h-screen pb-16 lg:pb-0" style={{background:'var(--ink)', color:'var(--parchment)'}}>
       <div className="max-w-[1440px] mx-auto flex">
-        <Sidebar activePath={location.pathname} mobileOpen={mobileSidebarOpen} onClose={()=>setMobileSidebarOpen(false)} />
+        <Sidebar activePath={location.pathname} activeSection={activeSection} onSection={setActiveSection} mobileOpen={mobileSidebarOpen} onClose={()=>setMobileSidebarOpen(false)} />
         <main className="flex-1 min-w-0 px-3 sm:px-4 md:px-6 py-4 md:py-6">
           {/* Mobile header bar */}
           <div className="lg:hidden flex items-center justify-between mb-4">
@@ -336,7 +457,14 @@ export default function MemberDashboard() {
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
+          {/* Section panels */}
+          {activeSection === 'profile' && <ProfilePanel user={user} />}
+          {activeSection === 'notifications' && <NotificationsPanel />}
+          {activeSection === 'saved' && <SavedPanel sermons={sermons} />}
+          {activeSection === 'history' && <HistoryPanel sermons={sermons} />}
+          {activeSection === 'settings' && <SettingsPanel pushEnabled={pushEnabled} pushSupported={pushSupported} requestPush={requestPush} disablePush={disablePush} loadingPush={loadingPush} biometricSupported={biometricSupported} biometricRegistered={biometricRegistered} registerBiometric={registerBiometric} loadingBiometric={loadingBiometric} />}
+
+          {activeSection === 'home' && <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
             <div className="xl:col-span-9 space-y-5">
               {/* Header */}
               <div className="flex items-center justify-between mb-6">
@@ -562,7 +690,7 @@ export default function MemberDashboard() {
                 </div>
               </div>
             </div>
-          </div>
+          </div>}
           {/* Footer */}
           <div className="mt-8 py-4 border-t border-[rgba(240,190,100,0.08)] flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
             <div className="flex items-center gap-2">
@@ -576,19 +704,27 @@ export default function MemberDashboard() {
       {/* Mobile bottom nav */}
       <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-[rgba(240,190,100,0.08)] bg-[#0f0f14]/95 backdrop-blur-md flex items-center justify-around py-2">
         {[
-          {icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard'},
+          {icon: LayoutDashboard, label: 'Home', section: 'home'},
           {icon: Radio, label: 'Live', path: '/live'},
           {icon: BookOpen, label: 'Sermons', path: '/archive'},
-          {icon: Heart, label: 'Prayer', path: '/prayer'},
-          {icon: Settings, label: 'More', path: '/settings'},
+          {icon: Bookmark, label: 'Saved', section: 'saved'},
+          {icon: User, label: 'Profile', section: 'profile'},
         ].map(item => {
-          const active = location.pathname === item.path
+          const active = item.section ? activeSection === item.section : location.pathname === item.path
           const Icon = item.icon
+          if (item.path) {
+            return (
+              <Link key={item.label} to={item.path!} onClick={() => setActiveSection('home')} className="flex flex-col items-center gap-0.5 px-2 py-1">
+                <Icon className={`w-5 h-5 ${active ? 'text-[#E05A1A]' : 'text-[#9a7c60]'}`} />
+                <span className={`text-[10px] ${active ? 'text-[#E05A1A]' : 'text-[#9a7c60]'}`}>{item.label}</span>
+              </Link>
+            )
+          }
           return (
-            <Link key={item.label} to={item.path} className="flex flex-col items-center gap-0.5 px-2 py-1">
+            <button key={item.label} onClick={() => setActiveSection(item.section!)} className="flex flex-col items-center gap-0.5 px-2 py-1">
               <Icon className={`w-5 h-5 ${active ? 'text-[#E05A1A]' : 'text-[#9a7c60]'}`} />
               <span className={`text-[10px] ${active ? 'text-[#E05A1A]' : 'text-[#9a7c60]'}`}>{item.label}</span>
-            </Link>
+            </button>
           )
         })}
       </div>

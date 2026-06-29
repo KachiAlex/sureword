@@ -1,13 +1,15 @@
 import { Link } from 'react-router-dom'
 import { usePageTitle } from '../hooks/usePageTitle'
 import { useAudioPlayer } from '../contexts/AudioPlayerContext'
+import { useAuth } from '../contexts/AuthContext'
+import { useNotifications } from '../contexts/NotificationContext'
 import {
   useActiveBroadcast, useFeaturedSermons, usePrintMedia,
   useRadioCurrent
 } from '../lib/api'
 import type { Sermon } from '../lib/api'
 import StructuredData from '../components/StructuredData'
-import { Play, Pause, BookOpen, Download, FileText } from 'lucide-react'
+import { Play, Pause, BookOpen, Download, FileText, Bell, X } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
 /* ── Logo SVGs ── */
@@ -124,18 +126,38 @@ function SermonListItem({ s, index, onPlay }: { s: Sermon; index: number; onPlay
 
 export default function Home() {
   usePageTitle('The Whole Word to the Whole World')
+  const { user } = useAuth()
+  const { pushEnabled, pushSupported, requestPush, loadingPush } = useNotifications()
   const { data: broadcast } = useActiveBroadcast()
   const { data: sermons = [] } = useFeaturedSermons()
   const { data: printItems = [] } = usePrintMedia()
   const { data: radioData } = useRadioCurrent()
   const { playTrack, togglePlay, currentTrack, isPlaying } = useAudioPlayer()
   const isLive = broadcast?.status === 'live'
+  const [dismissedPush, setDismissedPush] = useState(() => localStorage.getItem('push_dismissed') === '1')
+  const showPushBanner = user && pushSupported && !pushEnabled && !dismissedPush
+
+  function dismissPush() { localStorage.setItem('push_dismissed', '1'); setDismissedPush(true) }
 
   const nowPlaying = radioData?.current
   const npActive = currentTrack && isPlaying
 
   return (
     <div style={{ background: 'var(--ember)', color: 'var(--cream)' }}>
+      {/* Push notification banner */}
+      {showPushBanner && (
+        <div style={{ background: 'rgba(224,90,26,.12)', borderBottom: '1px solid rgba(224,90,26,.2)', padding: '10px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <Bell style={{ width: 15, height: 15, color: 'var(--flame3)', flexShrink: 0 }} />
+          <span style={{ fontSize: 13, color: 'var(--cream2)' }}>Get notified when we go live and when new sermons drop.</span>
+          <button onClick={requestPush} disabled={loadingPush}
+            style={{ fontSize: 12, fontWeight: 700, padding: '5px 14px', borderRadius: 4, background: 'var(--flame)', color: '#fff', border: 'none', cursor: 'pointer', opacity: loadingPush ? .6 : 1 }}>
+            {loadingPush ? 'Enabling…' : 'Enable Notifications'}
+          </button>
+          <button onClick={dismissPush} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ash)', padding: 4 }}>
+            <X style={{ width: 14, height: 14 }} />
+          </button>
+        </div>
+      )}
       <StructuredData />
 
       {/* ══ HERO ══ */}

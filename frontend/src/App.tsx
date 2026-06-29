@@ -28,6 +28,7 @@ const EventDetail = lazy(() => import('./pages/EventDetail'))
 const AboutUs = lazy(() => import('./pages/AboutUs'))
 const Donate = lazy(() => import('./pages/Donate'))
 const Print = lazy(() => import('./pages/Print'))
+const Search = lazy(() => import('./pages/Search'))
 
 function PageLoader() {
   return (
@@ -59,6 +60,7 @@ function AnimatedRoutes() {
         <Route path="/about" element={<AboutUs />} />
         <Route path="/donate" element={<Donate />} />
         <Route path="/print" element={<Print />} />
+        <Route path="/search" element={<Search />} />
         <Route
           path="/dashboard"
           element={

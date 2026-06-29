@@ -75,7 +75,7 @@ export default function SearchOverlay({ open, onClose }: { open: boolean; onClos
               <p className="text-[10px] font-bold text-[#9a7c60] uppercase tracking-wider mb-2 px-1">Sermons</p>
               <div className="space-y-1">
                 {results.sermons.map((s: any) => (
-                  <Link key={s.id} to={`/archive/${s.id}`} onClick={onClose}
+                  <Link key={s.id} to={`/sermons/${s.id}`} onClick={onClose}
                     className="flex items-center gap-3 p-2 rounded-xl hover:bg-[rgba(240,190,100,0.04)] transition-colors">
                     {s.thumbnail_url ? (
                       <img src={s.thumbnail_url} alt={`${s.title} sermon thumbnail`} loading="lazy" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
@@ -154,6 +154,14 @@ export default function SearchOverlay({ open, onClose }: { open: boolean; onClos
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+          {hasResults && q.trim() && (
+            <div className="px-3 pb-2">
+              <Link to={`/search?q=${encodeURIComponent(q)}`} onClick={onClose}
+                className="block w-full text-center py-2 rounded-xl text-xs font-medium text-[#9a7c60] hover:text-white hover:bg-[rgba(240,190,100,0.04)] transition-colors">
+                View all results for &ldquo;{q}&rdquo; →
+              </Link>
             </div>
           )}
         </div>

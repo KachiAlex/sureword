@@ -5,7 +5,7 @@ export default function Broadcast() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    navigate('/dashboard')
+    navigate('/live')
   }, [navigate])
 
   return null
