@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState, useRef } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { SOCKET_BASE, api } from '../lib/api'
+import Hls from 'hls.js'
+import { API_BASE, SOCKET_BASE, api } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { usePageTitle } from '../hooks/usePageTitle'
 import {
@@ -19,6 +20,8 @@ interface Broadcast {
   church_online_url?: string
   thumbnail_url?: string
   speaker?: string
+  stream_key?: string
+  stream_type?: string
 }
 
 interface ChatMessage {
@@ -60,8 +63,11 @@ function AudioBars({ active }: { active: boolean }) {
   )
 }
 
-/* -- StreamPlayer (simple <audio> with backend live stream) ----------------------------------- */
-function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: string; title?: string; thumbnailUrl?: string }) {
+/* -- StreamPlayer (HLS via hls.js for SRS, fallback to <audio> for legacy) ----------------------------------- */
+function StreamPlayer({ broadcastId, title, thumbnailUrl, streamKey, streamType }: {
+  broadcastId: string; title?: string; thumbnailUrl?: string; streamKey?: string; streamType?: string
+}) {
+  const isHls = streamType === 'srs_rtmp' && !!streamKey
   const [started, setStarted] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [listenerCount, setListenerCount] = useState(0)
@@ -72,7 +78,8 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
   const sessionIdRef = useRef('')
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const infoIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const mediaRef = useRef<HTMLAudioElement | HTMLVideoElement | null>(null)
+  const hlsRef = useRef<Hls | null>(null)
   const userPausedRef = useRef(false)
 
   function updateMediaSession(playing: boolean) {
@@ -88,47 +95,67 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
     navigator.mediaSession.metadata = new MediaMetadata({
       title: broadcastTitle, artist: 'SUREWORD RADIO', album: 'The Whole Word to the Whole World', artwork
     })
-    navigator.mediaSession.setActionHandler('play', () => audioRef.current?.play().catch(() => {}))
-    navigator.mediaSession.setActionHandler('pause', () => audioRef.current?.pause())
+    navigator.mediaSession.setActionHandler('play', () => mediaRef.current?.play().catch(() => {}))
+    navigator.mediaSession.setActionHandler('pause', () => mediaRef.current?.pause())
     navigator.mediaSession.setActionHandler('stop', () => {
-      const a = audioRef.current; if (a) { a.pause(); a.src = '' }
+      const a = mediaRef.current; if (a) { a.pause(); a.src = '' }
     })
   }
 
   function handleStart() {
-    if (!audioRef.current) return
+    if (!mediaRef.current) return
     setStarted(true)
-    setStatusText('Connecting�')
+    setStatusText('Connecting')
     userPausedRef.current = false
 
     sessionIdRef.current = Math.random().toString(36).slice(2) + Date.now().toString(36)
-    fetch(`${API_BASE}/api/stream/${broadcastId}/join`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId: sessionIdRef.current })
-    }).catch(() => {})
-
-    heartbeatRef.current = setInterval(() => {
-      fetch(`${API_BASE}/api/stream/${broadcastId}/heartbeat`, {
+    if (!isHls) {
+      fetch(`${API_BASE}/api/stream/${broadcastId}/join`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId: sessionIdRef.current })
       }).catch(() => {})
-    }, 30000)
 
-    infoIntervalRef.current = setInterval(async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/stream/${broadcastId}/info`)
-        if (res.ok) { const info = await res.json(); setListenerCount(info.listenerCount || 0) }
-      } catch {}
-    }, 10000)
+      heartbeatRef.current = setInterval(() => {
+        fetch(`${API_BASE}/api/stream/${broadcastId}/heartbeat`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: sessionIdRef.current })
+        }).catch(() => {})
+      }, 30000)
 
-    // Point to backend live stream endpoint
-    audioRef.current.src = `${SOCKET_BASE}/api/stream/${broadcastId}/live`
-    audioRef.current.volume = volume / 100
-    audioRef.current.play().then(() => {
-      setIsPlaying(true)
-      setStatusText('Live')
-      setupMediaSession(title || 'Live Broadcast')
-    }).catch(() => { setStatusText('Tap play to start') })
+      infoIntervalRef.current = setInterval(async () => {
+        try {
+          const res = await fetch(`${API_BASE}/api/stream/${broadcastId}/info`)
+          if (res.ok) { const info = await res.json(); setListenerCount(info.listenerCount || 0) }
+        } catch {}
+      }, 10000)
+    }
+
+    if (isHls && Hls.isSupported()) {
+      const hls = new Hls({ liveSyncDurationCount: 3, liveMaxLatencyDurationCount: 5 })
+      hlsRef.current = hls
+      hls.attachMedia(mediaRef.current as HTMLVideoElement)
+      hls.loadSource(`${SOCKET_BASE}/hls/live/${streamKey}.m3u8`)
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        mediaRef.current!.play().then(() => {
+          setIsPlaying(true)
+          setStatusText('Live')
+          setupMediaSession(title || 'Live Broadcast')
+        }).catch(() => { setStatusText('Tap play to start') })
+      })
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (data.fatal) setStatusText('Stream error')
+      })
+    } else {
+      mediaRef.current.src = isHls
+        ? `${SOCKET_BASE}/hls/live/${streamKey}.m3u8`
+        : `${SOCKET_BASE}/api/stream/${broadcastId}/live`
+      mediaRef.current.volume = volume / 100
+      mediaRef.current.play().then(() => {
+        setIsPlaying(true)
+        setStatusText('Live')
+        setupMediaSession(title || 'Live Broadcast')
+      }).catch(() => { setStatusText('Tap play to start') })
+    }
 
     try {
       const android = (window as any).AndroidAudio
@@ -137,49 +164,57 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
   }
 
   function togglePlay() {
-    const audio = audioRef.current
-    if (!audio) return
-    if (audio.paused) { audio.play().catch(() => {}); userPausedRef.current = false }
-    else { audio.pause(); userPausedRef.current = true }
+    const media = mediaRef.current
+    if (!media) return
+    if (media.paused) { media.play().catch(() => {}); userPausedRef.current = false }
+    else { media.pause(); userPausedRef.current = true }
   }
 
   useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = volume / 100
+    if (mediaRef.current) mediaRef.current.volume = volume / 100
   }, [volume])
 
   useEffect(() => {
-    const audio = document.createElement('audio')
-    audio.setAttribute('playsinline', 'true')
-    audio.setAttribute('webkit-playsinline', 'true')
-    audio.setAttribute('preload', 'none')
-    audio.onplay = () => { setIsPlaying(true); updateMediaSession(true); userPausedRef.current = false }
-    audio.onpause = () => { setIsPlaying(false); updateMediaSession(false); userPausedRef.current = true }
-    audio.onplaying = () => { setStatusText('Live') }
-    audio.onwaiting = () => { setStatusText('Buffering�') }
-    audio.onstalled = () => { setStatusText('Stalled') }
-    audio.onerror = () => { setStatusText('Connection error') }
-    audioRef.current = audio
-    return () => { audio.pause(); audio.src = ''; audioRef.current = null }
-  }, [])
+    const el = isHls ? document.createElement('video') : document.createElement('audio')
+    el.setAttribute('playsinline', 'true')
+    el.setAttribute('webkit-playsinline', 'true')
+    el.setAttribute('preload', 'none')
+    if (isHls) {
+      el.setAttribute('muted', 'false')
+      ;(el as HTMLVideoElement).muted = false
+    }
+    el.onplay = () => { setIsPlaying(true); updateMediaSession(true); userPausedRef.current = false }
+    el.onpause = () => { setIsPlaying(false); updateMediaSession(false); userPausedRef.current = true }
+    el.onplaying = () => { setStatusText('Live') }
+    el.onwaiting = () => { setStatusText('Buffering') }
+    el.onstalled = () => { setStatusText('Stalled') }
+    el.onerror = () => { setStatusText('Connection error') }
+    mediaRef.current = el
+    return () => {
+      hlsRef.current?.destroy()
+      hlsRef.current = null
+      el.pause(); el.src = ''; mediaRef.current = null
+    }
+  }, [isHls, streamKey])
 
   useEffect(() => {
     return () => {
       if (heartbeatRef.current) clearInterval(heartbeatRef.current)
       if (infoIntervalRef.current) clearInterval(infoIntervalRef.current)
-      if (sessionIdRef.current) {
+      if (!isHls && sessionIdRef.current) {
         fetch(`${API_BASE}/api/stream/${broadcastId}/leave`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sessionId: sessionIdRef.current })
         }).catch(() => {})
       }
-      const a = audioRef.current
+      const a = mediaRef.current
       if (a) { a.pause(); a.src = '' }
       try {
         const android = (window as any).AndroidAudio
         if (android && typeof android.stopAudioService === 'function') android.stopAudioService()
       } catch {}
     }
-  }, [broadcastId])
+  }, [broadcastId, isHls])
 
   const VolumeIcon = volume === 0 ? VolumeX : volume > 50 ? Volume2 : Volume1
 
@@ -201,12 +236,14 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl }: { broadcastId: strin
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-[#ef4444]" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-[#ef4444]" />
           </span>
-          <span className="text-[11px] font-semibold tracking-wider text-white">LIVE AUDIO</span>
+          <span className="text-[11px] font-semibold tracking-wider text-white">{isHls ? 'LIVE STREAM' : 'LIVE AUDIO'}</span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-[10px] font-mono flex items-center gap-1 text-[#9a7c60]">
-            <Users className="w-3 h-3" /> {listenerCount}
-          </span>
+          {!isHls && (
+            <span className="text-[10px] font-mono flex items-center gap-1 text-[#9a7c60]">
+              <Users className="w-3 h-3" /> {listenerCount}
+            </span>
+          )}
           <span className="text-[10px] font-mono text-[#9a7c60]">{statusText}</span>
         </div>
       </div>
@@ -489,7 +526,7 @@ export default function Live() {
               <div className="flex-1 relative min-h-[300px] md:min-h-0">
                 <iframe ref={iframeRef} src={getChurchOnlineUrl()!} className="absolute inset-0 w-full h-full" style={{ border: 'none' }} allow="autoplay; fullscreen" allowFullScreen title="Live Broadcast" />
               </div>
-              {broadcast.status === 'live' && <StreamPlayer broadcastId={broadcast.id} title={broadcast.title} thumbnailUrl={broadcast.thumbnail_url} />}
+              {broadcast.status === 'live' && <StreamPlayer broadcastId={broadcast.id} title={broadcast.title} thumbnailUrl={broadcast.thumbnail_url} streamKey={broadcast.stream_key} streamType={broadcast.stream_type} />}
               {broadcast.scripture_reference && (
                 <div className="mx-4 mb-4 rounded-xl p-4 text-center bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
                   <div className="text-[10px] font-mono font-medium tracking-widest text-[#E05A1A] mb-1.5">NOW READING</div>
@@ -525,7 +562,7 @@ export default function Live() {
                   </div>
                 </div>
                 {/* Player */}
-                {broadcast.status === 'live' && <StreamPlayer broadcastId={broadcast.id} title={broadcast.title} thumbnailUrl={broadcast.thumbnail_url} />}
+                {broadcast.status === 'live' && <StreamPlayer broadcastId={broadcast.id} title={broadcast.title} thumbnailUrl={broadcast.thumbnail_url} streamKey={broadcast.stream_key} streamType={broadcast.stream_type} />}
               </div>
             </div>
           )}

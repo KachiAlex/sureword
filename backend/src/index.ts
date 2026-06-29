@@ -19,6 +19,7 @@ import analyticsRoutes from './routes/analytics.js'
 import searchRoutes from './routes/search.js'
 import relayRoutes from './routes/relay.js'
 import streamRoutes from './routes/stream.js'
+import srsRoutes from './routes/srs.js'
 import pushRoutes from './routes/push.js'
 import printMediaRoutes from './routes/print-media.js'
 import bookmarkRoutes from './routes/bookmarks.js'
@@ -90,6 +91,17 @@ app.use('/analytics', analyticsRoutes)
 app.use('/search', cacheMiddleware(30000), searchRoutes)
 app.use('/relay', relayRoutes)
 app.use('/stream', streamRoutes)
+app.use('/srs', srsRoutes)
+app.use('/hls', express.static('/tmp/srs/hls', {
+  setHeaders: (res, path) => {
+    res.set('Access-Control-Allow-Origin', '*')
+    if (path.endsWith('.m3u8')) {
+      res.set('Content-Type', 'application/vnd.apple.mpegurl')
+    } else if (path.endsWith('.ts')) {
+      res.set('Content-Type', 'video/mp2t')
+    }
+  }
+}))
 app.use('/push', pushRoutes)
 app.use('/print-media', printMediaRoutes)
 app.use('/bookmarks', bookmarkRoutes)

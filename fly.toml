@@ -11,6 +11,16 @@ primary_region = "ams"
   min_machines_running = 1
   processes = ["app"]
 
+[[services]]
+  internal_port = 1935
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = true
+
+  [[services.ports]]
+    handlers = []
+    port = 1935
+
 [[vm]]
   size = "shared-cpu-1x"
-  memory = "256mb"
+  memory = "512mb"

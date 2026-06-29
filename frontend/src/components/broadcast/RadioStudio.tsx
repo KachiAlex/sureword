@@ -1,6 +1,5 @@
 ﻿import { useState, useEffect, useRef } from 'react'
-import { io, Socket } from 'socket.io-client'
-import { API_BASE, SOCKET_BASE, api } from '../../lib/api'
+import { API_BASE, api } from '../../lib/api'
 import {
   Radio, Pause, Play, Square, Mic, MicOff, Volume2, Volume1, VolumeX,
   Copy, CheckCircle, Activity, Share2, Headphones, Wifi, Zap, HardDrive,
@@ -155,6 +154,9 @@ export default function RadioStudio({
   const activeDeviceIdRef = useRef(selectedDevice || '')
   const [uploadProgress, setUploadProgress] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle')
   const [recordingUrl, setRecordingUrl] = useState('')
+  const [rtmpUrl, setRtmpUrl] = useState('')
+  const [hlsUrl, setHlsUrl] = useState('')
+  const [streamKey, setStreamKey] = useState('')
 
   const isLive = status === 'live'
 
@@ -219,19 +221,14 @@ export default function RadioStudio({
     return () => navigator.mediaDevices.removeEventListener('devicechange', enumerateDevices)
   }, [])
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const chunkIndexRef = useRef(0)
   const statsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const chunkTimesRef = useRef<number[]>([])
-  const chunkTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const shouldRecordRef = useRef(false)
   const localRecorderRef = useRef<MediaRecorder | null>(null)
   const fileWritableRef = useRef<FileSystemWritableFileStream | null>(null)
   const cloudRecorderRef = useRef<MediaRecorder | null>(null)
   const cloudBlobsRef = useRef<Blob[]>([])
   const cloudMimeRef = useRef('audio/webm')
-  const socketRef = useRef<Socket | null>(null)
 
   useEffect(() => {
     if (!recordEnabled) return
@@ -376,17 +373,22 @@ export default function RadioStudio({
 
   async function startStreaming() {
     try {
-      // Connect socket for real-time chunk relay
-      const socket = io(SOCKET_BASE, { path: '/socket.io', transports: ['websocket', 'polling'] })
-      socketRef.current = socket
-      socket.on('connect', () => { if (broadcastId) socket.emit('join_broadcast', broadcastId) })
+      // Fetch SRS stream info for this broadcast
+      try {
+        const { data } = await api.post('/srs/streams', { broadcastId })
+        setRtmpUrl(data.rtmpUrl)
+        setHlsUrl(data.hlsUrl)
+        setStreamKey(data.streamKey)
+      } catch (e: any) {
+        console.error('Failed to fetch SRS stream info:', e.response?.data?.error || e.message)
+      }
 
       const deviceId = activeDeviceIdRef.current
       const rawMicStream = await navigator.mediaDevices.getUserMedia({
         audio: deviceId ? { deviceId: { exact: deviceId } } : true
       })
 
-      /* -- Build mixer graph -- */
+      /* -- Build mixer graph for local monitor -- */
       const { ctx, dest, micGain: micGNode } = getOrCreateMixer()
       if (ctx.state === 'suspended') ctx.resume().catch(() => {})
 
@@ -394,7 +396,7 @@ export default function RadioStudio({
       const micSource = ctx.createMediaStreamSource(rawMicStream)
       micSource.connect(micGNode)
 
-      // Mixed stream (mic + any music) goes to all recorders
+      // Mixed stream (mic + any music) goes to monitor and recorders
       const stream = dest.stream
       streamRef.current = stream
       setMicStream(rawMicStream)
@@ -413,9 +415,7 @@ export default function RadioStudio({
         startMusicPlayback()
       }
 
-      startChunkRecorder()
-
-      // Start local recording alongside server streaming
+      // Start local recording alongside broadcast
       if (recordEnabled && recordDirHandle) {
         try {
           const safeTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'broadcast'
@@ -438,7 +438,7 @@ export default function RadioStudio({
         }
       }
 
-      // Cloud recording � stream all blobs into memory for upload on end
+      // Cloud recording - stream all blobs into memory for upload on end
       const cloudMime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus' : 'audio/webm'
       cloudMimeRef.current = cloudMime
@@ -448,71 +448,19 @@ export default function RadioStudio({
       cloudRecorder.start(5000)
       cloudRecorderRef.current = cloudRecorder
 
-      statsIntervalRef.current = setInterval(async () => {
-        try {
-          const { data } = await api.get(`/stream/${broadcastId}/info`)
-          const times = chunkTimesRef.current
-          let bitrate = 0
-          if (times.length >= 2) {
-            const span = (times[times.length - 1] - times[0]) / 1000
-            bitrate = span > 0 ? Math.round((times.length * 32) / span) : 0
-          }
-          setStreamStats({ chunkCount: data.totalChunks, bitrate, latestChunk: data.latestChunk })
-        } catch {}
-      }, 3000)
+      // Simple stats: just show that we are live via SRS
+      setStreamStats({ chunkCount: 0, bitrate: 0, latestChunk: -1 })
     } catch {
-      setUploadError('Could not access microphone for streaming')
+      setUploadError('Could not access microphone for monitor')
     }
-  }
-
-  function startChunkRecorder() {
-    if (!shouldRecordRef.current || !streamRef.current || !broadcastId) return
-    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-      ? 'audio/webm;codecs=opus' : 'audio/webm'
-    const recorder = new MediaRecorder(streamRef.current, { mimeType, audioBitsPerSecond: 128000 })
-
-    recorder.ondataavailable = async (e) => {
-      if (e.data.size > 0 && broadcastId) {
-        const reader = new FileReader()
-        reader.onloadend = async () => {
-          const base64 = (reader.result as string).split(',')[1]
-          chunkTimesRef.current.push(Date.now())
-          if (chunkTimesRef.current.length > 10) chunkTimesRef.current.shift()
-          const idx = chunkIndexRef.current++
-          // Real-time relay via WebSocket
-          if (socketRef.current?.connected) {
-            socketRef.current.emit('broadcast_chunk', { broadcastId, chunkIndex: idx, chunkData: base64 })
-          }
-          // HTTP fallback for persistence / replay
-          try {
-            await api.post(`/stream/${broadcastId}/chunk`, {
-              chunkIndex: idx,
-              chunkData: base64
-            })
-            setUploadError('')
-          } catch { setUploadError('Upload failed - check connection') }
-        }
-        reader.readAsDataURL(e.data)
-      }
-    }
-
-    mediaRecorderRef.current = recorder
-    recorder.start(2000) // timeslice: emit blob every 2 seconds with proper segments
   }
 
   function stopStreaming(triggerUpload = false): Promise<void> {
     teardownMixer()
     shouldRecordRef.current = false
-    if (socketRef.current) { socketRef.current.disconnect(); socketRef.current = null }
-    if (chunkTimeoutRef.current) { clearTimeout(chunkTimeoutRef.current); chunkTimeoutRef.current = null }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop()
-    }
     if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null }
     setMicStream(null)
     if (statsIntervalRef.current) { clearInterval(statsIntervalRef.current); statsIntervalRef.current = null }
-    mediaRecorderRef.current = null
-    chunkTimesRef.current = []
     if (localRecorderRef.current && localRecorderRef.current.state !== 'inactive') {
       localRecorderRef.current.stop()
     }
@@ -522,6 +470,9 @@ export default function RadioStudio({
     }
     localRecorderRef.current = null
     setRecordingStatus('')
+    setRtmpUrl('')
+    setHlsUrl('')
+    setStreamKey('')
 
     // Snapshot blobs NOW before the recorder is nulled
     const blobsSnapshot = [...cloudBlobsRef.current]
@@ -800,6 +751,52 @@ export default function RadioStudio({
             </>
           )}
         </div>
+
+        {/* RTMP Stream Info */}
+        {isLive && rtmpUrl && (
+          <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--ink)', border: '1px solid var(--line)' }}>
+            <div className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--gold)' }}>
+              <Wifi className="w-4 h-4" /> SRS Stream Info
+            </div>
+            <div className="space-y-2">
+              <div>
+                <label className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--dim)' }}>RTMP URL</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <code className="flex-1 text-xs font-mono px-2 py-1.5 rounded bg-[#1b1208] truncate">{rtmpUrl}</code>
+                  <button onClick={() => copyToClipboard(rtmpUrl)}
+                    className="p-1.5 rounded-lg transition-colors" style={{ background: 'rgba(201,162,39,0.1)', color: 'var(--gold)' }}>
+                    {copied ? <CheckCircle className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--dim)' }}>Stream Key</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <code className="flex-1 text-xs font-mono px-2 py-1.5 rounded bg-[#1b1208] truncate">{streamKey}</code>
+                  <button onClick={() => copyToClipboard(streamKey)}
+                    className="p-1.5 rounded-lg transition-colors" style={{ background: 'rgba(201,162,39,0.1)', color: 'var(--gold)' }}>
+                    {copied ? <CheckCircle className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+              {hlsUrl && (
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--dim)' }}>HLS Playback</label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <code className="flex-1 text-xs font-mono px-2 py-1.5 rounded bg-[#1b1208] truncate">{hlsUrl}</code>
+                    <button onClick={() => copyToClipboard(hlsUrl)}
+                      className="p-1.5 rounded-lg transition-colors" style={{ background: 'rgba(201,162,39,0.1)', color: 'var(--gold)' }}>
+                      {copied ? <CheckCircle className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            <p className="text-[10px]" style={{ color: 'var(--dim)' }}>
+              Paste the RTMP URL and Stream Key into OBS or your streaming software to broadcast.
+            </p>
+          </div>
+        )}
 
         {/* Mic Controls */}
         <div className="rounded-xl p-4" style={{ background: 'var(--ink)', border: '1px solid var(--line)' }}>
