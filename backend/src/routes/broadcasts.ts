@@ -108,6 +108,59 @@ router.post('/:id/end', authenticateToken, requireRole('broadcaster', 'admin'), 
   }
 })
 
+router.patch('/:id/start', authenticateToken, requireRole('broadcaster', 'admin'), async (req, res) => {
+  try {
+    await initDb()
+    const broadcast = await db.get('SELECT * FROM broadcasts WHERE id = $1', [req.params.id])
+    if (!broadcast) { res.status(404).json({ error: 'Broadcast not found' }); return }
+    await db.run(
+      "UPDATE broadcasts SET status = 'live', started_at = COALESCE(started_at, CURRENT_TIMESTAMP) WHERE id = $1",
+      [req.params.id]
+    )
+    const updated = await db.get('SELECT * FROM broadcasts WHERE id = $1', [req.params.id])
+    res.json({ broadcast: updated })
+  } catch (err: any) {
+    console.error('[BROADCASTS] start error:', err.message)
+    res.status(500).json({ error: 'Failed to start broadcast' })
+  }
+})
+
+router.patch('/:id/pause', authenticateToken, requireRole('broadcaster', 'admin'), async (req, res) => {
+  try {
+    await initDb()
+    await db.run("UPDATE broadcasts SET status = 'paused' WHERE id = $1", [req.params.id])
+    res.json({ success: true })
+  } catch (err: any) {
+    console.error('[BROADCASTS] pause error:', err.message)
+    res.status(500).json({ error: 'Failed to pause broadcast' })
+  }
+})
+
+router.patch('/:id/resume', authenticateToken, requireRole('broadcaster', 'admin'), async (req, res) => {
+  try {
+    await initDb()
+    await db.run("UPDATE broadcasts SET status = 'live' WHERE id = $1", [req.params.id])
+    res.json({ success: true })
+  } catch (err: any) {
+    console.error('[BROADCASTS] resume error:', err.message)
+    res.status(500).json({ error: 'Failed to resume broadcast' })
+  }
+})
+
+router.patch('/:id/end', authenticateToken, requireRole('broadcaster', 'admin'), async (req, res) => {
+  try {
+    await initDb()
+    await db.run(
+      "UPDATE broadcasts SET status = 'ended', ended_at = COALESCE(ended_at, CURRENT_TIMESTAMP) WHERE id = $1",
+      [req.params.id]
+    )
+    res.json({ success: true })
+  } catch (err: any) {
+    console.error('[BROADCASTS] end error:', err.message)
+    res.status(500).json({ error: 'Failed to end broadcast' })
+  }
+})
+
 router.get('/stats/overview', authenticateToken, requireRole('broadcaster', 'admin'), async (req, res) => {
   try {
     await initDb()

@@ -25,6 +25,7 @@ import bookmarkRoutes from './routes/bookmarks.js'
 import historyRoutes from './routes/history.js'
 import sermonPlaylistRoutes from './routes/sermon-playlists.js'
 import musicRoutes from './routes/music.js'
+import uploadsRoutes from './routes/uploads.js'
 import { cacheMiddleware } from './middleware/cache.js'
 
 // Sentry init
@@ -95,6 +96,7 @@ app.use('/bookmarks', bookmarkRoutes)
 app.use('/history', historyRoutes)
 app.use('/sermon-playlists', sermonPlaylistRoutes)
 app.use('/music', musicRoutes)
+app.use('/uploads', uploadsRoutes)
 
 // Sentry error handler (must be before 404)
 if (process.env.SENTRY_DSN) {
