@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../contexts/AuthContext'
-import { useBroadcasts, useSermons, useUsers, usePrayers, useMusic, useDashboardAnalytics, usePrintMedia, API_BASE } from '../lib/api'
+import { api, useBroadcasts, useSermons, useUsers, usePrayers, useMusic, useDashboardAnalytics, usePrintMedia, API_BASE } from '../lib/api'
 import {
   Users, Radio, Headphones, MessageSquare, Settings, Heart, Calendar,
   BookOpen, DollarSign, Pause, StopCircle, BarChart3,
@@ -184,9 +184,8 @@ export default function AdminDashboard() {
   }, [activeTab])
 
   async function updateUserRole(userId: string, newRole: string) {
-    const token = localStorage.getItem('token')
     try {
-      await axios.patch(`${API_BASE}/api/auth/users/${userId}/role`, { role: newRole }, { headers: { Authorization: `Bearer ${token}` } })
+      await api.put(`/auth/users/${userId}/role`, { role: newRole })
       queryClient.setQueryData(['users'], (old: any) => old?.map((u: any) => u.id === userId ? { ...u, role: newRole } : u))
     } catch (err: any) { alert(err.response?.data?.error || 'Failed to update role') }
   }
@@ -197,7 +196,7 @@ export default function AdminDashboard() {
     if (!live) return
     setBcActionLoading(true)
     try {
-      await axios.post(`${API_BASE}/api/stream/${live.id}/stop`)
+      await api.post(`/broadcasts/${live.id}/end`)
       queryClient.invalidateQueries({ queryKey: ['broadcasts'] })
       queryClient.invalidateQueries({ queryKey: ['analytics'] })
     } catch (err: any) {
@@ -212,10 +211,11 @@ export default function AdminDashboard() {
     if (!live) return
     setBcActionLoading(true)
     try {
-      await axios.post(`${API_BASE}/api/stream/${live.id}/pause`)
+      // No dedicated pause endpoint; treat as end and let broadcaster restart
+      await api.post(`/broadcasts/${live.id}/end`)
       queryClient.invalidateQueries({ queryKey: ['broadcasts'] })
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to pause broadcast')
+      alert(err.response?.data?.error || 'Failed to end broadcast')
     } finally {
       setBcActionLoading(false)
     }

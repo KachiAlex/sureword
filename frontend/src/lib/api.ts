@@ -33,7 +33,8 @@ api.interceptors.response.use(
     const originalRequest = error.config
     const status = error.response?.status
 
-    if (status === 403 && !originalRequest._retry) {
+    // 401 = expired access token; 403 may be a real permission denial — only refresh on 401
+    if (status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise(resolve => {
           addRefreshSubscriber(token => {
@@ -139,7 +140,43 @@ export function useSermon(id: string) {
 export function useGuestSpeakers() {
   return useQuery<GuestSpeaker[]>({ queryKey: ['guest-speakers'], queryFn: async () => {
     const { data } = await api.get('/guest-speakers')
-    return data.guest_speakers as GuestSpeaker[]
+    // backend returns { speakers } (not guest_speakers)
+    return (data.speakers ?? data.guest_speakers ?? []) as GuestSpeaker[]
+  }})
+}
+
+export function useTestimonies(adminAll = false) {
+  return useQuery({ queryKey: ['testimonies', adminAll], queryFn: async () => {
+    const { data } = await api.get(adminAll ? '/testimonies/admin/all' : '/testimonies')
+    return data.testimonies
+  }})
+}
+
+export function useCampaigns() {
+  return useQuery({ queryKey: ['campaigns'], queryFn: async () => {
+    const { data } = await api.get('/campaigns')
+    return data.campaigns
+  }})
+}
+
+export function useAdminDonations() {
+  return useQuery({ queryKey: ['donations', 'admin'], queryFn: async () => {
+    const { data } = await api.get('/donations/admin/all')
+    return { donations: data.donations, total: data.total }
+  }})
+}
+
+export function usePushStats() {
+  return useQuery({ queryKey: ['push', 'stats'], queryFn: async () => {
+    const { data } = await api.get('/push/stats')
+    return data
+  }})
+}
+
+export function useVerses() {
+  return useQuery({ queryKey: ['verses'], queryFn: async () => {
+    const { data } = await api.get('/push/verses')
+    return data.verses
   }})
 }
 
@@ -228,7 +265,26 @@ export function useCreatePrayer() {
 export function useSendChat() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (payload: any) => api.post('/chat', payload),
+    // payload must include broadcastId; send to correct endpoint
+    mutationFn: ({ broadcastId, message, recipientId }: { broadcastId: string; message: string; recipientId?: string }) =>
+      api.post(`/chat/broadcast/${broadcastId}`, { message, recipientId }),
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ['chat', v.broadcastId] }),
+  })
+}
+
+export function useSendGuestChat() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ broadcastId, message, guestName }: { broadcastId: string; message: string; guestName: string }) =>
+      api.post(`/chat/broadcast/${broadcastId}/guest`, { message, guestName }),
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ['chat', v.broadcastId] }),
+  })
+}
+
+export function useDeleteChatMessage() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/chat/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['chat'] }),
   })
 }
@@ -238,6 +294,146 @@ export function useCreateDonation() {
   return useMutation({
     mutationFn: (payload: any) => api.post('/donations', payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['donations'] }),
+  })
+}
+
+export function useUpdateDonation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => api.patch(`/donations/${id}`, { status }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['donations'] }),
+  })
+}
+
+export function useUpdateUserRole() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, role }: { id: string; role: string }) => api.put(`/auth/users/${id}/role`, { role }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  })
+}
+
+export function useDeletePrayer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/prayer/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['prayers'] }),
+  })
+}
+
+export function useUpdateTestimony() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, status, is_featured }: { id: string; status?: string; is_featured?: boolean }) =>
+      api.patch(`/testimonies/${id}`, { status, is_featured }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['testimonies'] }),
+  })
+}
+
+export function useDeleteTestimony() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/testimonies/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['testimonies'] }),
+  })
+}
+
+export function useDeleteSermon() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/sermons/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sermons'] }),
+  })
+}
+
+export function useUpdateEvent() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...payload }: { id: string; [k: string]: any }) => api.patch(`/events/${id}`, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['events'] }),
+  })
+}
+
+export function useDeleteEvent() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/events/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['events'] }),
+  })
+}
+
+export function useCreateBroadcast() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: { title: string; description?: string; scripture_reference?: string; speaker?: string; thumbnail_url?: string }) =>
+      api.post('/broadcasts', payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['broadcasts'] }),
+  })
+}
+
+export function useEndBroadcast() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/broadcasts/${id}/end`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['broadcasts'] }),
+  })
+}
+
+export function useDeleteBroadcast() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/broadcasts/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['broadcasts'] }),
+  })
+}
+
+export function useCreateCampaign() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: { title: string; description?: string; goal_amount: number; end_date?: string }) =>
+      api.post('/campaigns', payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['campaigns'] }),
+  })
+}
+
+export function useUpdateCampaign() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...payload }: { id: string; [k: string]: any }) => api.patch(`/campaigns/${id}`, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['campaigns'] }),
+  })
+}
+
+export function useDeleteCampaign() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/campaigns/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['campaigns'] }),
+  })
+}
+
+export function useCreateVerse() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: { title: string; content: string; reference?: string; type?: string }) =>
+      api.post('/push/verse', payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['verses'] }),
+  })
+}
+
+export function useUpdateGuestSpeaker() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...payload }: { id: string; [k: string]: any }) => api.patch(`/guest-speakers/${id}`, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['guest-speakers'] }),
+  })
+}
+
+export function useDeleteGuestSpeaker() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/guest-speakers/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['guest-speakers'] }),
   })
 }
 
