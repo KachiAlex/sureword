@@ -129,6 +129,18 @@ router.get('/verify', authenticateToken, (req: AuthenticatedRequest, res) => {
   res.json({ user: req.user })
 })
 
+router.get('/webauthn/credentials', authenticateToken, (_req, res) => {
+  res.json({ credentials: [] })
+})
+
+router.post('/webauthn/register', authenticateToken, (_req, res) => {
+  res.json({ ok: true })
+})
+
+router.delete('/webauthn/credentials/:id', authenticateToken, (_req, res) => {
+  res.json({ ok: true })
+})
+
 router.get('/users', authenticateToken, requireRole('admin'), async (req, res) => {
   try {
     await initDb()
