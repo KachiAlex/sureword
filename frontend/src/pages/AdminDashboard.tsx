@@ -601,7 +601,7 @@ export default function AdminDashboard() {
             <div className="admin-card p-4">
               <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Print Media</div>
               <Suspense fallback={<div className="p-8 text-center text-sm" style={{ color: 'var(--ash)' }}>Loading...</div>}>
-                <PrintManager items={printMedia as any} onRefresh={refresh} />
+                <PrintManager />
               </Suspense>
             </div>
           ) : activeTab === 'playlists' ? (

@@ -89,7 +89,7 @@ export interface EventItem { id: string; title: string; description: string; dat
 export interface MusicTrack { id: string; title: string; artist: string; album: string; genre: string; audio_url: string; cover_url: string; duration: number; lyrics: string }
 export interface User { id: string; email: string; name?: string; role: string; created_at?: string }
 export interface Prayer { id: string; name: string | null; request: string; is_anonymous: boolean; prayers_count: number; created_at: string }
-export interface PrintMedia { id: string; title: string; description: string; category: string; pdf_url: string; thumbnail_url?: string; is_active: boolean; created_at: string }
+export interface PrintMedia { id: string; title: string; description: string; category: string; pdf_url: string; thumbnail_url?: string; is_active: boolean; page_count?: number; published_date?: string; created_at: string }
 export interface SermonPlaylist { id: string; title: string; description: string; start_time: string; end_time?: string; is_active: boolean; created_at: string }
 export interface SermonPlaylistItem { id: string; playlist_id: string; sermon_id: string; order_index: number; duration_minutes: number; title?: string; speaker?: string }
 export interface RadioCurrent { itemId: string; sermonId: string; title: string; speaker: string; audioUrl: string; thumbnailUrl?: string; description?: string; scriptureReference?: string; offsetSeconds: number }
@@ -442,6 +442,40 @@ export function usePrintMedia() {
     const { data } = await api.get('/print-media')
     return data.printMedia as PrintMedia[]
   }})
+}
+
+export function useAdminPrintMedia() {
+  return useQuery<PrintMedia[]>({ queryKey: ['print-media', 'admin'], queryFn: async () => {
+    const { data } = await api.get('/print-media/admin/all')
+    return data.printMedia as PrintMedia[]
+  }})
+}
+
+export function useCreatePrintMedia() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: FormData) => api.post('/print-media', payload, { headers: { 'Content-Type': 'multipart/form-data' } }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['print-media'] }) },
+  })
+}
+
+export function useUpdatePrintMedia() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: FormData | Record<string, any> }) => {
+      const isFormData = payload instanceof FormData
+      return api.patch(`/print-media/${id}`, payload, isFormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {})
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['print-media'] }) },
+  })
+}
+
+export function useDeletePrintMedia() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/print-media/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['print-media'] }) },
+  })
 }
 
 export function useRadioCurrent() {
