@@ -160,7 +160,7 @@ export default function Home() {
       <section style={{
         position: 'relative', minHeight: '100vh', display: 'flex', flexDirection: 'column',
         justifyContent: 'center', overflow: 'hidden', paddingTop: 64,
-        backgroundImage: 'linear-gradient(to bottom, rgba(15,4,0,.85) 0%, rgba(15,4,0,.55) 30%, rgba(15,4,0,.75) 70%, rgba(15,4,0,.95) 100%), url(https://images.unsplash.com/photo-1487089427585-85563b1049f3?w=1600&q=80)',
+        backgroundImage: 'linear-gradient(to bottom, rgba(15,4,0,.94) 0%, rgba(15,4,0,.88) 30%, rgba(15,4,0,.93) 70%, rgba(15,4,0,.98) 100%), url(https://images.unsplash.com/photo-1487089427585-85563b1049f3?w=1600&q=80)',
         backgroundSize: 'cover', backgroundPosition: 'center'
       }}>
         {/* Stage glow — warm light from above */}
