@@ -6,10 +6,12 @@ import { useAuth } from '../contexts/AuthContext'
 import { useBroadcasts, useSermons, useUsers, usePrayers, useMusic, useDashboardAnalytics, usePrintMedia, API_BASE } from '../lib/api'
 import {
   Users, Radio, Headphones, MessageSquare, Settings, Heart, Calendar,
-  BookOpen, DollarSign, Pause, StopCircle, BarChart3, Sparkles,
-  Menu, X, Loader2, MapPin, Globe, FileText, ListMusic
+  BookOpen, DollarSign, Pause, StopCircle, BarChart3,
+  Menu, X, Loader2, FileText, ListMusic,
+  Search, Bell, HelpCircle, LayoutGrid,
+  Play, ChevronRight
 } from 'lucide-react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 const BroadcastManager = lazy(() => import('../components/admin/BroadcastManager'))
 const SermonManager = lazy(() => import('../components/admin/SermonManager'))
@@ -49,6 +51,49 @@ function LiveWaveform({ active }: { active: boolean }) {
       {bars.map((h, i) => (
         <div key={i} className={`w-[3px] rounded-full transition-all duration-200 ${active ? 'bg-[#E05A1A]' : 'bg-[#E05A1A]/30'}`} style={{ height: `${h}%` }} />
       ))}
+    </div>
+  )
+}
+
+function VUMeter({ active }: { active: boolean }) {
+  const [bars, setBars] = useState<number[]>(Array.from({ length: 32 }, () => 20))
+  useEffect(() => {
+    if (!active) { setBars(Array.from({ length: 32 }, () => 20)); return }
+    const id = setInterval(() => {
+      setBars(Array.from({ length: 32 }, () => Math.max(5, Math.min(100, Math.random() * 85 + 15))))
+    }, 180)
+    return () => clearInterval(id)
+  }, [active])
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 48, padding: '0 4px' }}>
+      {bars.map((h, i) => (
+        <div key={i} style={{
+          width: 3, borderRadius: 1,
+          height: `${h}%`,
+          background: h > 80 ? 'var(--red)' : h > 50 ? 'var(--flame3)' : 'var(--green)',
+          opacity: active ? 1 : .25,
+          transition: 'height .18s ease'
+        }} />
+      ))}
+    </div>
+  )
+}
+
+function SignalBars({ label, value }: { label: string; value: number }) {
+  const bars = [20, 40, 60, 80, 100]
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <span style={{ fontSize: 10, color: 'var(--ash2)', width: 40, textAlign: 'right' }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 18 }}>
+        {bars.map((h, i) => (
+          <div key={i} style={{
+            width: 4, borderRadius: 1, height: `${h * .16}px`,
+            background: value >= h ? (i >= 3 ? 'var(--flame3)' : 'var(--green)') : 'var(--line)',
+            transition: 'background .2s'
+          }} />
+        ))}
+      </div>
+      <span style={{ fontSize: 10, color: 'var(--cream2)', fontWeight: 600 }}>{value}%</span>
     </div>
   )
 }
@@ -178,442 +223,395 @@ export default function AdminDashboard() {
 
   if (!user || user.role !== 'admin') return null
 
-  function SB({label,tab,icon:I,badge}:any){const a=activeTab===tab;return(<button onClick={()=>setActiveTab(tab)} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[11px] transition-colors ${a?'bg-[#E05A1A] text-[#1b1208] font-semibold':'text-[#9a7c60] hover:text-white hover:bg-[rgba(240,190,100,0.05)]'}`}><I className="w-3.5 h-3.5"/><span className="flex-1 text-left">{label}</span>{badge?<span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${a?'bg-[#1b1208]/20':'bg-[#E05A1A] text-white'}`}>{badge}</span>:null}</button>)}
+  const screenTitles: Record<string, string> = {
+    dashboard: 'Overview', broadcasts: 'Broadcast Console', playlists: 'Playlist Manager',
+    print: 'Print Media', prayer: 'Prayer Requests', users: 'User Management',
+    sermons: 'Sermons', chat: 'Chat Moderation', settings: 'System Settings',
+    music: 'Music Library', speakers: 'Guest Speakers', testimonies: 'Testimonies',
+    events: 'Events', dailyverse: 'Daily Word'
+  }
+
+  const live = broadcasts.find(b => b.status === 'live')
+
+  function NavItem({ label, tab, icon: I, badge }: any) {
+    const active = activeTab === tab
+    return (
+      <button onClick={() => { setActiveTab(tab); setMobileSidebarOpen(false) }}
+        className="sb-item" style={{
+          display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 3,
+          fontSize: 13, color: active ? 'var(--flame3)' : 'var(--ash2)',
+          background: active ? 'var(--mahog)' : 'transparent', border: 'none', width: '100%', textAlign: 'left',
+          transition: 'all .13s', cursor: 'pointer', borderLeft: active ? '2px solid var(--flame)' : '2px solid transparent'
+        }}>
+        <I className="w-[15px] h-[15px] flex-shrink-0" style={{ opacity: active ? 1 : .7 }} />
+        <span style={{ flex: 1 }}>{label}</span>
+        {badge ? <span style={{ marginLeft: 'auto', background: 'var(--flame)', color: '#fff', fontSize: 9.5, fontWeight: 700, padding: '2px 6px', borderRadius: 10, minWidth: 18, textAlign: 'center' }}>{badge}</span> : null}
+      </button>
+    )
+  }
+
+  function NavGroup({ title }: { title: string }) {
+    return <div style={{ fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ash)', padding: '12px 10px 5px', userSelect: 'none' }}>{title}</div>
+  }
 
   const sidebarContent = (
-    <div className="p-4" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div className="flex items-center justify-between mb-6">
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Brand */}
+      <div style={{ padding: '18px 16px 16px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <svg width="32" height="32" viewBox="0 0 32 32" style={{ flexShrink: 0 }}>
+          <circle cx="16" cy="16" r="15" fill="#221008" stroke="#E05A1A" strokeWidth="1.5" />
+          <circle cx="16" cy="16" r="10" fill="none" stroke="#F5A623" strokeWidth=".7" strokeDasharray="2 3" />
+          <rect x="12.5" y="7" width="7" height="11" rx="3.5" fill="#E05A1A" />
+          <line x1="16" y1="18" x2="16" y2="22" stroke="#F5A623" strokeWidth="1.5" strokeLinecap="round" />
+          <line x1="12" y1="22" x2="20" y2="22" stroke="#F5A623" strokeWidth="1.5" strokeLinecap="round" />
+          <line x1="13.5" y1="11" x2="18.5" y2="11" stroke="#fff" strokeWidth=".7" opacity=".45" />
+          <line x1="13.5" y1="13.5" x2="18.5" y2="13.5" stroke="#fff" strokeWidth=".7" opacity=".45" />
+        </svg>
         <div>
-          <div className="font-bebas" style={{ fontSize: 17, letterSpacing: '.06em', color: 'var(--white)' }}>Sure Word Radio</div>
-          <div style={{ fontSize: 10, color: 'var(--ash)' }}>Staff console</div>
+          <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, letterSpacing: '.08em', lineHeight: 1 }}>Sure Word Radio</div>
+          <div style={{ fontSize: 10, color: 'var(--ash2)', letterSpacing: '.1em', textTransform: 'uppercase' }}>Admin Console</div>
         </div>
-        <button onClick={()=>setMobileSidebarOpen(false)} className="lg:hidden p-1" style={{ color: 'var(--ash)' }}><X className="w-5 h-5" /></button>
+        <button onClick={() => setMobileSidebarOpen(false)} className="lg:hidden ml-auto" style={{ color: 'var(--ash)' }}><X className="w-5 h-5" /></button>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <div style={{ fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--ash)', padding: '14px 22px 6px', opacity: .6 }}>Broadcast</div>
-        <SB label="Broadcast console" tab="broadcasts" icon={Radio}/>
-        <SB label="Schedule" tab="dashboard" icon={Calendar}/>
-        <div style={{ fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--ash)', padding: '14px 22px 6px', opacity: .6 }}>Content</div>
-        <SB label="Sermons" tab="sermons" icon={BookOpen}/>
-        <SB label="Playlist manager" tab="playlists" icon={ListMusic}/>
-        <SB label="Print media" tab="print" icon={FileText}/>
-        <div style={{ fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--ash)', padding: '14px 22px 6px', opacity: .6 }}>Engagement</div>
-        <SB label="Prayer requests" tab="prayer" icon={Heart} badge={prayers.length}/>
-        <SB label="Analytics" tab="dashboard" icon={BarChart3}/>
-        <div style={{ fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--ash)', padding: '14px 22px 6px', opacity: .6 }}>Community</div>
-        <SB label="Chat moderation" tab="chat" icon={MessageSquare} badge={chatMessages.length}/>
-        <SB label="User management" tab="users" icon={Users}/>
-        <div style={{ fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--ash)', padding: '14px 22px 6px', opacity: .6 }}>Settings</div>
-        <SB label="System settings" tab="settings" icon={Settings}/>
+
+      {/* Live badge */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        background: live ? 'rgba(224,90,26,.1)' : 'rgba(122,96,72,.08)',
+        border: `1px solid ${live ? 'rgba(224,90,26,.25)' : 'rgba(122,96,72,.2)'}`,
+        margin: '12px 12px 4px', borderRadius: 3, padding: '8px 12px'
+      }}>
+        <span className="ldot" style={{
+          width: 7, height: 7, borderRadius: '50%', background: live ? 'var(--flame3)' : 'var(--ash)',
+          display: 'inline-block', flexShrink: 0, animation: live ? 'pulse 1.8s ease-in-out infinite' : 'none'
+        }} />
+        <span style={{ fontSize: 11.5, fontWeight: 600, color: live ? 'var(--flame3)' : 'var(--ash2)' }}>{live ? 'On air' : 'Off air'}</span>
+        {live && <span className="font-mono" style={{ fontSize: 11, color: 'var(--cream2)', marginLeft: 'auto' }}>{formatDuration(liveElapsed)}</span>}
       </div>
-      <div style={{ marginTop: 'auto', padding: '16px 18px', borderTop: '1px solid var(--line)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: '50%', background: 'var(--flame)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: "'Bebas Neue',sans-serif", fontSize: 15, color: '#fff', flexShrink: 0
-          }}>{user?.name?.[0]?.toUpperCase() || 'A'}</div>
-          <div>
-            <div style={{ fontSize: 13, color: 'var(--white)' }}>{user?.name || 'Admin'}</div>
-            <div style={{ fontSize: 10.5, color: 'var(--ash)' }}>{user?.role || 'Admin'}</div>
-          </div>
+
+      {/* Nav */}
+      <nav style={{ flex: 1, padding: '8px 8px', display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <NavGroup title="Studio" />
+        <NavItem label="Overview" tab="dashboard" icon={LayoutGrid} />
+        <NavItem label="Broadcast Console" tab="broadcasts" icon={Radio} />
+        <NavItem label="Playlist Manager" tab="playlists" icon={ListMusic} />
+        <NavGroup title="Content" />
+        <NavItem label="Sermons" tab="sermons" icon={BookOpen} />
+        <NavItem label="Print Media" tab="print" icon={FileText} />
+        <NavGroup title="Pastoral" />
+        <NavItem label="Prayer Requests" tab="prayer" icon={Heart} badge={prayers.length} />
+        <NavGroup title="Community" />
+        <NavItem label="Chat Moderation" tab="chat" icon={MessageSquare} badge={chatMessages.length} />
+        <NavItem label="User Management" tab="users" icon={Users} />
+        <NavGroup title="Settings" />
+        <NavItem label="System Settings" tab="settings" icon={Settings} />
+      </nav>
+
+      {/* Footer */}
+      <div style={{ padding: '14px 16px', borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{
+          width: 30, height: 30, borderRadius: '50%', background: 'var(--flame)', color: '#fff',
+          fontFamily: "'Bebas Neue',sans-serif", fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+        }}>{user?.name?.[0]?.toUpperCase() || 'A'}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.name || 'Admin'}</div>
+          <div style={{ fontSize: 10.5, color: 'var(--ash2)', textTransform: 'capitalize' }}>{user?.role || 'Admin'}</div>
         </div>
+        <button onClick={() => { /* settings */ }} className="sb-foot-action" style={{ background: 'transparent', border: 'none', color: 'var(--ash)', cursor: 'pointer', padding: 4 }}>
+          <Settings className="w-4 h-4" />
+        </button>
       </div>
     </div>
   )
 
-  return(
-    <div className="min-h-screen flex" style={{background:'#160600',color:'#fff0d4'}}>
-      {/* Mobile overlay backdrop */}
+  return (
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--ember)', color: 'var(--cream)' }}>
+      {/* Mobile overlay */}
+      {mobileSidebarOpen && <div className="lg:hidden fixed inset-0 z-40 bg-black/60" onClick={() => setMobileSidebarOpen(false)} />}
+      {/* Mobile sidebar */}
       {mobileSidebarOpen && (
-        <div className="lg:hidden fixed inset-0 z-40 bg-black/60" onClick={()=>setMobileSidebarOpen(false)} />
-      )}
-
-      {/* Mobile sidebar (fixed overlay) */}
-      {mobileSidebarOpen && (
-        <aside className="lg:hidden fixed inset-y-0 left-0 z-50 w-56 flex-col border-r border-[rgba(240,190,100,0.06)] bg-[#230d02] overflow-y-auto">
+        <aside className="lg:hidden fixed inset-y-0 left-0 z-50" style={{ width: 'var(--sidebar-w)', background: 'var(--coal)', borderRight: '1px solid var(--line)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
           {sidebarContent}
         </aside>
       )}
-
-      {/* Desktop sidebar (normal flex item) */}
-      <aside className="hidden lg:flex flex-col w-56 flex-shrink-0 border-r border-[rgba(240,190,100,0.06)] bg-[#230d02] overflow-y-auto">
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex flex-col flex-shrink-0" style={{ width: 'var(--sidebar-w)', background: 'var(--coal)', borderRight: '1px solid var(--line)', overflowY: 'auto', zIndex: 50 }}>
         {sidebarContent}
       </aside>
 
-      <main className="flex-1 flex flex-col min-w-0">
-        <header style={{ padding: '20px 28px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(22,6,0,.7)', backdropFilter: 'blur(8px)', position: 'sticky', top: 0, zIndex: 10 }}>
-          <div className="flex items-center gap-3">
-            <button onClick={()=>setMobileSidebarOpen(true)} className="lg:hidden p-1" style={{ color: 'var(--ash)' }}><Menu className="w-5 h-5" /></button>
-            <div>
-              <div className="font-bebas" style={{ fontSize: 22, letterSpacing: '.06em', color: 'var(--white)' }}>Broadcast Console</div>
-              <div className="font-mono" style={{ fontSize: 12, color: 'var(--ash)' }}>{new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'})} — {new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div>
-            </div>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* Topbar */}
+        <header style={{
+          height: 56, flexShrink: 0, background: 'rgba(13,4,0,.9)', borderBottom: '1px solid var(--line)',
+          display: 'flex', alignItems: 'center', gap: 16, padding: '0 24px', backdropFilter: 'blur(8px)'
+        }}>
+          <button onClick={() => setMobileSidebarOpen(true)} className="lg:hidden" style={{ color: 'var(--ash)' }}><Menu className="w-5 h-5" /></button>
+          <div className="font-bebas" style={{ fontSize: 18, letterSpacing: '.06em', flex: 1 }}>{screenTitles[activeTab] || activeTab}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--mahog)', border: '1px solid var(--line)', borderRadius: 3, padding: '6px 12px', width: 220 }}>
+            <Search className="w-[14px] h-[14px] flex-shrink-0" style={{ color: 'var(--ash)' }} />
+            <input type="text" placeholder="Search…" style={{ background: 'transparent', border: 'none', color: 'var(--cream)', fontSize: 13, width: '100%', outline: 'none' }} />
           </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn btn-ghost btn-sm">+ Schedule broadcast</button>
-            <button className="btn btn-flame btn-sm">Go live</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button style={{ width: 34, height: 34, borderRadius: 3, background: 'transparent', border: 'none', color: 'var(--ash2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', position: 'relative', transition: 'all .13s' }} className="hover:bg-[var(--mahog)] hover:text-[var(--cream)]">
+              <Bell className="w-4 h-4" />
+              <span style={{ position: 'absolute', top: 6, right: 6, width: 6, height: 6, borderRadius: '50%', background: 'var(--flame)', border: '1.5px solid var(--ember)' }} />
+            </button>
+            <div style={{ width: 1, height: 24, background: 'var(--line)' }} />
+            <button style={{ width: 34, height: 34, borderRadius: 3, background: 'transparent', border: 'none', color: 'var(--ash2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all .13s' }} className="hover:bg-[var(--mahog)] hover:text-[var(--cream)]">
+              <HelpCircle className="w-4 h-4" />
+            </button>
           </div>
         </header>
-        <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-5">
-          {activeTab==='dashboard'?(
-            <div className="space-y-5">
+
+        <div className="flex-1 overflow-y-auto" style={{ padding: 24 }}>
+          {activeTab === 'dashboard' ? (
+            <div className="space-y-6">
+              {/* KPI row */}
               <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
                 {[
-                  {icon:Users,label:'Listeners Online',value:dashboard?.listenersOnline?.toLocaleString()||'0',chg:'Live',sub:'Active now',bg:'rgba(139,124,248,0.12)',col:'#8b7cf8'},
-                  {icon:Headphones,label:'Total Listeners',value:dashboard?.totalListenersToday?.toLocaleString()||'0',chg:'24h',sub:'Total sessions',bg:'rgba(59,130,246,0.12)',col:'#3b82f6'},
-                  {icon:BookOpen,label:'Sermons',value:dashboard?.sermonCount?.toLocaleString()||String(sermons.length||0),chg:'',sub:'Total Uploads',bg:'rgba(74,222,128,0.12)',col:'#4ade80'},
-                  {icon:Heart,label:'Prayer Requests',value:dashboard?.prayerCount?.toLocaleString()||String(prayers.length||0),chg:'',sub:`Pending`,bg:'rgba(239,68,68,0.12)',col:'#E05A1A'},
-                  {icon:DollarSign,label:'Total Donations',value:dashboard?.totalDonations?`$${Number(dashboard.totalDonations).toLocaleString()}`:'$0',chg:'',sub:'All time',bg:'rgba(201,162,39,0.12)',col:'#E05A1A'},
-                ].map((c,i)=>{
-                  const staggerClass = i < 6 ? `stagger-${i+1}` : ''
-                  return (
-                  <div key={i} className={`p-3.5 rounded-xl bg-[#230d02] border border-[rgba(240,190,100,0.06)] hover-lift animate-slide-up ${staggerClass}`}>
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-2 transition-transform duration-300 hover:scale-110" style={{background:c.bg}}><c.icon className="w-4 h-4" style={{color:c.col}}/></div>
-                    <p className="text-[10px] text-[#9a7c60]">{c.label}</p>
-                    <p className="text-lg font-bold text-white mt-0.5">{c.value}</p>
-                    <div className="flex items-center gap-1 mt-0.5">{c.chg?<span className="text-[9px] text-[#4ade80]">{c.chg}</span>:null}<span className="text-[9px] text-[#9a7c60]">{c.sub}</span></div>
+                  { icon: Headphones, label: 'Listeners', value: dashboard?.listenersOnline?.toLocaleString() || '0', sub: 'Active now', bg: 'rgba(224,90,26,.12)', col: 'var(--flame3)' },
+                  { icon: Users, label: 'Total Listeners', value: dashboard?.totalListenersToday?.toLocaleString() || '0', sub: '24h', bg: 'rgba(74,158,255,.1)', col: 'var(--blue)' },
+                  { icon: BookOpen, label: 'Sermons', value: String(sermons.length || 0), sub: 'Total', bg: 'rgba(62,207,110,.1)', col: 'var(--green)' },
+                  { icon: Heart, label: 'Prayers', value: String(prayers.length || 0), sub: 'Pending', bg: 'rgba(224,90,26,.12)', col: 'var(--flame)' },
+                  { icon: DollarSign, label: 'Donations', value: dashboard?.totalDonations ? `$${Number(dashboard.totalDonations).toLocaleString()}` : '$0', sub: 'All time', bg: 'rgba(240,192,64,.1)', col: 'var(--sun2)' },
+                  { icon: BarChart3, label: 'Streams', value: dashboard?.totalListenersToday?.toLocaleString() || '0', sub: 'Today', bg: 'rgba(139,124,248,.12)', col: '#8b7cf8' },
+                ].map((c, i) => (
+                  <div key={i} className="admin-card p-4 hover-lift animate-slide-up" style={{ animationDelay: `${i * 60}ms` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 4, background: c.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <c.icon className="w-4 h-4" style={{ color: c.col }} />
+                      </div>
+                      <span style={{ fontSize: 10.5, color: 'var(--ash2)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{c.label}</span>
+                    </div>
+                    <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 26, letterSpacing: '.02em', lineHeight: 1 }}>{c.value}</div>
+                    <div style={{ fontSize: 10.5, color: 'var(--ash)', marginTop: 4 }}>{c.sub}</div>
                   </div>
-                  )
-                })}
+                ))}
               </div>
+              {/* Activity + Quick actions */}
               <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
-                {(()=>{const live=broadcasts.find(b=>b.status==='live');return(
-                <div className="lg:col-span-5 p-4 rounded-xl bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-semibold text-white tracking-wide">LIVE BROADCAST CONTROL</h3>
-                    <span className={`flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full ${live?'text-[#E05A1A] bg-[#E05A1A]/10':'text-[#9a7c60] bg-[rgba(240,190,100,0.06)]'}`}>{live?<><span className="w-1.5 h-1.5 bg-[#E05A1A] rounded-full animate-pulse"/>LIVE</>:'OFFLINE'}</span>
+                <div className="xl:col-span-8 admin-card p-4">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <h3 style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em' }}>Activity – 7 day listeners</h3>
+                    <span style={{ fontSize: 10, color: 'var(--ash2)' }}>View full analytics</span>
                   </div>
-                  <div className="flex gap-3">
-                    <div className="w-28 h-28 rounded-lg bg-gradient-to-br from-[#2a1f3d] to-[#1a1025] flex items-center justify-center flex-shrink-0 overflow-hidden">
-                      {live?.thumbnail_url ? (
-                        <img src={live.thumbnail_url} alt={live.title} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="text-center leading-tight px-2"><div className="text-sm font-bold text-[#E05A1A]">ZIONITE</div><div className="text-sm font-bold text-[#E05A1A]">FM</div><div className="text-[10px] text-[#9a7c60] mt-1">Live</div></div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="mb-1"><span className={`text-[9px] font-bold uppercase ${live?'text-[#E05A1A]':'text-[#9a7c60]'}`}>{live?'On Air Now':'No Active Broadcast'}</span><h4 className="text-xs font-bold text-white mt-0.5 truncate">{live?.title||'Start a broadcast'}</h4><p className="text-[11px] text-[#9a7c60]">{live?.speaker ? `${live.speaker} � ` : ''}{live?'Live Session':'No stream data'}</p></div>
-                      <LiveWaveform active={!!live} />
-                      <div className="grid grid-cols-3 gap-1 mt-2">
-                        <div className="text-center"><p className="text-[9px] text-[#9a7c60]">Listeners</p><p className="text-xs font-bold text-white">{dashboard?.listenersOnline ?? 0}</p></div>
-                        <div className="text-center"><p className="text-[9px] text-[#9a7c60]">Quality</p><p className="text-xs font-bold text-[#4ade80]">{live ? 'Good' : '�'}</p></div>
-                        <div className="text-center"><p className="text-[9px] text-[#9a7c60]">Duration</p><p className="text-xs font-bold text-white">{live ? formatDuration(liveElapsed) : '00:00:00'}</p></div>
-                      </div>
-                      <div className="flex gap-1.5 mt-3">
-                        {live ? (
-                          <>
-                            <button onClick={endLiveBroadcast} disabled={bcActionLoading}
-                              className="flex-1 flex items-center justify-center gap-1 bg-[#E05A1A]/10 hover:bg-[#E05A1A]/20 text-[#E05A1A] text-[10px] font-medium py-1.5 rounded-md border border-[#E05A1A]/20 disabled:opacity-50">
-                              {bcActionLoading ? <Loader2 className="w-3 h-3 animate-spin"/> : <StopCircle className="w-3 h-3"/>} Stop
-                            </button>
-                            <button onClick={pauseLiveBroadcast} disabled={bcActionLoading}
-                              className="flex-1 flex items-center justify-center gap-1 bg-[rgba(240,190,100,0.06)] hover:bg-[rgba(240,190,100,0.1)] text-white text-[10px] font-medium py-1.5 rounded-md border border-[rgba(240,190,100,0.08)] disabled:opacity-50">
-                              {bcActionLoading ? <Loader2 className="w-3 h-3 animate-spin"/> : <Pause className="w-3 h-3"/>} Pause
-                            </button>
-                          </>
-                        ) : (
-                          <button onClick={() => setActiveTab('broadcasts')}
-                            className="flex-1 flex items-center justify-center gap-1 bg-[#4ade80]/10 hover:bg-[#4ade80]/20 text-[#4ade80] text-[10px] font-medium py-1.5 rounded-md border border-[#4ade80]/20">
-                            <Radio className="w-3 h-3"/> Go Live
-                          </button>
-                        )}
-                        <button onClick={() => setActiveTab('broadcasts')}
-                          className="flex-1 flex items-center justify-center gap-1 bg-[rgba(240,190,100,0.06)] hover:bg-[rgba(240,190,100,0.1)] text-white text-[10px] font-medium py-1.5 rounded-md border border-[rgba(240,190,100,0.08)]">
-                          <Settings className="w-3 h-3"/> Studio
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                )})()}
-                <div className="lg:col-span-4 p-4 rounded-xl bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-semibold text-white tracking-wide">LISTENER STATISTICS</h3>
-                    <select className="text-[9px] bg-[#2f1206] border border-[rgba(240,190,100,0.08)] rounded-md px-2 py-1 text-[#9a7c60] outline-none"><option>Today</option></select>
-                  </div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="flex items-center gap-1 text-[9px]"><span className="w-1.5 h-1.5 rounded-full bg-[#E05A1A]"/>Listeners</span>
-                    <span className="flex items-center gap-1 text-[9px]"><span className="w-1.5 h-1.5 rounded-full bg-[#8b7cf8]"/>Unique</span>
-                  </div>
-                  <ResponsiveContainer width="100%" height={150}>
-                    <LineChart data={listenerChart.length?listenerChart:[{time:'12AM',l:0,u:0},{time:'4AM',l:0,u:0},{time:'8AM',l:0,u:0},{time:'12PM',l:0,u:0},{time:'4PM',l:0,u:0},{time:'8PM',l:0,u:0}]}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(240,190,100,0.06)"/>
-                      <XAxis dataKey="time" stroke="#9a7c60" fontSize={9} tickLine={false} axisLine={false}/>
-                      <YAxis stroke="#9a7c60" fontSize={9} tickLine={false} axisLine={false}/>
-                      <Tooltip contentStyle={{background:'#2f1206',border:'1px solid rgba(240,190,100,0.1)',borderRadius:'6px',fontSize:'10px'}}/>
-                      <Line type="monotone" dataKey="l" name="Listeners" stroke="#E05A1A" strokeWidth={2} dot={{r:2,fill:'#E05A1A'}}/>
-                      <Line type="monotone" dataKey="u" name="Unique" stroke="#8b7cf8" strokeWidth={2} dot={{r:2,fill:'#8b7cf8'}}/>
+                  <ResponsiveContainer width="100%" height={180}>
+                    <LineChart data={listenerChart.length ? listenerChart : [{ time: 'Mon', l: 0, u: 0 }, { time: 'Tue', l: 0, u: 0 }, { time: 'Wed', l: 0, u: 0 }, { time: 'Thu', l: 0, u: 0 }, { time: 'Fri', l: 0, u: 0 }, { time: 'Sat', l: 0, u: 0 }, { time: 'Sun', l: 0, u: 0 }]}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(245,166,35,.06)" />
+                      <XAxis dataKey="time" stroke="var(--ash)" fontSize={10} tickLine={false} axisLine={false} />
+                      <YAxis stroke="var(--ash)" fontSize={10} tickLine={false} axisLine={false} />
+                      <Tooltip contentStyle={{ background: 'var(--coal)', border: '1px solid var(--line)', borderRadius: 4, fontSize: 11 }} />
+                      <Line type="monotone" dataKey="l" name="Listeners" stroke="var(--flame)" strokeWidth={2} dot={{ r: 3, fill: 'var(--flame)' }} />
+                      <Line type="monotone" dataKey="u" name="Unique" stroke="var(--blue)" strokeWidth={2} dot={{ r: 3, fill: 'var(--blue)' }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="lg:col-span-3 p-4 rounded-xl bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
-                  <h3 className="text-xs font-semibold text-white tracking-wide mb-3">STREAM ANALYTICS</h3>
-                  <ResponsiveContainer width="100%" height={120}>
-                    <PieChart>
-                      <Pie data={platformData.length?platformData:[{name:'No Data',value:1}]} cx="50%" cy="50%" innerRadius={35} outerRadius={55} dataKey="value" stroke="none" paddingAngle={2}>
-                        {(platformData.length?platformData:[{name:'No Data',value:1}]).map((_:any,i:number)=><Cell key={i} fill={['#8b7cf8','#E05A1A','#4ade80','#f87171','#9ca3af'][i%5]}/>)}
-                      </Pie>
-                      <Tooltip contentStyle={{background:'#2f1206',border:'1px solid rgba(240,190,100,0.1)',borderRadius:'6px',fontSize:'10px'}}/>
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="text-center -mt-1 mb-2"><p className="text-base font-bold text-white">{dashboard?.totalListenersToday?.toLocaleString()||'0'}</p><p className="text-[9px] text-[#9a7c60]">Total Streams</p></div>
-                  <div className="space-y-1">
-                    {platformData.length?platformData.map((s:any,i:number)=>{
-                      const total=platformData.reduce((a:number,b:any)=>a+(Number(b.value)||0),0)||1
-                      const pct=total?Math.round((Number(s.value)||0)/total*100)+'%':'0%'
-                      return(
-                        <div key={i} className="flex items-center justify-between text-[9px]"><div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{background:['#8b7cf8','#E05A1A','#4ade80','#f87171','#9ca3af'][i%5]}}/><span className="text-[#9a7c60]">{s.name}</span></div><span className="text-white font-medium">{pct}</span></div>
-                      )
-                    }):<div className="text-[9px] text-[#9a7c60] text-center">No platform data</div>}
+                <div className="xl:col-span-4 admin-card p-4">
+                  <h3 style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 12 }}>Quick Actions</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {[
+                      { icon: Radio, label: 'Start Live Broadcast', desc: 'Begin a new stream', action: () => setActiveTab('broadcasts'), color: 'var(--flame3)' },
+                      { icon: BookOpen, label: 'Upload New Sermon', desc: 'Add sermon audio', action: () => setActiveTab('sermons'), color: 'var(--green)' },
+                      { icon: FileText, label: 'Create Print Media', desc: 'Design PDF or poster', action: () => setActiveTab('print'), color: 'var(--blue)' },
+                      { icon: Calendar, label: 'Schedule Event', desc: 'Plan upcoming broadcast', action: () => setActiveTab('events'), color: 'var(--sun2)' },
+                    ].map((a, i) => (
+                      <button key={i} onClick={a.action} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 3, background: 'transparent', border: '1px solid var(--line)', textAlign: 'left', cursor: 'pointer', transition: 'all .13s', color: 'inherit' }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--sunrise)'; e.currentTarget.style.background = 'var(--mahog)' }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.background = 'transparent' }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 3, background: 'var(--mahog)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <a.icon className="w-3.5 h-3.5" style={{ color: a.color }} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 12.5, fontWeight: 600 }}>{a.label}</div>
+                          <div style={{ fontSize: 10.5, color: 'var(--ash2)' }}>{a.desc}</div>
+                        </div>
+                        <ChevronRight className="w-4 h-4 ml-auto" style={{ color: 'var(--ash)' }} />
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
-              {/* Listener Geography */}
-              <div className="p-4 rounded-xl bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
-                <div className="flex items-center gap-2 mb-4">
-                  <Globe className="w-4 h-4 text-[#E05A1A]" />
-                  <h3 className="text-xs font-semibold text-white tracking-wide">LISTENER GEOGRAPHY</h3>
-                  <span className="ml-auto text-[9px] text-[#9a7c60] italic">Active listeners � last 5 min � refreshes every 15s</span>
-                </div>
-                {geoData.byCountry.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 gap-2">
-                    <MapPin className="w-8 h-8 text-[#9a7c60]/30" />
-                    <p className="text-[11px] text-[#9a7c60] text-center">No geo data yet.<br />Location data is captured when listeners join the stream.</p>
+              {/* Schedule strip */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {[
+                  { title: "Today's Schedule", items: broadcasts.filter((b: any) => b.status === 'scheduled' || b.status === 'live').slice(0, 3).map((b: any) => b.title) },
+                  { title: "Tomorrow", items: [] },
+                  { title: "This Week", items: [] },
+                ].map((col, i) => (
+                  <div key={i} className="admin-card p-4">
+                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 10 }}>{col.title}</div>
+                    {col.items.length === 0 ? (
+                      <div style={{ fontSize: 11.5, color: 'var(--ash)', padding: '8px 0' }}>Nothing scheduled</div>
+                    ) : (
+                      col.items.map((item: string, j: number) => (
+                        <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: j < col.items.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                          <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--flame3)', flexShrink: 0 }} />
+                          <span style={{ fontSize: 12 }}>{item}</span>
+                        </div>
+                      ))
+                    )}
                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {/* Country breakdown */}
-                    <div className="sm:col-span-1">
-                      <p className="text-[10px] font-semibold text-[#9a7c60] uppercase tracking-wider mb-2">By Country</p>
-                      <div className="space-y-1.5">
-                        {geoData.byCountry.slice(0, 8).map((c, i) => {
-                          const total = geoData.byCountry.reduce((a, b) => a + Number(b.count), 0) || 1
-                          const pct = Math.round(Number(c.count) / total * 100)
-                          const colors = ['#E05A1A','#8b7cf8','#4ade80','#f87171','#60a5fa','#fb923c','#a78bfa','#34d399']
-                          return (
-                            <div key={c.country} className="flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: colors[i % colors.length] }} />
-                              <span className="text-[11px] text-[#fff0d4] flex-1 truncate">{c.country}</span>
-                              <div className="flex items-center gap-1.5">
-                                <div className="w-16 h-1 rounded-full bg-[rgba(240,190,100,0.08)] overflow-hidden">
-                                  <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: colors[i % colors.length] }} />
-                                </div>
-                                <span className="text-[10px] text-[#9a7c60] w-6 text-right">{c.count}</span>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                    {/* City / Region breakdown */}
-                    <div className="sm:col-span-1 lg:col-span-2">
-                      <p className="text-[10px] font-semibold text-[#9a7c60] uppercase tracking-wider mb-2">City / Region Breakdown</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
-                        {geoData.locations.map((loc, i) => (
-                          <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg" style={{ background: 'rgba(240,190,100,0.03)', border: '1px solid rgba(240,190,100,0.06)' }}>
-                            <MapPin className="w-3 h-3 text-[#E05A1A] flex-shrink-0" />
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[11px] text-white truncate">{loc.city || loc.region || 'Unknown'}</p>
-                              <p className="text-[9px] text-[#9a7c60] truncate">{loc.country}{loc.region && loc.city ? ` � ${loc.region}` : ''}</p>
-                            </div>
-                            <span className="text-[10px] font-bold text-[#E05A1A] flex-shrink-0">{loc.count}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
+                ))}
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <div className="p-4 rounded-xl bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
-                  <div className="flex items-center justify-between mb-3"><h3 className="text-xs font-semibold text-white tracking-wide">RECENT SERMONS</h3><button onClick={()=>setActiveTab('sermons')} className="text-[9px] text-[#E05A1A] hover:underline">View All</button></div>
-                  <div className="overflow-x-auto">
-                  <table className="w-full text-[10px] min-w-[320px]">
-                    <thead><tr className="text-[#9a7c60] border-b border-[rgba(240,190,100,0.06)]"><th className="text-left pb-2 font-normal">Title</th><th className="text-left pb-2 font-normal">Speaker</th><th className="text-left pb-2 font-normal">Date</th><th className="text-left pb-2 font-normal">Status</th></tr></thead>
+              {/* Recent Sermons table */}
+              <div className="admin-card p-4">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <h3 style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em' }}>Recent Sermons</h3>
+                  <button onClick={() => setActiveTab('sermons')} className="btn btn-sm btn-ghost">View All</button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ color: 'var(--ash)', borderBottom: '1px solid var(--line)' }}>
+                        <th style={{ textAlign: 'left', padding: '8px 0', fontWeight: 400 }}>Title</th>
+                        <th style={{ textAlign: 'left', padding: '8px 0', fontWeight: 400 }}>Speaker</th>
+                        <th style={{ textAlign: 'left', padding: '8px 0', fontWeight: 400 }}>Date</th>
+                        <th style={{ textAlign: 'left', padding: '8px 0', fontWeight: 400 }}>Status</th>
+                      </tr>
+                    </thead>
                     <tbody>
-                      {(sermons.length?sermons:[]).slice(0,5).map((s:any)=>(
-                        <tr key={s.id} className="border-b border-[rgba(240,190,100,0.04)]"><td className="py-2 text-white font-medium truncate max-w-[100px]">{s.title}</td><td className="py-2 text-[#9a7c60]">{s.speaker}</td><td className="py-2 text-[#9a7c60]">{s.date?s.date.split('T')[0]:'-'}</td><td className="py-2"><span className="px-1.5 py-0.5 rounded-full bg-[#4ade80]/10 text-[#4ade80] text-[8px]">Published</span></td></tr>
+                      {(sermons.length ? sermons : []).slice(0, 6).map((s: any) => (
+                        <tr key={s.id} style={{ borderBottom: '1px solid rgba(245,166,35,.04)' }}>
+                          <td style={{ padding: '8px 0', fontWeight: 500 }}>{s.title}</td>
+                          <td style={{ padding: '8px 0', color: 'var(--ash2)' }}>{s.speaker}</td>
+                          <td style={{ padding: '8px 0', color: 'var(--ash2)' }}>{s.date ? s.date.split('T')[0] : '-'}</td>
+                          <td style={{ padding: '8px 0' }}><span className="admin-tag admin-tag-green">Published</span></td>
+                        </tr>
                       ))}
-                      {sermons.length===0&&<tr><td colSpan={4} className="py-6 text-center text-[#9a7c60]">No sermons uploaded yet</td></tr>}
+                      {sermons.length === 0 && <tr><td colSpan={4} style={{ padding: '24px 0', textAlign: 'center', color: 'var(--ash)' }}>No sermons uploaded yet</td></tr>}
                     </tbody>
                   </table>
-                  </div>
-                </div>
-                <div className="p-4 rounded-xl bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
-                  <div className="flex items-center justify-between mb-3"><h3 className="text-xs font-semibold text-white tracking-wide">PENDING PRAYER REQUESTS</h3><button onClick={()=>setActiveTab('prayer')} className="text-[9px] text-[#E05A1A] hover:underline">View All</button></div>
-                  <div className="space-y-2.5">
-                    {(prayers.length?prayers:[]).slice(0,5).map((p:any)=>{
-                      const initials=(p.name||'A').split(' ').map((n:string)=>n[0]).join('').slice(0,2).toUpperCase()
-                      const timeAgo=p.created_at?(()=>{const m=Math.floor((Date.now()-new Date(p.created_at).getTime())/60000);return m<60?`${m}m ago`:`${Math.floor(m/60)}h ago`;})():''
-                      return(
-                        <div key={p.id} className="flex items-start gap-2.5 p-2 rounded-lg bg-[rgba(240,190,100,0.02)]">
-                          <div className="w-7 h-7 rounded-full bg-[rgba(139,124,248,0.15)] flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-[#8b7cf8]">{initials}</div>
-                          <div className="flex-1 min-w-0"><div className="flex items-center justify-between"><span className="text-[11px] font-medium text-white">{p.is_anonymous?'Anonymous':(p.name||'Unknown')}</span><span className="text-[9px] text-[#9a7c60]">{timeAgo}</span></div><p className="text-[10px] text-[#9a7c60] mt-0.5 truncate">{p.request}</p></div>
-                          <span className="text-[8px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 bg-[#3b82f6]/10 text-[#3b82f6]">New</span>
-                        </div>
-                      )
-                    })}
-                    {prayers.length===0&&<div className="py-6 text-center text-[#9a7c60] text-[10px]">No prayer requests yet</div>}
-                  </div>
-                </div>
-                <div className="p-4 rounded-xl bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
-                  <div className="flex items-center justify-between mb-3"><h3 className="text-xs font-semibold text-white tracking-wide">TESTIMONY APPROVALS</h3><button onClick={()=>setActiveTab('testimonies')} className="text-[9px] text-[#E05A1A] hover:underline">View All</button></div>
-                  <div className="space-y-2.5">
-                    {(pendingTestimonies.length?pendingTestimonies:[]).slice(0,5).map((t:any)=>{
-                      const initials=(t.name||'A').split(' ').map((n:string)=>n[0]).join('').slice(0,2).toUpperCase()
-                      return(
-                        <div key={t.id} className="flex items-start gap-2.5 p-2 rounded-lg bg-[rgba(240,190,100,0.02)]">
-                          <div className="w-7 h-7 rounded-full bg-[rgba(201,162,39,0.15)] flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-[#E05A1A]">{initials}</div>
-                          <div className="flex-1 min-w-0"><div className="flex items-center justify-between"><span className="text-[11px] font-medium text-white">{t.name}</span><span className="text-[9px] text-[#9a7c60]">{t.created_at?t.created_at.split('T')[0]:''}</span></div><p className="text-[10px] text-[#9a7c60] mt-0.5 truncate">{t.content}</p></div>
-                          <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-[#f97316]/10 text-[#f97316] font-medium flex-shrink-0">Pending</span>
-                        </div>
-                      )
-                    })}
-                    {pendingTestimonies.length===0&&<div className="py-6 text-center text-[#9a7c60] text-[10px]">No testimonies pending</div>}
-                  </div>
-                  <div className="flex gap-2 mt-3">
-                    <button className="flex-1 py-1.5 rounded-md bg-[#4ade80]/10 text-[#4ade80] text-[10px] font-medium border border-[#4ade80]/20 hover:bg-[#4ade80]/20 transition-colors">Approve Selected</button>
-                    <button className="flex-1 py-1.5 rounded-md bg-[#E05A1A]/10 text-[#E05A1A] text-[10px] font-medium border border-[#E05A1A]/20 hover:bg-[#E05A1A]/20 transition-colors">Reject Selected</button>
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <div className="p-4 rounded-xl bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
-                  <div className="flex items-center justify-between mb-3"><h3 className="text-xs font-semibold text-white tracking-wide">RECENT DONATIONS</h3><button className="text-[9px] text-[#E05A1A] hover:underline">View All</button></div>
-                  <div className="overflow-x-auto">
-                  <table className="w-full text-[10px] min-w-[320px]">
-                    <thead><tr className="text-[#9a7c60] border-b border-[rgba(240,190,100,0.06)]"><th className="text-left pb-2 font-normal">Donor</th><th className="text-left pb-2 font-normal">Message</th><th className="text-left pb-2 font-normal">Amount</th><th className="text-left pb-2 font-normal">Status</th></tr></thead>
-                    <tbody>
-                      {(recentDonations.length?recentDonations:[]).slice(0,5).map((d:any)=>{
-                        const initials=(d.name||'A').split(' ').map((n:string)=>n[0]).join('').slice(0,2).toUpperCase()
-                        return(
-                          <tr key={d.id} className="border-b border-[rgba(240,190,100,0.04)]">
-                            <td className="py-2"><div className="flex items-center gap-2"><div className="w-6 h-6 rounded-full bg-[#E05A1A]/20 flex items-center justify-center text-[8px] font-bold text-[#E05A1A]">{initials}</div><span className="text-white">{d.name||'Anonymous'}</span></div></td>
-                            <td className="py-2 text-[#9a7c60] truncate max-w-[80px]">{d.message||'Donation'}</td>
-                            <td className="py-2 text-white font-medium">${Number(d.amount||0).toFixed(2)}</td>
-                            <td className="py-2"><span className={`px-1.5 py-0.5 rounded-full text-[8px] ${d.status==='completed'?'bg-[#4ade80]/10 text-[#4ade80]':'bg-[#f97316]/10 text-[#f97316]'}`}>{d.status||'Pending'}</span></td>
-                          </tr>
-                        )
-                      })}
-                      {recentDonations.length===0&&<tr><td colSpan={4} className="py-6 text-center text-[#9a7c60]">No donations yet</td></tr>}
-                    </tbody>
-                  </table>
-                  </div>
-                </div>
-                <div className="p-4 rounded-xl bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
-                  <div className="flex items-center justify-between mb-3"><h3 className="text-xs font-semibold text-white tracking-wide">TOP CAMPAIGNS</h3><button className="text-[9px] text-[#E05A1A] hover:underline">View All</button></div>
-                  <div className="space-y-3">
-                    {(campaigns.length?campaigns:[]).slice(0,3).map((c:any)=>{
-                      const pct=c.goal_amount?Math.min(100,Math.round((c.current_amount/c.goal_amount)*100)):0
-                      return(
-                        <div key={c.id}>
-                          <div className="flex items-center justify-between mb-1"><span className="text-[11px] font-medium text-white truncate max-w-[140px]">{c.title}</span><span className="text-[10px] text-[#E05A1A] font-medium">${(c.current_amount||0).toLocaleString()} / ${(c.goal_amount||0).toLocaleString()}</span></div>
-                          <div className="w-full h-1.5 bg-[rgba(240,190,100,0.06)] rounded-full overflow-hidden"><div className="h-full bg-[#E05A1A] rounded-full" style={{width:`${pct}%`}}/></div>
-                        </div>
-                      )
-                    })}
-                    {campaigns.length===0&&<div className="py-6 text-center text-[#9a7c60] text-[10px]">No active campaigns</div>}
-                  </div>
-                </div>
-                <div className="p-4 rounded-xl bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
-                  <div className="flex items-center justify-between mb-3"><h3 className="text-xs font-semibold text-white tracking-wide">AI TRANSCRIPT GENERATION</h3><button className="text-[9px] text-[#E05A1A] hover:underline">View All</button></div>
-                  <div className="space-y-2">
-                    {(transcripts.length?transcripts:[]).slice(0,3).map((t:any)=>{
-                      const status=t.status||'Processing'
-                      return(
-                        <div key={t.id} className="flex items-center gap-3 p-3 rounded-lg bg-[rgba(240,190,100,0.02)]">
-                          <div className="w-8 h-8 rounded-lg bg-[rgba(139,124,248,0.15)] flex items-center justify-center"><Sparkles className="w-4 h-4 text-[#8b7cf8]"/></div>
-                          <div className="flex-1"><p className="text-[11px] font-medium text-white truncate">{t.sermon_title}</p><p className="text-[9px] text-[#9a7c60]">{t.created_at?t.created_at.split('T')[0]:''}</p></div>
-                          <span className={`text-[9px] px-2 py-1 rounded-full font-medium ${status==='completed'?'bg-[#4ade80]/10 text-[#4ade80]':'bg-[#8b7cf8]/10 text-[#8b7cf8]'}`}>{status==='completed'?'Completed':'Processing'}</span>
-                        </div>
-                      )
-                    })}
-                    {transcripts.length===0&&<div className="py-6 text-center text-[#9a7c60] text-[10px]">No transcripts yet</div>}
-                  </div>
                 </div>
               </div>
             </div>
-          ):activeTab==='broadcasts'?(
-            <Suspense fallback={<div className="p-8 text-center text-sm text-[#9a7c60]">Loading...</div>}>
-              <BroadcastManager broadcasts={broadcasts as any} onRefresh={refresh}/>
-            </Suspense>
-          ):activeTab==='users'?(
-            <div className="p-4 rounded-xl bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
-              <div className="px-4 py-3 rounded-lg bg-[rgba(240,190,100,0.03)] mb-4 border border-[rgba(240,190,100,0.06)]"><h2 className="text-sm font-semibold text-white">User Management</h2></div>
-              {loading?(
-                <div className="p-8 text-center"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#E05A1A] mx-auto"/><p className="mt-3 text-xs text-[#9a7c60]">Loading users...</p></div>
-              ):users.length===0?(
-                <div className="p-8 text-center"><Users className="w-8 h-8 mx-auto mb-3 text-[rgba(240,190,100,0.1)]"/><p className="text-xs text-[#9a7c60]">No users yet</p></div>
-              ):null}
+          ):activeTab === 'broadcasts' ? (
+            <div className="space-y-5">
+              {/* Go-live card */}
+              <div className="admin-card p-5">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <div style={{ width: 64, height: 64, borderRadius: 4, background: live ? 'var(--flame)' : 'var(--mahog)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Radio className="w-7 h-7" style={{ color: live ? '#fff' : 'var(--ash)' }} />
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 22, letterSpacing: '.04em' }}>{live ? 'On Air' : 'Off Air'}</div>
+                      <div style={{ fontSize: 12, color: 'var(--ash2)', marginTop: 2 }}>{live ? (live.title || 'Live Broadcast') : 'No active broadcast'}</div>
+                      {live && <div className="font-mono" style={{ fontSize: 11, color: 'var(--flame3)', marginTop: 2 }}>{formatDuration(liveElapsed)} elapsed</div>}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {live ? (
+                      <button onClick={endLiveBroadcast} disabled={bcActionLoading} className="btn btn-red">
+                        {bcActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <StopCircle className="w-3.5 h-3.5" />} Stop
+                      </button>
+                    ) : (
+                      <button className="btn btn-flame"><Play className="w-3.5 h-3.5" /> Go Live</button>
+                    )}
+                  </div>
+                </div>
+                {/* VU meter */}
+                <div style={{ marginTop: 16, padding: '12px 16px', background: 'var(--coal)', border: '1px solid var(--line)', borderRadius: 3 }}>
+                  <VUMeter active={!!live} />
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, fontSize: 10, color: 'var(--ash2)' }}>
+                    <span>L</span>
+                    <span style={{ fontFamily: "'IBM Plex Mono',monospace" }}>-12 dB</span>
+                    <span>R</span>
+                  </div>
+                </div>
+                {/* Signal quality */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginTop: 12 }}>
+                  <SignalBars label="L" value={live ? 92 : 0} />
+                  <SignalBars label="R" value={live ? 88 : 0} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 10, color: 'var(--ash2)', width: 40, textAlign: 'right' }}>Bit rate</span>
+                    <span style={{ fontSize: 10, color: 'var(--cream2)', fontWeight: 600 }}>{live ? '128 kbps' : '—'}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 10, color: 'var(--ash2)', width: 40, textAlign: 'right' }}>Buffer</span>
+                    <span style={{ fontSize: 10, color: 'var(--cream2)', fontWeight: 600 }}>{live ? '0.4s' : '—'}</span>
+                  </div>
+                </div>
+              </div>
+              <Suspense fallback={<div className="p-8 text-center text-sm" style={{ color: 'var(--ash)' }}>Loading...</div>}>
+                <BroadcastManager broadcasts={broadcasts as any} onRefresh={refresh} />
+              </Suspense>
+            </div>
+          ) : activeTab === 'users' ? (
+            <div className="admin-card p-4">
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>User Management</div>
+              {loading ? (
+                <div className="p-8 text-center"><div className="animate-spin rounded-full h-6 w-6 border-b-2 mx-auto" style={{ borderColor: 'var(--flame)' }} /><p className="mt-3 text-xs" style={{ color: 'var(--ash)' }}>Loading users...</p></div>
+              ) : users.length === 0 ? (
+                <div className="p-8 text-center"><Users className="w-8 h-8 mx-auto mb-3" style={{ color: 'var(--line)' }} /><p className="text-xs" style={{ color: 'var(--ash)' }}>No users yet</p></div>
+              ) : null}
               <div className="space-y-1">
-                {users.map(u=>u?(
-                  <div key={u.id} className="px-4 py-3 rounded-lg flex items-center justify-between hover:bg-[rgba(240,190,100,0.03)] transition-colors">
-                    <div><p className="text-xs font-medium text-white">{u.name||u.email}</p><p className="text-[10px] text-[#9a7c60] mt-0.5">{u.email}</p></div>
-                    <select value={u.role} onChange={e=>updateUserRole(u.id,e.target.value)} className="text-xs rounded-md px-2.5 py-1 bg-[#2f1206] border border-[rgba(240,190,100,0.08)] text-[#fff0d4] outline-none">
+                {users.map(u => u ? (
+                  <div key={u.id} className="px-4 py-3 rounded-lg flex items-center justify-between" style={{ transition: 'all .13s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(245,166,35,.03)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    <div><p className="text-xs font-medium">{u.name || u.email}</p><p className="text-[10px]" style={{ color: 'var(--ash)' }}>{u.email}</p></div>
+                    <select value={u.role} onChange={e => updateUserRole(u.id, e.target.value)} className="text-xs rounded-md px-2.5 py-1 outline-none" style={{ background: 'var(--coal)', border: '1px solid var(--line)', color: 'var(--cream)' }}>
                       <option value="listener">Listener</option><option value="broadcaster">Broadcaster</option><option value="admin">Admin</option>
                     </select>
                   </div>
-                ):null)}
+                ) : null)}
               </div>
             </div>
-          ):activeTab==='sermons'?(
-            <Suspense fallback={<div className="p-8 text-center text-sm text-[#9a7c60]">Loading...</div>}>
-              <SermonManager sermons={sermons as any} onRefresh={refresh}/>
+          ) : activeTab === 'sermons' ? (
+            <Suspense fallback={<div className="p-8 text-center text-sm" style={{ color: 'var(--ash)' }}>Loading...</div>}>
+              <SermonManager sermons={sermons as any} onRefresh={refresh} />
             </Suspense>
-          ):activeTab==='chat'?(
-            <ChatSupervisor messages={chatMessages} onRefresh={fetchChat}/>
-          ):activeTab==='settings'?(
-            <AdminSettings/>
-          ):activeTab==='music'?(
-            <Suspense fallback={<div className="p-8 text-center text-sm text-[#9a7c60]">Loading...</div>}>
-              <MusicManager music={musicTracks as any} onRefresh={refresh}/>
+          ) : activeTab === 'chat' ? (
+            <ChatSupervisor messages={chatMessages} onRefresh={fetchChat} />
+          ) : activeTab === 'settings' ? (
+            <AdminSettings />
+          ) : activeTab === 'music' ? (
+            <Suspense fallback={<div className="p-8 text-center text-sm" style={{ color: 'var(--ash)' }}>Loading...</div>}>
+              <MusicManager music={musicTracks as any} onRefresh={refresh} />
             </Suspense>
-          ):activeTab==='speakers'?(
-            <div className="p-4 rounded-xl bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
-              <div className="px-4 py-3 rounded-lg bg-[rgba(240,190,100,0.03)] mb-4 border border-[rgba(240,190,100,0.06)]"><h2 className="text-sm font-semibold text-white">Guest Speaker Spotlight</h2></div>
-              <GuestSpeakerManager/>
+          ) : activeTab === 'speakers' ? (
+            <div className="admin-card p-4">
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Guest Speaker Spotlight</div>
+              <GuestSpeakerManager />
             </div>
-          ):activeTab==='prayer'?(
-            <div className="p-4 rounded-xl bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
-              <div className="px-4 py-3 rounded-lg bg-[rgba(240,190,100,0.03)] mb-4 border border-[rgba(240,190,100,0.06)]"><h2 className="text-sm font-semibold text-white">Prayer Wall Management</h2></div>
-              <PrayerManager/>
+          ) : activeTab === 'prayer' ? (
+            <div className="admin-card p-4">
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Prayer Wall Management</div>
+              <PrayerManager />
             </div>
-          ):activeTab==='testimonies'?(
-            <div className="p-4 rounded-xl bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
-              <div className="px-4 py-3 rounded-lg bg-[rgba(240,190,100,0.03)] mb-4 border border-[rgba(240,190,100,0.06)]"><h2 className="text-sm font-semibold text-white">Testimony Management</h2></div>
-              <Suspense fallback={<div className="p-8 text-center text-sm text-[#9a7c60]">Loading...</div>}>
-                <TestimonyManager/>
+          ) : activeTab === 'testimonies' ? (
+            <div className="admin-card p-4">
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Testimony Management</div>
+              <Suspense fallback={<div className="p-8 text-center text-sm" style={{ color: 'var(--ash)' }}>Loading...</div>}>
+                <TestimonyManager />
               </Suspense>
             </div>
-          ):activeTab==='events'?(
-            <div className="p-4 rounded-xl bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
-              <div className="px-4 py-3 rounded-lg bg-[rgba(240,190,100,0.03)] mb-4 border border-[rgba(240,190,100,0.06)]"><h2 className="text-sm font-semibold text-white">Event Management</h2></div>
-              <EventManager/>
+          ) : activeTab === 'events' ? (
+            <div className="admin-card p-4">
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Event Management</div>
+              <EventManager />
             </div>
-          ):activeTab==='dailyverse'?(
-            <div className="p-4 rounded-xl bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
-              <div className="px-4 py-3 rounded-lg bg-[rgba(240,190,100,0.03)] mb-4 border border-[rgba(240,190,100,0.06)]"><h2 className="text-sm font-semibold text-white">Daily Word � Push Notifications</h2></div>
-              <Suspense fallback={<div className="p-8 text-center text-sm text-[#9a7c60]">Loading...</div>}>
-                <DailyVerseManager/>
+          ) : activeTab === 'dailyverse' ? (
+            <div className="admin-card p-4">
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Daily Word & Push Notifications</div>
+              <Suspense fallback={<div className="p-8 text-center text-sm" style={{ color: 'var(--ash)' }}>Loading...</div>}>
+                <DailyVerseManager />
               </Suspense>
             </div>
-          ):activeTab==='print'?(
-            <div className="p-4 rounded-xl bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
-              <div className="px-4 py-3 rounded-lg bg-[rgba(240,190,100,0.03)] mb-4 border border-[rgba(240,190,100,0.06)]"><h2 className="text-sm font-semibold text-white">Print Media</h2></div>
-              <Suspense fallback={<div className="p-8 text-center text-sm text-[#9a7c60]">Loading...</div>}>
-                <PrintManager items={printMedia as any} onRefresh={refresh}/>
+          ) : activeTab === 'print' ? (
+            <div className="admin-card p-4">
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Print Media</div>
+              <Suspense fallback={<div className="p-8 text-center text-sm" style={{ color: 'var(--ash)' }}>Loading...</div>}>
+                <PrintManager items={printMedia as any} onRefresh={refresh} />
               </Suspense>
             </div>
-          ):activeTab==='playlists'?(
-            <div className="p-4 rounded-xl bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
-              <div className="px-4 py-3 rounded-lg bg-[rgba(240,190,100,0.03)] mb-4 border border-[rgba(240,190,100,0.06)]"><h2 className="text-sm font-semibold text-white">Sermon Playlists</h2></div>
-              <Suspense fallback={<div className="p-8 text-center text-sm text-[#9a7c60]">Loading...</div>}>
-                <SermonPlaylistManager onRefresh={refresh}/>
+          ) : activeTab === 'playlists' ? (
+            <div className="admin-card p-4">
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Sermon Playlists</div>
+              <Suspense fallback={<div className="p-8 text-center text-sm" style={{ color: 'var(--ash)' }}>Loading...</div>}>
+                <SermonPlaylistManager onRefresh={refresh} />
               </Suspense>
             </div>
-          ):null}
+          ) : null}
         </div>
       </main>
     </div>

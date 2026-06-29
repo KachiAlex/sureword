@@ -36,6 +36,10 @@
     --dim: var(--ash);
     --gold: var(--flame);
     --gold-soft: var(--sunrise);
+    --green:   #3ecf6e;
+    --red:     #e04040;
+    --blue:    #4a9eff;
+    --sidebar-w: 230px;
   }
 
   body {
@@ -87,6 +91,10 @@
   .btn-out:hover { background: rgba(224, 90, 26, .12); }
   .btn-ghost { background: transparent; border: 1px solid var(--line); color: var(--cream2); }
   .btn-ghost:hover { border-color: var(--sunrise); color: var(--sunrise); }
+  .btn-red { background: rgba(224,64,64,.12); border: 1px solid rgba(224,64,64,.3); color: #ff7070; }
+  .btn-red:hover { background: rgba(224,64,64,.22); }
+  .btn-green { background: rgba(62,207,110,.1); border: 1px solid rgba(62,207,110,.3); color: var(--green); }
+  .btn-green:hover { background: rgba(62,207,110,.2); }
 
   /* legacy helpers mapped to new system */
   .btn-gold { @apply inline-flex items-center justify-center gap-2; padding: 10px 20px; border-radius: 4px; font-size: 13.5px; font-weight: 600; border: none; transition: all .15s ease; white-space: nowrap; background: var(--flame); color: #fff; }
@@ -124,6 +132,14 @@
   .animate-pulse-ring { animation: pulse 1.6s ease-in-out infinite; }
   .hover-lift { @apply transition-all duration-300; }
   .hover-lift:hover { transform: translateY(-4px); }
+
+  /* ── Admin Dashboard ── */
+  .admin-card { background: var(--mahog); border: 1px solid var(--line); border-radius: 4px; }
+  .admin-tag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 2px; font-size: 11px; font-weight: 600; letter-spacing: .04em; }
+  .admin-tag-live { background: rgba(224,90,26,.15); color: var(--flame3); border: 1px solid rgba(224,90,26,.3); }
+  .admin-tag-green { background: rgba(62,207,110,.1); color: var(--green); border: 1px solid rgba(62,207,110,.25); }
+  .admin-tag-ash { background: rgba(122,96,72,.12); color: var(--ash2); border: 1px solid rgba(122,96,72,.2); }
+  .admin-tag-blue { background: rgba(74,158,255,.1); color: var(--blue); border: 1px solid rgba(74,158,255,.25); }
 }
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
