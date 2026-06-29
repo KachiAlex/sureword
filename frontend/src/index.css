@@ -151,6 +151,7 @@
 @keyframes ringpulse { 0%{ transform:scale(.9); opacity:var(--o,.5); } 100%{ transform:scale(1.05); opacity:0; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes barjump { 0%{ height:var(--lo,20%); } 100%{ height:var(--hi,90%); } }
+@keyframes shimmer { 0%{ opacity:.55; } 50%{ opacity:.35; } 100%{ opacity:.55; } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

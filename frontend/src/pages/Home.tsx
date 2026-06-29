@@ -129,8 +129,8 @@ export default function Home() {
   const { user } = useAuth()
   const { pushEnabled, pushSupported, requestPush, loadingPush } = useNotifications()
   const { data: broadcast } = useActiveBroadcast()
-  const { data: sermons = [] } = useFeaturedSermons()
-  const { data: printItems = [] } = usePrintMedia()
+  const { data: sermons = [], isLoading: sermonsLoading } = useFeaturedSermons()
+  const { data: printItems = [], isLoading: printLoading } = usePrintMedia()
   const { data: radioData } = useRadioCurrent()
   const { playTrack, togglePlay, currentTrack, isPlaying } = useAudioPlayer()
   const isLive = broadcast?.status === 'live'
@@ -417,11 +417,22 @@ export default function Home() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 28, alignItems: 'flex-start' }} className="playlist-grid">
           {/* Sermon list */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {sermons.slice(0, 6).map((s, i) => (
+            {sermonsLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} style={{ display: 'flex', gap: 14, alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--line)' }}>
+                  <div style={{ width: 22, textAlign: 'center', color: 'var(--ash)', fontSize: 13 }}>{i + 1}</div>
+                  <div style={{ width: 52, height: 52, borderRadius: 3, background: 'var(--panel2)', flexShrink: 0, animation: 'shimmer 1.6s infinite' }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ height: 13, background: 'var(--panel2)', borderRadius: 3, width: '65%', marginBottom: 8, animation: 'shimmer 1.6s infinite' }} />
+                    <div style={{ height: 10, background: 'var(--panel2)', borderRadius: 3, width: '40%', animation: 'shimmer 1.6s infinite' }} />
+                  </div>
+                </div>
+              ))
+            ) : sermons.slice(0, 6).map((s, i) => (
               <SermonListItem key={s.id} s={s} index={i}
                 onPlay={() => playTrack({ id: s.id, title: s.title, speaker: s.speaker || 'Pastor', audioUrl: s.audio_url || '', thumbnail: s.thumbnail_url, trackType: 'sermon' })} />
             ))}
-            {sermons.length === 0 && (
+            {!sermonsLoading && sermons.length === 0 && (
               <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--ash)' }}>
                 <BookOpen style={{ width: 32, height: 32, margin: '0 auto 8px', opacity: .4 }} />
                 <p>No sermons uploaded yet.</p>
@@ -492,7 +503,19 @@ export default function Home() {
             Bulletins, devotional magazines, and study guides — free to download anytime.
           </p>
         </div>
-        {printItems.length === 0 ? (
+        {printLoading ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 18 }}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} style={{ background: 'var(--coal)', border: '1px solid var(--line)', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{ height: 160, background: 'var(--panel2)', animation: 'shimmer 1.6s infinite' }} />
+                <div style={{ padding: '12px 14px' }}>
+                  <div style={{ height: 13, background: 'var(--panel2)', borderRadius: 3, width: '80%', marginBottom: 8, animation: 'shimmer 1.6s infinite' }} />
+                  <div style={{ height: 10, background: 'var(--panel2)', borderRadius: 3, width: '50%', animation: 'shimmer 1.6s infinite' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : printItems.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 24px', background: 'var(--coal)', border: '1px solid var(--line)', borderRadius: 6 }}>
             <FileText style={{ width: 36, height: 36, margin: '0 auto 10px', color: 'var(--line)' }} />
             <p style={{ color: 'var(--ash)', fontSize: 13 }}>No resources available yet. Check back soon.</p>
