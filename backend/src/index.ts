@@ -34,6 +34,7 @@ if (process.env.SENTRY_DSN) {
 
 const app = express()
 
+app.set('trust proxy', 1)
 app.use(cors({ origin: '*', credentials: false }))
 app.use(compression() as any)
 app.use(express.json({ limit: '10mb' }))

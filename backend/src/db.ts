@@ -153,7 +153,8 @@ const SCHEMA_QUERIES = [
   )`,
   `CREATE TABLE IF NOT EXISTS print_media (
     id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, category TEXT DEFAULT 'tract',
-    pdf_url TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    pdf_url TEXT NOT NULL, thumbnail_url TEXT, is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE TABLE IF NOT EXISTS refresh_tokens (
     id TEXT PRIMARY KEY, token TEXT NOT NULL UNIQUE, user_id TEXT NOT NULL,
