@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState, useRef } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { API_BASE, SOCKET_BASE, api } from '../lib/api'
+import { SOCKET_BASE, api } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { usePageTitle } from '../hooks/usePageTitle'
 import {
@@ -328,7 +328,7 @@ export default function Live() {
   async function reactToMessage(msgId: string, emoji: string) {
     setReactingTo(null)
     try {
-      const { data } = await axios.post(`${API_BASE}/api/chat/${msgId}/react`, { emoji })
+      const { data } = await api.post(`/chat/broadcast/${msgId}/react`, { emoji })
       setChatMessages(prev => prev.map(m => m.id === msgId ? { ...m, reactions: data.reactions } : m))
     } catch {}
   }
@@ -348,10 +348,10 @@ export default function Live() {
   async function fetchBroadcast() {
     try {
       if (broadcastId && broadcastId !== 'current') {
-        const { data } = await axios.get(`${API_BASE}/api/broadcasts/${broadcastId}`)
+        const { data } = await api.get(`/broadcasts/${broadcastId}`)
         setBroadcast(data.broadcast)
       } else {
-        const { data } = await axios.get(`${API_BASE}/api/broadcasts/active`)
+        const { data } = await api.get('/broadcasts/active')
         setBroadcast(data.broadcast)
       }
     } catch { setBroadcast(null) }
@@ -362,7 +362,7 @@ export default function Live() {
     const bid = broadcastId || broadcast?.id
     if (!bid) return
     try {
-      const { data } = await axios.get(`${API_BASE}/api/chat/${bid}`)
+      const { data } = await api.get(`/chat/broadcast/${bid}`)
       const messages = data.messages || []
       if (messages.length > lastMsgCountRef.current) {
         // Only count as new if not the initial load and chat is closed
@@ -379,7 +379,7 @@ export default function Live() {
     const bid = broadcastId || broadcast?.id
     if (!bid) return
     try {
-      const { data } = await axios.get(`${API_BASE}/api/chat/${bid}/users`)
+      const { data } = await api.get(`/chat/broadcast/${bid}/users`)
       setChatUsers((data.users || []).filter((u: any) => u.user_id !== user?.id))
       setOnlineCount(data.users?.length || 0)
     } catch {}
@@ -394,9 +394,9 @@ export default function Live() {
       if (user) {
         const payload: any = { message: text }
         if (chatMode === 'private' && privateRecipient) payload.recipientId = privateRecipient.user_id
-        await api.post(`/chat/${bid}`, payload)
+        await api.post(`/chat/broadcast/${bid}`, payload)
       } else {
-        await axios.post(`${API_BASE}/api/chat/${bid}/guest`, { message: text, guestName: guestName.trim() || 'Guest' })
+        await api.post(`/chat/broadcast/${bid}/guest`, { message: text, guestName: guestName.trim() || 'Guest' })
       }
       setNewMessage('')
       fetchChatMessages()

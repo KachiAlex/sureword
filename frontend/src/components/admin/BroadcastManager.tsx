@@ -105,7 +105,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     setChatHistory([])
     setChatLoading(true)
     try {
-      const { data } = await api.get(`/chat/${b.id}`)
+      const { data } = await api.get(`/chat/broadcast/${b.id}`)
       setChatHistory(data.messages || [])
     } catch {}
     finally { setChatLoading(false) }

@@ -266,7 +266,7 @@ export default function RadioStudio({
     if (!broadcastId) return
     async function fetchChat() {
       try {
-        const { data } = await api.get(`/chat/${broadcastId}`)
+        const { data } = await api.get(`/chat/broadcast/${broadcastId}`)
         const messages = data.messages || []
         setChatMessages(messages)
         if (messages.length > prevMsgLenRef.current) {
@@ -277,7 +277,7 @@ export default function RadioStudio({
     }
     async function fetchUsers() {
       try {
-        const { data } = await api.get(`/chat/${broadcastId}/users`)
+        const { data } = await api.get(`/chat/broadcast/${broadcastId}/users`)
         setChatUsers(data.users || [])
       } catch {}
     }
@@ -297,10 +297,10 @@ export default function RadioStudio({
     if (!chatInput.trim() || !broadcastId) return
     setChatSending(true)
     try {
-      await api.post(`/chat/${broadcastId}`, { message: chatInput.trim() })
+      await api.post(`/chat/broadcast/${broadcastId}`, { message: chatInput.trim() })
       setChatInput('')
       // Refresh immediately
-      const { data } = await api.get(`/chat/${broadcastId}`)
+      const { data } = await api.get(`/chat/broadcast/${broadcastId}`)
       setChatMessages(data.messages || [])
       prevMsgLenRef.current = data.messages?.length || 0
     } catch { setUploadError('Chat send failed') }

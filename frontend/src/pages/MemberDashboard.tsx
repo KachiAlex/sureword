@@ -406,7 +406,7 @@ export default function MemberDashboard() {
   async function fetchChatMessages(bid?: string) {
     if (!bid) return
     try {
-      const { data } = await api.get(`/chat/${bid}`)
+      const { data } = await api.get(`/chat/broadcast/${bid}`)
       setChatMessages(data.messages?.slice(-20) || [])
     } catch {}
   }
@@ -416,7 +416,7 @@ export default function MemberDashboard() {
     const text = chatInput.trim()
     if (!text || !broadcast?.id) return
     try {
-      await api.post(`/chat/${broadcast.id}`, { message: text })
+      await api.post(`/chat/broadcast/${broadcast.id}`, { message: text })
       setChatInput('')
       fetchChatMessages(broadcast.id)
     } catch {}
