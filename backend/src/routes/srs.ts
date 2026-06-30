@@ -88,10 +88,10 @@ router.get('/streams/:streamKey/ready', async (req, res) => {
       }
     } catch {}
 
-    // Ready if broadcast is marked live (webhook worked) OR manifest has segments
-    if (isLive || hasSegments) {
-      console.log('[SRS] ready check - ready:', streamKey, 'isLive=', isLive, 'hasSegments=', hasSegments)
-      return res.json({ ready: true, source: isLive ? 'db_live' : 'filesystem' })
+    // Only ready when broadcaster is connected AND segments exist
+    if (isLive && hasSegments) {
+      console.log('[SRS] ready check - ready:', streamKey)
+      return res.json({ ready: true, source: 'db_live' })
     }
 
     console.log('[SRS] ready check - not ready:', streamKey, 'isLive=', isLive, 'hasSegments=', hasSegments)
