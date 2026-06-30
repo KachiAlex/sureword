@@ -76,32 +76,48 @@ router.get('/streams/:streamKey/ready', async (req, res) => {
     if (srsRes.ok) {
       const data = await srsRes.json()
       const streams = data?.streams || []
-      const active = streams.find((s: any) => s.name === streamKey && s.publish === true)
+      const active = streams.find((s: any) => {
+        if (s.name !== streamKey) return false
+        // SRS 5.x uses publish: { active: true }, older versions use publish: true
+        const isPublishing = typeof s.publish === 'boolean'
+          ? s.publish
+          : s.publish?.active === true
+        return isPublishing
+      })
       if (active) publishActive = true
     }
 
-    // Manifest must exist AND have segment entries before we say ready
+    // Only ready when there is an active publisher AND segments exist
+    if (publishActive) {
+      try {
+        const stats = await fs.stat(manifestPath)
+        if (stats.size > 0) {
+          const content = await fs.readFile(manifestPath, 'utf-8')
+          const hasSegments = content.includes('.ts')
+          if (hasSegments) {
+            console.log('[SRS] ready check - active + segments:', streamKey)
+            return res.json({ ready: true, source: 'srs_api' })
+          }
+        }
+      } catch {}
+      console.log('[SRS] ready check - publish active but no segments yet:', streamKey)
+      return res.json({ ready: false })
+    }
+
+    // Fallback: if SRS API is unreachable but manifest has segments, allow playback
     try {
       const stats = await fs.stat(manifestPath)
       if (stats.size > 0) {
         const content = await fs.readFile(manifestPath, 'utf-8')
         const hasSegments = content.includes('.ts')
         if (hasSegments) {
-          if (publishActive) {
-            console.log('[SRS] ready check - API active + has segments:', streamKey)
-          } else {
-            console.log('[SRS] ready check - filesystem has segments:', streamKey)
-          }
-          return res.json({ ready: true, source: publishActive ? 'srs_api' : 'filesystem' })
+          console.log('[SRS] ready check - filesystem fallback:', streamKey)
+          return res.json({ ready: true, source: 'filesystem' })
         }
       }
     } catch {}
 
-    if (publishActive) {
-      console.log('[SRS] ready check - publish active but no segments yet:', streamKey)
-    } else {
-      console.log('[SRS] ready check - not ready:', streamKey)
-    }
+    console.log('[SRS] ready check - not ready:', streamKey)
     return res.json({ ready: false })
   } catch (err: any) {
     console.error('[SRS] ready check error:', err.message)
@@ -113,7 +129,7 @@ router.get('/streams/:streamKey/ready', async (req, res) => {
 router.post('/hooks/on_publish', async (req, res) => {
   try {
     await initDb()
-    const { stream } = req.body
+    const stream = req.body?.stream || req.query?.stream
     if (!stream) { res.status(400).json({ error: 'Missing stream key' }); return }
 
     await db.run(
@@ -132,7 +148,7 @@ router.post('/hooks/on_publish', async (req, res) => {
 router.post('/hooks/on_unpublish', async (req, res) => {
   try {
     await initDb()
-    const { stream } = req.body
+    const stream = req.body?.stream || req.query?.stream
     if (!stream) { res.status(400).json({ error: 'Missing stream key' }); return }
 
     // Do NOT end the broadcast here — the broadcaster controls lifecycle via admin UI.
