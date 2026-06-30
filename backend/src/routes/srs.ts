@@ -55,7 +55,7 @@ router.post('/streams', authenticateToken, requireRole('broadcaster', 'admin'), 
 router.get('/streams/:streamKey', async (req, res) => {
   try {
     const { streamKey } = req.params
-    const data = await srsFetch(`/streams?app=live&stream=${streamKey}`)
+    const data = await srsFetch(`/streams?app=live&stream=${streamKey}&vhost=__defaultVhost__`)
     res.json(data)
   } catch (err: any) {
     console.error('[SRS] get stream error:', err.message)
@@ -71,20 +71,29 @@ router.get('/streams/:streamKey/ready', async (req, res) => {
     const manifestPath = `/tmp/srs/hls/live/${streamKey}.m3u8`
 
     // Try SRS API first — check for an active publisher
-    const srsRes = await fetch(`${SRS_API_URL}/streams?app=live&stream=${streamKey}`)
+    const srsUrl = `${SRS_API_URL}/streams?app=live&stream=${streamKey}&vhost=__defaultVhost__`
     let publishActive = false
-    if (srsRes.ok) {
-      const data = await srsRes.json()
-      const streams = data?.streams || []
-      const active = streams.find((s: any) => {
-        if (s.name !== streamKey) return false
-        // SRS 5.x uses publish: { active: true }, older versions use publish: true
-        const isPublishing = typeof s.publish === 'boolean'
-          ? s.publish
-          : s.publish?.active === true
-        return isPublishing
-      })
-      if (active) publishActive = true
+    let srsData: any = null
+    try {
+      const srsRes = await fetch(srsUrl)
+      if (srsRes.ok) {
+        srsData = await srsRes.json()
+        const streams = srsData?.streams || []
+        console.log('[SRS] ready check - SRS API returned', streams.length, 'streams for', streamKey)
+        const active = streams.find((s: any) => {
+          if (s.name !== streamKey) return false
+          const isPublishing = typeof s.publish === 'boolean'
+            ? s.publish
+            : s.publish?.active === true
+          console.log('[SRS] stream candidate', s.name, 'publish=', s.publish, 'isPublishing=', isPublishing)
+          return isPublishing
+        })
+        if (active) publishActive = true
+      } else {
+        console.log('[SRS] ready check - SRS API non-ok:', srsRes.status, streamKey)
+      }
+    } catch (srsErr: any) {
+      console.error('[SRS] ready check - SRS API error:', srsErr.message)
     }
 
     // Only ready when there is an active publisher AND segments exist
@@ -96,7 +105,7 @@ router.get('/streams/:streamKey/ready', async (req, res) => {
           const hasSegments = content.includes('.ts')
           if (hasSegments) {
             console.log('[SRS] ready check - active + segments:', streamKey)
-            return res.json({ ready: true, source: 'srs_api' })
+            return res.json({ ready: true, source: 'srs_api', srs: srsData })
           }
         }
       } catch {}
