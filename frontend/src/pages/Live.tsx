@@ -149,31 +149,34 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl, streamKey, streamType 
       return
     }
 
-    // HLS path: probe manifest before starting hls.js
-    const manifestUrl = `${SOCKET_BASE}/hls/live/${streamKey}.m3u8`
-    let manifestOk = false
+    // HLS path: poll backend ready endpoint instead of HEAD-ing manifest directly
+    const readyUrl = `${API_BASE}/api/srs/streams/${streamKey}/ready`
+    let ready = false
     try {
-      const res = await fetch(manifestUrl, { method: 'HEAD', mode: 'cors' })
-      manifestOk = res.ok
+      const res = await fetch(readyUrl)
+      if (res.ok) { const data = await res.json(); ready = data.ready }
     } catch {}
 
-    if (manifestOk) {
+    if (ready) {
       startHlsPlayback()
       return
     }
 
-    // Manifest not ready yet — poll every 3s for up to 60s
+    // Stream not ready yet — poll every 3s for up to 60s
     setStatusText('Waiting for broadcaster...')
     let attempts = 0
     const poll = setInterval(async () => {
       attempts++
       try {
-        const res = await fetch(manifestUrl, { method: 'HEAD', mode: 'cors' })
+        const res = await fetch(readyUrl)
         if (res.ok) {
-          clearInterval(poll)
-          manifestPollRef.current = null
-          startHlsPlayback()
-          return
+          const data = await res.json()
+          if (data.ready) {
+            clearInterval(poll)
+            manifestPollRef.current = null
+            startHlsPlayback()
+            return
+          }
         }
       } catch {}
       if (attempts >= 20) {

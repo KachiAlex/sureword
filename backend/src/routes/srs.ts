@@ -63,6 +63,34 @@ router.get('/streams/:streamKey', async (req, res) => {
   }
 })
 
+// Check if HLS stream is ready (SRS API + filesystem)
+router.get('/streams/:streamKey/ready', async (req, res) => {
+  try {
+    const { streamKey } = req.params
+    // Try SRS API first
+    const srsRes = await fetch(`${SRS_API_URL}/streams?app=live&stream=${streamKey}`)
+    if (srsRes.ok) {
+      const data = await srsRes.json()
+      console.log('[SRS] ready check - API says active:', streamKey)
+      return res.json({ ready: true, source: 'srs_api', stream: data })
+    }
+    // Fallback: check filesystem
+    const fs = await import('fs/promises')
+    const manifestPath = `/tmp/srs/hls/live/${streamKey}.m3u8`
+    try {
+      await fs.access(manifestPath)
+      console.log('[SRS] ready check - filesystem exists:', streamKey)
+      return res.json({ ready: true, source: 'filesystem' })
+    } catch {
+      console.log('[SRS] ready check - not ready:', streamKey)
+      return res.json({ ready: false })
+    }
+  } catch (err: any) {
+    console.error('[SRS] ready check error:', err.message)
+    res.status(500).json({ ready: false, error: err.message })
+  }
+})
+
 // SRS webhook: stream started publishing
 router.post('/hooks/on_publish', async (req, res) => {
   try {
