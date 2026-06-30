@@ -113,7 +113,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const token = localStorage.getItem('token')
-    if (!token || !biometricSupported) return
+    if (!token || token === 'undefined' || token === 'null' || token.length < 10 || !biometricSupported) return
     api.get('/auth/webauthn/credentials')
       .then(r => {
         const creds = r.data.credentials || []
