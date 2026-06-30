@@ -68,9 +68,10 @@ router.post('/', authenticateToken, requireRole('broadcaster', 'admin'), async (
             return;
         }
         const id = uuidv4();
-        await db.run(`INSERT INTO broadcasts (id, title, description, scripture_reference, status, started_at, broadcaster_id, thumbnail_url, speaker)
-       VALUES ($1, $2, $3, $4, 'live', CURRENT_TIMESTAMP, $5, $6, $7)`, [id, title, description || null, scripture_reference || null, req.user.id, thumbnail_url || null, speaker || null]);
-        res.json({ broadcast: { id, title, description, scripture_reference, status: 'live', broadcaster_id: req.user.id, thumbnail_url, speaker } });
+        const streamKey = uuidv4();
+        await db.run(`INSERT INTO broadcasts (id, title, description, scripture_reference, status, started_at, broadcaster_id, thumbnail_url, speaker, stream_key, stream_type)
+       VALUES ($1, $2, $3, $4, 'scheduled', CURRENT_TIMESTAMP, $5, $6, $7, $8, 'srs_rtmp')`, [id, title, description || null, scripture_reference || null, req.user.id, thumbnail_url || null, speaker || null, streamKey]);
+        res.json({ broadcast: { id, title, description, scripture_reference, status: 'scheduled', broadcaster_id: req.user.id, thumbnail_url, speaker, stream_key: streamKey, stream_type: 'srs_rtmp' } });
     }
     catch (err) {
         console.error('[BROADCASTS] create error:', err.message);

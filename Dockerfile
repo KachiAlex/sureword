@@ -7,9 +7,9 @@ FROM node:20
 
 WORKDIR /app
 
-# Install runtime dependencies for SRS
+# Install runtime dependencies for SRS + ffmpeg for browser ingest
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libssl3 \
+    libssl3 ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy SRS from stage 1

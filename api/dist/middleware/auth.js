@@ -4,7 +4,7 @@ import { db, initDb } from '../db.js';
 export const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-me';
 export const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || JWT_SECRET;
 export function generateTokens(user) {
-    const accessToken = jwt.sign({ id: user.id, email: user.email, name: user.name, role: user.role }, JWT_SECRET, { expiresIn: '15m' });
+    const accessToken = jwt.sign({ id: user.id, email: user.email, name: user.name, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
     const refreshToken = jwt.sign({ id: user.id }, JWT_REFRESH_SECRET, { expiresIn: '7d' });
     return { accessToken, refreshToken };
 }

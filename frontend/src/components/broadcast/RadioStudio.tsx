@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect, useRef } from 'react'
+import { io, Socket } from 'socket.io-client'
 import { API_BASE, api } from '../../lib/api'
 import {
   Radio, Pause, Play, Square, Mic, MicOff, Volume2, Volume1, VolumeX,
@@ -229,6 +230,8 @@ export default function RadioStudio({
   const cloudRecorderRef = useRef<MediaRecorder | null>(null)
   const cloudBlobsRef = useRef<Blob[]>([])
   const cloudMimeRef = useRef('audio/webm')
+  const socketRef = useRef<Socket | null>(null)
+  const srsRecorderRef = useRef<MediaRecorder | null>(null)
 
   useEffect(() => {
     if (!recordEnabled) return
@@ -373,12 +376,14 @@ export default function RadioStudio({
 
   async function startStreaming() {
     try {
+      let currentStreamKey = ''
       // Fetch SRS stream info for this broadcast
       try {
         const { data } = await api.post('/srs/streams', { broadcastId })
         setRtmpUrl(data.rtmpUrl)
         setHlsUrl(data.hlsUrl)
         setStreamKey(data.streamKey)
+        currentStreamKey = data.streamKey
       } catch (e: any) {
         console.error('Failed to fetch SRS stream info:', e.response?.data?.error || e.message)
       }
@@ -448,6 +453,47 @@ export default function RadioStudio({
       cloudRecorder.start(5000)
       cloudRecorderRef.current = cloudRecorder
 
+      // SRS ingest via socket.io → ffmpeg → RTMP
+      if (currentStreamKey) {
+        try {
+          const token = localStorage.getItem('token')
+          const socketUrl = API_BASE || window.location.origin
+          const socket = io(socketUrl, {
+            path: '/socket.io',
+            auth: { token: token || undefined },
+            transports: ['websocket', 'polling']
+          })
+          socketRef.current = socket
+
+          await new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Socket connect timeout')), 8000)
+            socket.once('connect', () => { clearTimeout(timeout); resolve() })
+            socket.once('connect_error', (err) => { clearTimeout(timeout); reject(err) })
+          })
+
+          await new Promise<void>((resolve, reject) => {
+            socket.emit('start_srs_ingest', { streamKey: currentStreamKey })
+            const timeout = setTimeout(() => reject(new Error('SRS ingest start timeout')), 8000)
+            socket.once('srs_ready', () => { clearTimeout(timeout); resolve() })
+            socket.once('srs_error', (msg: string) => { clearTimeout(timeout); reject(new Error(msg)) })
+          })
+
+          const srsMime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+            ? 'audio/webm;codecs=opus' : 'audio/webm'
+          const srsRecorder = new MediaRecorder(stream, { mimeType: srsMime, audioBitsPerSecond: 128000 })
+          srsRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0 && socket.connected) {
+              socket.emit('srs_chunk', e.data)
+            }
+          }
+          srsRecorder.start(500)
+          srsRecorderRef.current = srsRecorder
+          console.log('[SRS] ingest recorder started')
+        } catch (e: any) {
+          console.error('[SRS] failed to start ingest:', e.message)
+        }
+      }
+
       // Simple stats: just show that we are live via SRS
       setStreamStats({ chunkCount: 0, bitrate: 0, latestChunk: -1 })
     } catch {
@@ -456,6 +502,16 @@ export default function RadioStudio({
   }
 
   function stopStreaming(triggerUpload = false): Promise<void> {
+    if (srsRecorderRef.current && srsRecorderRef.current.state !== 'inactive') {
+      srsRecorderRef.current.stop()
+    }
+    srsRecorderRef.current = null
+    if (socketRef.current) {
+      socketRef.current.emit('stop_srs_ingest')
+      socketRef.current.disconnect()
+      socketRef.current = null
+    }
+
     teardownMixer()
     shouldRecordRef.current = false
     if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null }
