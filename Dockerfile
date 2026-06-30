@@ -36,7 +36,7 @@ COPY srs.conf /app/srs.conf
 # Create startup script
 RUN printf '%s\n' \
     '#!/bin/bash' \
-    'mkdir -p /tmp/srs/hls' \
+    'mkdir -p /tmp/srs/hls /app/objs' \
     '/usr/local/srs/objs/srs -c /app/srs.conf &' \
     'SRS_PID=$!' \
     'sleep 2' \
