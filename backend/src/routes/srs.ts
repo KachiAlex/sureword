@@ -63,70 +63,47 @@ router.get('/streams/:streamKey', async (req, res) => {
   }
 })
 
-// Check if HLS stream is ready (SRS API + filesystem)
+// Check if HLS stream is ready (DB status + filesystem)
 router.get('/streams/:streamKey/ready', async (req, res) => {
   try {
     const { streamKey } = req.params
+    await initDb()
     const fs = await import('fs/promises')
     const manifestPath = `/tmp/srs/hls/live/${streamKey}.m3u8`
 
-    // Try SRS API first — check for an active publisher
-    const srsUrl = `${SRS_API_URL}/streams?app=live&stream=${streamKey}&vhost=__defaultVhost__`
-    let publishActive = false
-    let srsData: any = null
-    try {
-      const srsRes = await fetch(srsUrl)
-      if (srsRes.ok) {
-        srsData = await srsRes.json()
-        const streams = srsData?.streams || []
-        console.log('[SRS] ready check - SRS API returned', streams.length, 'streams for', streamKey)
-        const active = streams.find((s: any) => {
-          if (s.name !== streamKey) return false
-          const isPublishing = typeof s.publish === 'boolean'
-            ? s.publish
-            : s.publish?.active === true
-          console.log('[SRS] stream candidate', s.name, 'publish=', s.publish, 'isPublishing=', isPublishing)
-          return isPublishing
-        })
-        if (active) publishActive = true
-      } else {
-        console.log('[SRS] ready check - SRS API non-ok:', srsRes.status, streamKey)
-      }
-    } catch (srsErr: any) {
-      console.error('[SRS] ready check - SRS API error:', srsErr.message)
-    }
+    // Primary signal: broadcast status set by on_publish webhook
+    const broadcast = await db.get(
+      `SELECT status FROM broadcasts WHERE stream_key = $1`,
+      [streamKey]
+    )
+    const isLive = broadcast?.status === 'live'
 
-    // Only ready when there is an active publisher AND segments exist
-    if (publishActive) {
-      try {
-        const stats = await fs.stat(manifestPath)
-        if (stats.size > 0) {
-          const content = await fs.readFile(manifestPath, 'utf-8')
-          const hasSegments = content.includes('.ts')
-          if (hasSegments) {
-            console.log('[SRS] ready check - active + segments:', streamKey)
-            return res.json({ ready: true, source: 'srs_api', srs: srsData })
-          }
-        }
-      } catch {}
-      console.log('[SRS] ready check - publish active but no segments yet:', streamKey)
-      return res.json({ ready: false })
-    }
-
-    // Fallback: if SRS API is unreachable but manifest has segments, allow playback
+    // Verify manifest has actual .ts segments
+    let hasSegments = false
     try {
       const stats = await fs.stat(manifestPath)
       if (stats.size > 0) {
         const content = await fs.readFile(manifestPath, 'utf-8')
-        const hasSegments = content.includes('.ts')
-        if (hasSegments) {
-          console.log('[SRS] ready check - filesystem fallback:', streamKey)
-          return res.json({ ready: true, source: 'filesystem' })
-        }
+        hasSegments = content.includes('.ts')
       }
     } catch {}
 
-    console.log('[SRS] ready check - not ready:', streamKey)
+    if (isLive && hasSegments) {
+      console.log('[SRS] ready check - db live + segments:', streamKey)
+      return res.json({ ready: true, source: 'db_live' })
+    }
+
+    // Fallback: if manifest has segments even without webhook, allow playback
+    if (hasSegments) {
+      console.log('[SRS] ready check - filesystem fallback:', streamKey)
+      return res.json({ ready: true, source: 'filesystem' })
+    }
+
+    if (isLive) {
+      console.log('[SRS] ready check - db live but no segments yet:', streamKey)
+    } else {
+      console.log('[SRS] ready check - not ready:', streamKey)
+    }
     return res.json({ ready: false })
   } catch (err: any) {
     console.error('[SRS] ready check error:', err.message)
