@@ -84,7 +84,8 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl, streamKey, streamType 
   const userPausedRef = useRef(false)
   const manifestPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const hlsRetryRef = useRef(0)
-  const MAX_HLS_RETRIES = 10
+  const playbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const MAX_HLS_RETRIES = 6
 
   function updateMediaSession(playing: boolean) {
     if (!('mediaSession' in navigator)) return
@@ -192,6 +193,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl, streamKey, streamType 
   function startHlsPlayback() {
     setStatusText('Connecting...')
     hlsRetryRef.current = 0
+    if (playbackTimeoutRef.current) { clearTimeout(playbackTimeoutRef.current); playbackTimeoutRef.current = null }
     if (!mediaRef.current || !streamKey) return
 
     if (isHls && Hls.isSupported()) {
@@ -199,11 +201,20 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl, streamKey, streamType 
       hlsRef.current = hls
       hls.attachMedia(mediaRef.current as HTMLVideoElement)
       hls.loadSource(`${SOCKET_BASE}/hls/live/${streamKey}.m3u8`)
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      hls.on(Hls.Events.MANIFEST_PARSED, (_event, data) => {
+        if (!data.levels || data.levels.length === 0) {
+          console.warn('[HLS] manifest parsed but no levels')
+          setStatusText('Stream unavailable. Tap to retry.')
+          hls.destroy()
+          hlsRef.current = null
+          if (playbackTimeoutRef.current) { clearTimeout(playbackTimeoutRef.current); playbackTimeoutRef.current = null }
+          return
+        }
         mediaRef.current!.play().then(() => {
           setIsPlaying(true)
           setStatusText('Live')
           setupMediaSession(title || 'Live Broadcast')
+          if (playbackTimeoutRef.current) { clearTimeout(playbackTimeoutRef.current); playbackTimeoutRef.current = null }
         }).catch(() => { setStatusText('Tap play to start') })
       })
       hls.on(Hls.Events.ERROR, (_event, data) => {
@@ -212,6 +223,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl, streamKey, streamType 
         hlsRetryRef.current++
         if (hlsRetryRef.current > MAX_HLS_RETRIES) {
           setStatusText('Stream unavailable. Tap to retry.')
+          if (playbackTimeoutRef.current) { clearTimeout(playbackTimeoutRef.current); playbackTimeoutRef.current = null }
           hls.destroy()
           hlsRef.current = null
           return
@@ -219,7 +231,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl, streamKey, streamType 
         switch (data.type) {
           case Hls.ErrorTypes.NETWORK_ERROR:
             setStatusText(`Reconnecting... (${hlsRetryRef.current})`)
-            setTimeout(() => hls.startLoad(), 1000 * hlsRetryRef.current)
+            setTimeout(() => hls.startLoad(), Math.min(3000, 1000 * hlsRetryRef.current))
             break
           case Hls.ErrorTypes.MEDIA_ERROR:
             setStatusText('Recovering...')
@@ -227,11 +239,19 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl, streamKey, streamType 
             break
           default:
             setStatusText('Stream error')
+            if (playbackTimeoutRef.current) { clearTimeout(playbackTimeoutRef.current); playbackTimeoutRef.current = null }
             hls.destroy()
             hlsRef.current = null
             break
         }
       })
+      // Safety: if playback never starts within 15s, give up
+      playbackTimeoutRef.current = setTimeout(() => {
+        console.warn('[HLS] playback start timeout')
+        setStatusText('Stream unavailable. Tap to retry.')
+        hls.destroy()
+        hlsRef.current = null
+      }, 15000)
     } else {
       // Native HLS fallback (Safari)
       mediaRef.current.src = `${SOCKET_BASE}/hls/live/${streamKey}.m3u8`
@@ -310,6 +330,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl, streamKey, streamType 
       if (manifestPollRef.current) clearInterval(manifestPollRef.current)
       if (heartbeatRef.current) clearInterval(heartbeatRef.current)
       if (infoIntervalRef.current) clearInterval(infoIntervalRef.current)
+      if (playbackTimeoutRef.current) clearTimeout(playbackTimeoutRef.current)
       if (!isHls && sessionIdRef.current) {
         fetch(`${API_BASE}/api/stream/${broadcastId}/leave`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },

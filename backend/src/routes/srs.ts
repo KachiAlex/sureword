@@ -67,24 +67,42 @@ router.get('/streams/:streamKey', async (req, res) => {
 router.get('/streams/:streamKey/ready', async (req, res) => {
   try {
     const { streamKey } = req.params
-    // Try SRS API first
-    const srsRes = await fetch(`${SRS_API_URL}/streams?app=live&stream=${streamKey}`)
-    if (srsRes.ok) {
-      const data = await srsRes.json()
-      console.log('[SRS] ready check - API says active:', streamKey)
-      return res.json({ ready: true, source: 'srs_api', stream: data })
-    }
-    // Fallback: check filesystem
     const fs = await import('fs/promises')
     const manifestPath = `/tmp/srs/hls/live/${streamKey}.m3u8`
-    try {
-      await fs.access(manifestPath)
-      console.log('[SRS] ready check - filesystem exists:', streamKey)
-      return res.json({ ready: true, source: 'filesystem' })
-    } catch {
-      console.log('[SRS] ready check - not ready:', streamKey)
-      return res.json({ ready: false })
+
+    // Try SRS API first — check for an active publisher
+    const srsRes = await fetch(`${SRS_API_URL}/streams?app=live&stream=${streamKey}`)
+    let publishActive = false
+    if (srsRes.ok) {
+      const data = await srsRes.json()
+      const streams = data?.streams || []
+      const active = streams.find((s: any) => s.name === streamKey && s.publish === true)
+      if (active) publishActive = true
     }
+
+    // Manifest must exist AND have segment entries before we say ready
+    try {
+      const stats = await fs.stat(manifestPath)
+      if (stats.size > 0) {
+        const content = await fs.readFile(manifestPath, 'utf-8')
+        const hasSegments = content.includes('.ts')
+        if (hasSegments) {
+          if (publishActive) {
+            console.log('[SRS] ready check - API active + has segments:', streamKey)
+          } else {
+            console.log('[SRS] ready check - filesystem has segments:', streamKey)
+          }
+          return res.json({ ready: true, source: publishActive ? 'srs_api' : 'filesystem' })
+        }
+      }
+    } catch {}
+
+    if (publishActive) {
+      console.log('[SRS] ready check - publish active but no segments yet:', streamKey)
+    } else {
+      console.log('[SRS] ready check - not ready:', streamKey)
+    }
+    return res.json({ ready: false })
   } catch (err: any) {
     console.error('[SRS] ready check error:', err.message)
     res.status(500).json({ ready: false, error: err.message })
