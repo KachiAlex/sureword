@@ -22,6 +22,8 @@ interface Broadcast {
   speaker?: string
   stream_key?: string
   stream_type?: string
+  type?: 'live' | 'sermon'
+  current_sermon?: { title: string; speaker: string; audio_url: string; thumbnail_url?: string }
 }
 
 interface ChatMessage {
@@ -619,7 +621,11 @@ export default function Live() {
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#ef4444]" />
                 </span>
               )}
-              <span className="text-[10px] font-mono font-medium tracking-widest text-[#E05A1A]">{broadcast.status === 'live' ? 'LIVE NOW' : 'ENDED'}</span>
+              <span className="text-[10px] font-mono font-medium tracking-widest text-[#E05A1A]">
+                {broadcast.status === 'live'
+                  ? broadcast.type === 'sermon' ? 'SERMON RADIO' : 'LIVE NOW'
+                  : 'ENDED'}
+              </span>
             </div>
             <div className="text-xs font-medium text-white max-w-[200px] sm:max-w-xs truncate">{broadcast.title}</div>
           </div>
@@ -653,7 +659,15 @@ export default function Live() {
               <div className="flex-1 relative min-h-[300px] md:min-h-0">
                 <iframe ref={iframeRef} src={getChurchOnlineUrl()!} className="absolute inset-0 w-full h-full" style={{ border: 'none' }} allow="autoplay; fullscreen" allowFullScreen title="Live Broadcast" />
               </div>
-              {broadcast.status === 'live' && <StreamPlayer broadcastId={broadcast.id} title={broadcast.title} thumbnailUrl={broadcast.thumbnail_url} streamKey={broadcast.stream_key} streamType={broadcast.stream_type} />}
+              {broadcast.status === 'live' && (
+                <StreamPlayer
+                  broadcastId={broadcast.id}
+                  title={broadcast.type === 'sermon' && broadcast.current_sermon ? broadcast.current_sermon.title : broadcast.title}
+                  thumbnailUrl={broadcast.thumbnail_url}
+                  streamKey={broadcast.stream_key}
+                  streamType={broadcast.stream_type}
+                />
+              )}
               {broadcast.scripture_reference && (
                 <div className="mx-4 mb-4 rounded-xl p-4 text-center bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
                   <div className="text-[10px] font-mono font-medium tracking-widest text-[#E05A1A] mb-1.5">NOW READING</div>
@@ -676,11 +690,25 @@ export default function Live() {
                     </div>
                   )}
                   <div>
-                    <h2 className="text-lg font-semibold text-white">{broadcast.title}</h2>
-                    {broadcast.speaker && (
-                      <p className="text-[11px] text-[#E05A1A] mt-1 flex items-center justify-center gap-1">
-                        <User className="w-3 h-3" />{broadcast.speaker}
-                      </p>
+                    {broadcast.type === 'sermon' && broadcast.current_sermon ? (
+                      <>
+                        <div className="text-[10px] font-mono font-medium tracking-widest text-[#E05A1A] mb-1.5">SERMON RADIO</div>
+                        <h2 className="text-lg font-semibold text-white">{broadcast.current_sermon.title}</h2>
+                        {broadcast.current_sermon.speaker && (
+                          <p className="text-[11px] text-[#E05A1A] mt-1 flex items-center justify-center gap-1">
+                            <User className="w-3 h-3" />{broadcast.current_sermon.speaker}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <h2 className="text-lg font-semibold text-white">{broadcast.title}</h2>
+                        {broadcast.speaker && (
+                          <p className="text-[11px] text-[#E05A1A] mt-1 flex items-center justify-center gap-1">
+                            <User className="w-3 h-3" />{broadcast.speaker}
+                          </p>
+                        )}
+                      </>
                     )}
                     {broadcast.description && <p className="text-xs text-[#9a7c60] mt-1 max-w-sm mx-auto">{broadcast.description}</p>}
                     {broadcast.scripture_reference && (
@@ -689,7 +717,15 @@ export default function Live() {
                   </div>
                 </div>
                 {/* Player */}
-                {broadcast.status === 'live' && <StreamPlayer broadcastId={broadcast.id} title={broadcast.title} thumbnailUrl={broadcast.thumbnail_url} streamKey={broadcast.stream_key} streamType={broadcast.stream_type} />}
+                {broadcast.status === 'live' && (
+                  <StreamPlayer
+                    broadcastId={broadcast.id}
+                    title={broadcast.type === 'sermon' && broadcast.current_sermon ? broadcast.current_sermon.title : broadcast.title}
+                    thumbnailUrl={broadcast.thumbnail_url}
+                    streamKey={broadcast.stream_key}
+                    streamType={broadcast.stream_type}
+                  />
+                )}
               </div>
             </div>
           )}

@@ -84,6 +84,8 @@ interface Props {
   musicBuffer?: AudioBuffer
   musicName?: string
   initialMusicVolume?: number
+  broadcastType?: 'live' | 'sermon'
+  onSkipSermon?: () => void
 }
 
 /* -- MonitorStatus (visual indicator only � audio handled by mixMonitorAudioRef) ----------- */
@@ -113,7 +115,9 @@ export default function RadioStudio({
   recordEnabled,
   musicBuffer: initialMusicBuffer,
   musicName: initialMusicName,
-  initialMusicVolume = 25
+  initialMusicVolume = 25,
+  broadcastType = 'live',
+  onSkipSermon
 }: Props) {
   const [micMuted, setMicMuted] = useState(false)
   const [micGain, setMicGain] = useState(80)
@@ -158,8 +162,13 @@ export default function RadioStudio({
   const [rtmpUrl, setRtmpUrl] = useState('')
   const [hlsUrl, setHlsUrl] = useState('')
   const [streamKey, setStreamKey] = useState('')
+  const [currentSermonTitle, setCurrentSermonTitle] = useState('')
+  const [currentSermonSpeaker, setCurrentSermonSpeaker] = useState('')
+  const [sermonIndex, setSermonIndex] = useState(0)
+  const [sermonTotal, setSermonTotal] = useState(0)
 
   const isLive = status === 'live'
+  const isSermonMode = broadcastType === 'sermon'
 
   /* -- Screen wake lock + Android foreground service -- */
   const wakeLockRef = useRef<any>(null)
@@ -242,9 +251,32 @@ export default function RadioStudio({
 
   useEffect(() => {
     shouldRecordRef.current = isLive
+    if (isSermonMode) {
+      // Sermon mode: backend handles ffmpeg streaming, no mic needed
+      return () => {}
+    }
     if (shouldRecordRef.current) { startStreaming() } else { stopStreaming() }
     return () => { void stopStreaming() }
-  }, [isLive, activeDeviceId, broadcastId])
+  }, [isLive, activeDeviceId, broadcastId, isSermonMode])
+
+  /* -- Poll sermon status -- */
+  useEffect(() => {
+    if (!isSermonMode || !broadcastId) return
+    const poll = async () => {
+      try {
+        const { data } = await api.get(`/broadcasts/${broadcastId}/sermon/current`)
+        if (data.stream) {
+          setCurrentSermonTitle(data.stream.currentSermonTitle || '')
+          setCurrentSermonSpeaker(data.stream.currentSermonSpeaker || '')
+          setSermonIndex(data.stream.itemIndex + 1)
+          setSermonTotal(data.stream.totalItems)
+        }
+      } catch {}
+    }
+    poll()
+    const interval = setInterval(poll, 3000)
+    return () => clearInterval(interval)
+  }, [isSermonMode, broadcastId])
 
   // Start/stop mix monitor when broadcaster toggles it during live broadcast
   useEffect(() => {
@@ -676,6 +708,13 @@ export default function RadioStudio({
 
         <div className="flex items-center gap-3">
           <NetworkIndicator />
+          {isSermonMode && isLive && onSkipSermon && (
+            <button onClick={onSkipSermon} disabled={actionLoading}
+              className="px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
+              style={{ background: 'rgba(201,162,39,0.2)', color: '#E05A1A' }}>
+              <SkipForward className="w-4 h-4" /> Skip
+            </button>
+          )}
           {isLive ? (
             <button onClick={onPause} disabled={actionLoading}
               className="px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
@@ -713,29 +752,61 @@ export default function RadioStudio({
       )}
 
       <div className="p-6 space-y-6">
-        {/* Audio Meters */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-medium mb-2" style={{ color: 'var(--dim)' }}>
-              <Activity className="w-3.5 h-3.5 inline mr-1" /> VU Meter
-            </label>
-            <VUMeter active={isLive && !micMuted} deviceId={selectedDevice} stream={micStream || undefined} />
-          </div>
-          <div>
-            <label className="block text-xs font-medium mb-2" style={{ color: 'var(--dim)' }}>
-              <Activity className="w-3.5 h-3.5 inline mr-1" /> Waveform
-            </label>
-            <AudioWaveVisualizer active={isLive && !micMuted} micMuted={micMuted} stream={micStream || undefined} />
-          </div>
-        </div>
+        {isSermonMode ? (
+          /* ── Sermon Mode Info ── */
+          <>
+            <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--ink)', border: '1px solid var(--line)' }}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium flex items-center gap-2" style={{ color: 'var(--dim)' }}>
+                  <ListMusic className="w-4 h-4" style={{ color: 'var(--gold)' }} /> Now Playing
+                </span>
+                {sermonTotal > 0 && (
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ background: 'rgba(201,162,39,0.1)', color: 'var(--gold)' }}>
+                    {sermonIndex} / {sermonTotal}
+                  </span>
+                )}
+              </div>
+              <div>
+                <h3 className="text-lg font-bold" style={{ color: 'var(--parchment)' }}>
+                  {currentSermonTitle || (isLive ? 'Loading sermon...' : 'Paused')}
+                </h3>
+                {currentSermonSpeaker && (
+                  <p className="text-sm mt-1" style={{ color: 'var(--dim)' }}>{currentSermonSpeaker}</p>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <StatCard icon={Headphones} label="Listeners" value={listenerCount} />
+              <StatCard icon={Wifi} label="Status" value={isLive ? 'Streaming' : 'Paused'} color={isLive ? '#4ade80' : '#f59e0b'} />
+            </div>
+          </>
+        ) : (
+          /* ── Live Stream Audio Meters ── */
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium mb-2" style={{ color: 'var(--dim)' }}>
+                  <Activity className="w-3.5 h-3.5 inline mr-1" /> VU Meter
+                </label>
+                <VUMeter active={isLive && !micMuted} deviceId={selectedDevice} stream={micStream || undefined} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-2" style={{ color: 'var(--dim)' }}>
+                  <Activity className="w-3.5 h-3.5 inline mr-1" /> Waveform
+                </label>
+                <AudioWaveVisualizer active={isLive && !micMuted} micMuted={micMuted} stream={micStream || undefined} />
+              </div>
+            </div>
 
-        {/* Stream Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard icon={HardDrive} label="Chunks" value={streamStats.chunkCount} />
-          <StatCard icon={Zap} label="Bitrate" value={`${streamStats.bitrate} kbps`} />
-          <StatCard icon={Headphones} label="Listeners" value={listenerCount} />
-          <StatCard icon={Wifi} label="Status" value={isLive ? 'Streaming' : 'Paused'} color={isLive ? '#4ade80' : '#f59e0b'} />
-        </div>
+            {/* Stream Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <StatCard icon={HardDrive} label="Chunks" value={streamStats.chunkCount} />
+              <StatCard icon={Zap} label="Bitrate" value={`${streamStats.bitrate} kbps`} />
+              <StatCard icon={Headphones} label="Listeners" value={listenerCount} />
+              <StatCard icon={Wifi} label="Status" value={isLive ? 'Streaming' : 'Paused'} color={isLive ? '#4ade80' : '#f59e0b'} />
+            </div>
+          </>
+        )}
 
         {/* Recording Status */}
         {uploadProgress === 'uploading' && (
@@ -770,7 +841,8 @@ export default function RadioStudio({
           </div>
         )}
 
-        {/* Feedback Monitor */}
+        {/* Feedback Monitor (live mode only) */}
+        {!isSermonMode && (
         <div className="rounded-xl p-4" style={{ background: 'var(--ink)', border: '1px solid var(--line)' }}>
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium flex items-center gap-2">
@@ -807,6 +879,7 @@ export default function RadioStudio({
             </>
           )}
         </div>
+        )}
 
         {/* RTMP Stream Info */}
         {isLive && rtmpUrl && (
@@ -1063,8 +1136,8 @@ export default function RadioStudio({
           </div>
         </div>
 
-        {/* Mic Device Selector */}
-        {audioDevices.length > 1 && (
+        {/* Mic Device Selector (live mode only) */}
+        {!isSermonMode && audioDevices.length > 1 && (
           <div className="rounded-xl p-4" style={{ background: 'var(--ink)', border: '1px solid var(--line)' }}>
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-medium flex items-center gap-2">

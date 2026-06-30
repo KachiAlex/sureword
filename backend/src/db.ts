@@ -73,7 +73,9 @@ const SCHEMA_QUERIES = [
     id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, scripture_reference TEXT,
     status TEXT NOT NULL DEFAULT 'scheduled', started_at TIMESTAMP, ended_at TIMESTAMP,
     broadcaster_id TEXT NOT NULL, audio_path TEXT, stream_key TEXT, stream_type TEXT DEFAULT 'church_online',
-    church_online_url TEXT, thumbnail_url TEXT, speaker TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    church_online_url TEXT, thumbnail_url TEXT, speaker TEXT,
+    type TEXT DEFAULT 'live', playlist_id TEXT, current_sermon_id TEXT, current_sermon_offset_seconds INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE TABLE IF NOT EXISTS sermons (
     id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, scripture_reference TEXT,
