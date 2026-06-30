@@ -79,6 +79,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl, streamKey, streamType 
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const infoIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const mediaRef = useRef<HTMLAudioElement | HTMLVideoElement | null>(null)
+  const mediaContainerRef = useRef<HTMLDivElement>(null)
   const hlsRef = useRef<Hls | null>(null)
   const userPausedRef = useRef(false)
 
@@ -143,7 +144,23 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl, streamKey, streamType 
         }).catch(() => { setStatusText('Tap play to start') })
       })
       hls.on(Hls.Events.ERROR, (_event, data) => {
-        if (data.fatal) setStatusText('Stream error')
+        console.error('[HLS] error:', data.type, data.details, 'fatal:', data.fatal)
+        if (data.fatal) {
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              setStatusText('Reconnecting...')
+              hls.startLoad()
+              break
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              setStatusText('Recovering...')
+              hls.recoverMediaError()
+              break
+            default:
+              setStatusText('Stream error')
+              hls.destroy()
+              break
+          }
+        }
       })
     } else {
       mediaRef.current.src = isHls
@@ -179,6 +196,10 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl, streamKey, streamType 
     el.setAttribute('playsinline', 'true')
     el.setAttribute('webkit-playsinline', 'true')
     el.setAttribute('preload', 'none')
+    el.style.width = '0px'
+    el.style.height = '0px'
+    el.style.position = 'absolute'
+    el.style.opacity = '0'
     if (isHls) {
       el.setAttribute('muted', 'false')
       ;(el as HTMLVideoElement).muted = false
@@ -189,11 +210,16 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl, streamKey, streamType 
     el.onwaiting = () => { setStatusText('Buffering') }
     el.onstalled = () => { setStatusText('Stalled') }
     el.onerror = () => { setStatusText('Connection error') }
+    mediaContainerRef.current?.appendChild(el)
     mediaRef.current = el
     return () => {
       hlsRef.current?.destroy()
       hlsRef.current = null
-      el.pause(); el.src = ''; mediaRef.current = null
+      el.pause(); el.src = ''
+      if (mediaContainerRef.current && mediaContainerRef.current.contains(el)) {
+        mediaContainerRef.current.removeChild(el)
+      }
+      mediaRef.current = null
     }
   }, [isHls, streamKey])
 
@@ -230,6 +256,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl, streamKey, streamType 
 
   return (
     <div className="mx-2 sm:mx-4 mt-3 mb-4 rounded-xl p-3 sm:p-4 bg-[#230d02] border border-[rgba(240,190,100,0.06)]">
+      <div ref={mediaContainerRef} style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} />
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <span className="relative flex h-2 w-2">
