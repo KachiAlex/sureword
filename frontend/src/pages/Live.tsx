@@ -82,6 +82,9 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl, streamKey, streamType 
   const mediaContainerRef = useRef<HTMLDivElement>(null)
   const hlsRef = useRef<Hls | null>(null)
   const userPausedRef = useRef(false)
+  const manifestPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const hlsRetryRef = useRef(0)
+  const MAX_HLS_RETRIES = 10
 
   function updateMediaSession(playing: boolean) {
     if (!('mediaSession' in navigator)) return
@@ -103,10 +106,11 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl, streamKey, streamType 
     })
   }
 
-  function handleStart() {
+  async function handleStart() {
     if (!mediaRef.current) return
+    if (manifestPollRef.current) { clearInterval(manifestPollRef.current); manifestPollRef.current = null }
     setStarted(true)
-    setStatusText('Connecting')
+    setStatusText('Checking stream...')
     userPausedRef.current = false
 
     sessionIdRef.current = Math.random().toString(36).slice(2) + Date.now().toString(36)
@@ -129,7 +133,63 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl, streamKey, streamType 
           if (res.ok) { const info = await res.json(); setListenerCount(info.listenerCount || 0) }
         } catch {}
       }, 10000)
+
+      mediaRef.current.src = `${SOCKET_BASE}/api/stream/${broadcastId}/live`
+      mediaRef.current.volume = volume / 100
+      mediaRef.current.play().then(() => {
+        setIsPlaying(true)
+        setStatusText('Live')
+        setupMediaSession(title || 'Live Broadcast')
+      }).catch(() => { setStatusText('Tap play to start') })
+
+      try {
+        const android = (window as any).AndroidAudio
+        if (android && typeof android.startAudioService === 'function') android.startAudioService()
+      } catch {}
+      return
     }
+
+    // HLS path: probe manifest before starting hls.js
+    const manifestUrl = `${SOCKET_BASE}/hls/live/${streamKey}.m3u8`
+    let manifestOk = false
+    try {
+      const res = await fetch(manifestUrl, { method: 'HEAD', mode: 'cors' })
+      manifestOk = res.ok
+    } catch {}
+
+    if (manifestOk) {
+      startHlsPlayback()
+      return
+    }
+
+    // Manifest not ready yet — poll every 3s for up to 60s
+    setStatusText('Waiting for broadcaster...')
+    let attempts = 0
+    const poll = setInterval(async () => {
+      attempts++
+      try {
+        const res = await fetch(manifestUrl, { method: 'HEAD', mode: 'cors' })
+        if (res.ok) {
+          clearInterval(poll)
+          manifestPollRef.current = null
+          startHlsPlayback()
+          return
+        }
+      } catch {}
+      if (attempts >= 20) {
+        clearInterval(poll)
+        manifestPollRef.current = null
+        setStatusText('Stream not available. Tap to retry.')
+        setStarted(false)
+      }
+    }, 3000)
+    manifestPollRef.current = poll
+  }
+
+  function startHlsPlayback() {
+    setStatusText('Connecting...')
+    hlsRetryRef.current = 0
+    if (!mediaRef.current || !streamKey) return
 
     if (isHls && Hls.isSupported()) {
       const hls = new Hls({ liveSyncDurationCount: 3, liveMaxLatencyDurationCount: 5 })
@@ -145,27 +205,33 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl, streamKey, streamType 
       })
       hls.on(Hls.Events.ERROR, (_event, data) => {
         console.error('[HLS] error:', data.type, data.details, 'fatal:', data.fatal)
-        if (data.fatal) {
-          switch (data.type) {
-            case Hls.ErrorTypes.NETWORK_ERROR:
-              setStatusText('Reconnecting...')
-              hls.startLoad()
-              break
-            case Hls.ErrorTypes.MEDIA_ERROR:
-              setStatusText('Recovering...')
-              hls.recoverMediaError()
-              break
-            default:
-              setStatusText('Stream error')
-              hls.destroy()
-              break
-          }
+        if (!data.fatal) return
+        hlsRetryRef.current++
+        if (hlsRetryRef.current > MAX_HLS_RETRIES) {
+          setStatusText('Stream unavailable. Tap to retry.')
+          hls.destroy()
+          hlsRef.current = null
+          return
+        }
+        switch (data.type) {
+          case Hls.ErrorTypes.NETWORK_ERROR:
+            setStatusText(`Reconnecting... (${hlsRetryRef.current})`)
+            setTimeout(() => hls.startLoad(), 1000 * hlsRetryRef.current)
+            break
+          case Hls.ErrorTypes.MEDIA_ERROR:
+            setStatusText('Recovering...')
+            hls.recoverMediaError()
+            break
+          default:
+            setStatusText('Stream error')
+            hls.destroy()
+            hlsRef.current = null
+            break
         }
       })
     } else {
-      mediaRef.current.src = isHls
-        ? `${SOCKET_BASE}/hls/live/${streamKey}.m3u8`
-        : `${SOCKET_BASE}/api/stream/${broadcastId}/live`
+      // Native HLS fallback (Safari)
+      mediaRef.current.src = `${SOCKET_BASE}/hls/live/${streamKey}.m3u8`
       mediaRef.current.volume = volume / 100
       mediaRef.current.play().then(() => {
         setIsPlaying(true)
@@ -183,8 +249,20 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl, streamKey, streamType 
   function togglePlay() {
     const media = mediaRef.current
     if (!media) return
-    if (media.paused) { media.play().catch(() => {}); userPausedRef.current = false }
-    else { media.pause(); userPausedRef.current = true }
+    if (media.paused || media.ended || !media.src) {
+      if (isHls && !hlsRef.current && streamKey) {
+        // hls.js was destroyed (max retries or fatal error) — reinitialize
+        hlsRetryRef.current = 0
+        startHlsPlayback()
+        return
+      }
+      hlsRetryRef.current = 0
+      media.play().catch(() => {})
+      userPausedRef.current = false
+    } else {
+      media.pause()
+      userPausedRef.current = true
+    }
   }
 
   useEffect(() => {
@@ -213,6 +291,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl, streamKey, streamType 
     mediaContainerRef.current?.appendChild(el)
     mediaRef.current = el
     return () => {
+      if (manifestPollRef.current) clearInterval(manifestPollRef.current)
       hlsRef.current?.destroy()
       hlsRef.current = null
       el.pause(); el.src = ''
@@ -225,6 +304,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl, streamKey, streamType 
 
   useEffect(() => {
     return () => {
+      if (manifestPollRef.current) clearInterval(manifestPollRef.current)
       if (heartbeatRef.current) clearInterval(heartbeatRef.current)
       if (infoIntervalRef.current) clearInterval(infoIntervalRef.current)
       if (!isHls && sessionIdRef.current) {

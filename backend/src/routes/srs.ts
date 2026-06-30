@@ -89,11 +89,9 @@ router.post('/hooks/on_unpublish', async (req, res) => {
     const { stream } = req.body
     if (!stream) { res.status(400).json({ error: 'Missing stream key' }); return }
 
-    await db.run(
-      `UPDATE broadcasts SET status = 'ended', ended_at = CURRENT_TIMESTAMP WHERE stream_key = $1`,
-      [stream]
-    )
-    console.log('[SRS] stream ended:', stream)
+    // Do NOT end the broadcast here — the broadcaster controls lifecycle via admin UI.
+    // Just log the unpublish event.
+    console.log('[SRS] stream stopped:', stream)
     res.json({ code: 0 })
   } catch (err: any) {
     console.error('[SRS] on_unpublish error:', err.message)
