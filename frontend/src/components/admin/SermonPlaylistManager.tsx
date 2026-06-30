@@ -1,12 +1,23 @@
-﻿import { useState, useMemo } from 'react'
+﻿import { useState, useMemo, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { api, useSermons, useSermonPlaylists, useSermonPlaylistItems } from '../../lib/api'
 import {
   Plus, Trash2, Loader2, ListMusic, Clock, Calendar, Save, X,
-  Headphones, Search, ChevronUp, ChevronDown, BookOpen, Radio
+  Headphones, Search, ChevronUp, ChevronDown, BookOpen, Radio, Play, SkipForward, Square
 } from 'lucide-react'
 
 interface Pl { id: string; title: string; description: string; start_time: string; end_time?: string; is_active: boolean }
+
+interface RadioStatus {
+  streamKey: string
+  playlistId: string
+  currentSermonId: string
+  currentSermonTitle: string
+  currentSermonSpeaker: string
+  offsetSeconds: number
+  itemIndex: number
+  totalItems: number
+}
 
 export default function SermonPlaylistManager({ onRefresh }: { onRefresh?: () => void }) {
   const qc = useQueryClient()
@@ -14,6 +25,22 @@ export default function SermonPlaylistManager({ onRefresh }: { onRefresh?: () =>
   const { data: allSermons = [], isLoading: sLoading } = useSermons()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const { data: items = [], isLoading: itemsLoading } = useSermonPlaylistItems(selectedId || undefined)
+
+  // ── Radio status ────────────────────────────────────────────
+  const [radioStatus, setRadioStatus] = useState<RadioStatus | null>(null)
+  const [radioLoading, setRadioLoading] = useState(false)
+
+  useEffect(() => {
+    async function poll() {
+      try {
+        const { data } = await api.get('/radio/status')
+        setRadioStatus(data.status)
+      } catch { setRadioStatus(null) }
+    }
+    poll()
+    const iv = setInterval(poll, 5000)
+    return () => clearInterval(iv)
+  }, [])
 
   // ── Playlist create form ────────────────────────────────────
   const [creating, setCreating] = useState(false)
@@ -121,8 +148,70 @@ export default function SermonPlaylistManager({ onRefresh }: { onRefresh?: () =>
   const totalMin = items.reduce((s, i) => s + (i.duration_minutes || 30), 0)
   const inp = { background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--parchment)' }
 
+  async function startRadioPlaylist(playlistId: string) {
+    setRadioLoading(true)
+    try {
+      await api.post('/radio/start', { playlistId })
+      const { data } = await api.get('/radio/status')
+      setRadioStatus(data.status)
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to start radio')
+    } finally { setRadioLoading(false) }
+  }
+
+  async function stopRadioStream() {
+    setRadioLoading(true)
+    try {
+      await api.post('/radio/stop')
+      setRadioStatus(null)
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to stop radio')
+    } finally { setRadioLoading(false) }
+  }
+
+  async function skipRadioSermon() {
+    setRadioLoading(true)
+    try {
+      await api.post('/radio/skip')
+      const { data } = await api.get('/radio/status')
+      setRadioStatus(data.status)
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to skip sermon')
+    } finally { setRadioLoading(false) }
+  }
+
   return (
     <div className="space-y-6">
+      {/* ── Radio Status Banner ── */}
+      {radioStatus && (
+        <div className="rounded-2xl p-4" style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.2)' }}>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <span className="w-2 h-2 rounded-full bg-[#4ade80] animate-pulse" />
+              <span className="text-sm font-semibold text-white">Radio On Air</span>
+              <span className="text-xs" style={{ color: 'var(--dim)' }}>
+                {radioStatus.currentSermonTitle}
+                {radioStatus.currentSermonSpeaker ? ` · ${radioStatus.currentSermonSpeaker}` : ''}
+              </span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#E05A1A]/10 text-[#E05A1A]">
+                {radioStatus.itemIndex + 1} / {radioStatus.totalItems}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={skipRadioSermon} disabled={radioLoading}
+                className="flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                style={{ background: 'rgba(201,162,39,0.1)', color: 'var(--gold)', border: '1px solid rgba(201,162,39,0.2)' }}>
+                {radioLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <SkipForward className="w-3 h-3" />} Skip
+              </button>
+              <button onClick={stopRadioStream} disabled={radioLoading}
+                className="flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                style={{ background: 'rgba(220,38,38,0.1)', color: '#fca5a5', border: '1px solid rgba(220,38,38,0.2)' }}>
+                {radioLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Square className="w-3 h-3" />} Stop
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Create playlist form ── */}
       {creating ? (
@@ -183,6 +272,12 @@ export default function SermonPlaylistManager({ onRefresh }: { onRefresh?: () =>
                 <Calendar className="w-3 h-3 inline mr-1" />{new Date(pl.start_time).toLocaleString()}
               </p>
               <div className="flex items-center gap-2">
+                <button onClick={e => { e.stopPropagation(); startRadioPlaylist(pl.id) }}
+                  disabled={radioLoading}
+                  className="text-[10px] px-2 py-1 rounded border transition-colors disabled:opacity-50"
+                  style={{ borderColor: 'var(--gold)', color: 'var(--gold)' }}>
+                  <Play className="w-3 h-3 inline mr-0.5" /> Start
+                </button>
                 <button onClick={e => { e.stopPropagation(); toggleActive(pl) }}
                   className="text-[10px] px-2 py-1 rounded border transition-colors" style={{ borderColor: 'var(--line)', color: 'var(--dim)' }}>
                   {pl.is_active ? 'Deactivate' : 'Activate'}

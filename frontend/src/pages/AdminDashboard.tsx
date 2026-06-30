@@ -8,7 +8,7 @@ import {
   BookOpen, DollarSign, Pause, StopCircle, BarChart3,
   Menu, X, Loader2, FileText, ListMusic,
   Search, Bell, HelpCircle, LayoutGrid,
-  Play, ChevronRight
+  Play, ChevronRight, SkipForward, Square
 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
@@ -114,6 +114,8 @@ export default function AdminDashboard() {
   const [bcActionLoading, setBcActionLoading] = useState(false)
   const [liveElapsed, setLiveElapsed] = useState(0)
   const [geoData, setGeoData] = useState<{ byCountry: {country:string;count:number}[]; locations: {country:string;region:string;city:string;count:number}[] }>({ byCountry: [], locations: [] })
+  const [radioStatus, setRadioStatus] = useState<any>(null)
+  const [radioLoading, setRadioLoading] = useState(false)
 
   /* -- Live broadcast duration timer -- */
   useEffect(() => {
@@ -140,6 +142,19 @@ export default function AdminDashboard() {
     return () => clearInterval(iv)
   }, [broadcasts])
 
+  // Poll radio status
+  useEffect(() => {
+    async function poll() {
+      try {
+        const { data } = await api.get('/radio/status')
+        setRadioStatus(data.status)
+      } catch { setRadioStatus(null) }
+    }
+    poll()
+    const iv = setInterval(poll, 10000)
+    return () => clearInterval(iv)
+  }, [])
+
   const dashboard = analytics?.stats ?? null
   const platformData = analytics?.platformBreakdown ?? []
   const pendingTestimonies = analytics?.pendingTestimonies ?? []
@@ -162,6 +177,27 @@ export default function AdminDashboard() {
     queryClient.invalidateQueries({ queryKey: ['analytics'] })
     queryClient.invalidateQueries({ queryKey: ['print-media'] })
     queryClient.invalidateQueries({ queryKey: ['sermon-playlists'] })
+  }
+
+  async function skipRadioSermon() {
+    setRadioLoading(true)
+    try {
+      await api.post('/radio/skip')
+      const { data } = await api.get('/radio/status')
+      setRadioStatus(data.status)
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to skip sermon')
+    } finally { setRadioLoading(false) }
+  }
+
+  async function stopRadioStream() {
+    setRadioLoading(true)
+    try {
+      await api.post('/radio/stop')
+      setRadioStatus(null)
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to stop radio')
+    } finally { setRadioLoading(false) }
   }
 
   async function fetchChat() {
@@ -364,6 +400,46 @@ export default function AdminDashboard() {
         <div className="flex-1 overflow-y-auto" style={{ padding: 24 }}>
           {activeTab === 'dashboard' ? (
             <div className="space-y-6">
+              {/* Radio Station Card */}
+              <div className="admin-card p-4">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <h3 style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <ListMusic className="w-3.5 h-3.5" style={{ color: 'var(--gold)' }} /> Radio Station
+                  </h3>
+                  {radioStatus ? (
+                    <span style={{ fontSize: 10, color: '#4ade80', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] animate-pulse" /> On Air
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 10, color: 'var(--ash)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#9a7c60]" /> Off Air
+                    </span>
+                  )}
+                </div>
+                {radioStatus ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--cream)' }}>{radioStatus.currentSermonTitle || 'Unknown sermon'}</div>
+                      <div style={{ fontSize: 10.5, color: 'var(--ash2)', marginTop: 2 }}>{radioStatus.currentSermonSpeaker || ''}</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <button onClick={skipRadioSermon} disabled={radioLoading}
+                        style={{ fontSize: 10.5, padding: '4px 10px', borderRadius: 3, background: 'rgba(201,162,39,0.1)', color: 'var(--gold)', border: '1px solid rgba(201,162,39,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        {radioLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <SkipForward className="w-3 h-3" />} Skip
+                      </button>
+                      <button onClick={stopRadioStream} disabled={radioLoading}
+                        style={{ fontSize: 10.5, padding: '4px 10px', borderRadius: 3, background: 'rgba(220,38,38,0.1)', color: '#fca5a5', border: '1px solid rgba(220,38,38,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        {radioLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Square className="w-3 h-3" />} Stop
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 11.5, color: 'var(--ash)', padding: '4px 0' }}>
+                    No sermon radio stream active. Go to Playlist Manager to start one.
+                  </div>
+                )}
+              </div>
+
               {/* KPI row */}
               <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
                 {[

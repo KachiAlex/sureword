@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import { db, initDb } from '../db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
+import { getRadioStatus } from '../sermon-stream.js';
 const router = Router();
 const storage = multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, 'uploads/'),
@@ -101,7 +102,13 @@ router.get('/radio/current', async (_req, res) => {
         if (!playlist) {
             // Fall back to most recent sermon
             const latest = await db.get('SELECT * FROM sermons ORDER BY date DESC LIMIT 1');
-            res.json({ current: latest ? { title: latest.title, speaker: latest.speaker, audioUrl: latest.audio_url, thumbnailUrl: latest.thumbnail_url, scriptureReference: latest.scripture_reference, offsetSeconds: 0 } : null, playlist: null });
+            const stream = getRadioStatus();
+            res.json({
+                current: latest ? { title: latest.title, speaker: latest.speaker, audioUrl: latest.audio_url, thumbnailUrl: latest.thumbnail_url, scriptureReference: latest.scripture_reference, offsetSeconds: 0 } : null,
+                playlist: null,
+                isStreaming: !!stream,
+                streamKey: stream?.streamKey || 'sermon-radio',
+            });
             return;
         }
         const items = await db.all(`SELECT spi.id as item_id, spi.sermon_id, spi.order_index, spi.duration_minutes,
@@ -131,6 +138,7 @@ router.get('/radio/current', async (_req, res) => {
         }
         if (!currentItem)
             currentItem = items[0];
+        const stream = getRadioStatus();
         res.json({
             current: {
                 itemId: currentItem.item_id,
@@ -143,7 +151,9 @@ router.get('/radio/current', async (_req, res) => {
                 scriptureReference: currentItem.scripture_reference,
                 offsetSeconds: Math.floor(offsetMin * 60),
             },
-            playlist: { id: playlist.id, title: playlist.title, startTime: playlist.start_time }
+            playlist: { id: playlist.id, title: playlist.title, startTime: playlist.start_time },
+            isStreaming: !!stream,
+            streamKey: stream?.streamKey || 'sermon-radio',
         });
     }
     catch (err) {

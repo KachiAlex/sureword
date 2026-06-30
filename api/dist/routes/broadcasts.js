@@ -130,6 +130,11 @@ router.patch('/:id/start', authenticateToken, requireRole('broadcaster', 'admin'
 router.patch('/:id/pause', authenticateToken, requireRole('broadcaster', 'admin'), async (req, res) => {
     try {
         await initDb();
+        const broadcast = await db.get('SELECT * FROM broadcasts WHERE id = $1', [req.params.id]);
+        if (!broadcast) {
+            res.status(404).json({ error: 'Broadcast not found' });
+            return;
+        }
         await db.run("UPDATE broadcasts SET status = 'paused' WHERE id = $1", [req.params.id]);
         res.json({ success: true });
     }
@@ -141,6 +146,11 @@ router.patch('/:id/pause', authenticateToken, requireRole('broadcaster', 'admin'
 router.patch('/:id/resume', authenticateToken, requireRole('broadcaster', 'admin'), async (req, res) => {
     try {
         await initDb();
+        const broadcast = await db.get('SELECT * FROM broadcasts WHERE id = $1', [req.params.id]);
+        if (!broadcast) {
+            res.status(404).json({ error: 'Broadcast not found' });
+            return;
+        }
         await db.run("UPDATE broadcasts SET status = 'live' WHERE id = $1", [req.params.id]);
         res.json({ success: true });
     }
@@ -152,6 +162,11 @@ router.patch('/:id/resume', authenticateToken, requireRole('broadcaster', 'admin
 router.patch('/:id/end', authenticateToken, requireRole('broadcaster', 'admin'), async (req, res) => {
     try {
         await initDb();
+        const broadcast = await db.get('SELECT * FROM broadcasts WHERE id = $1', [req.params.id]);
+        if (!broadcast) {
+            res.status(404).json({ error: 'Broadcast not found' });
+            return;
+        }
         await db.run("UPDATE broadcasts SET status = 'ended', ended_at = COALESCE(ended_at, CURRENT_TIMESTAMP) WHERE id = $1", [req.params.id]);
         res.json({ success: true });
     }

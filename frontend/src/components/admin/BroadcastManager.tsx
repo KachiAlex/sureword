@@ -1,10 +1,10 @@
 ﻿import { useState, useEffect, useRef } from 'react'
-import { API_BASE, api, useSermonPlaylists } from '../../lib/api'
+import { API_BASE, api } from '../../lib/api'
 import {
   Radio, Play, Square, Plus, Loader2, ArrowLeft,
   Mic, BookOpen, ExternalLink, AlertCircle, Monitor, ChevronDown, ChevronUp,
   HardDrive, Folder, Download, X, MessageSquare, Calendar, Clock, User,
-  Music, Upload, ListMusic, SkipForward
+  Music, Upload
 } from 'lucide-react'
 import { getRecordingConfig, setRecordingConfig } from '../../lib/recording'
 import RadioStudio from '../broadcast/RadioStudio'
@@ -170,11 +170,6 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
   const [startTime, setStartTime] = useState<Date | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [creating, setCreating] = useState(false)
-  const [broadcastType, setBroadcastType] = useState<'live' | 'sermon'>('live')
-  const [selectedPlaylistId, setSelectedPlaylistId] = useState('')
-
-  /* ── Sermon playlists ── */
-  const { data: sermonPlaylists = [] } = useSermonPlaylists()
 
   /* ── Broadcast detail panel ── */
   function BroadcastDetailPanel({ b: initialB }: { b: Broadcast }) {
@@ -412,18 +407,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
         speaker: speaker || undefined,
       })
       const broadcastId = data.broadcast?.id || data.id
-
-      if (broadcastType === 'sermon') {
-        if (!selectedPlaylistId) {
-          setSetupError('Please select a sermon playlist')
-          setCreating(false)
-          return
-        }
-        await api.post(`/broadcasts/${broadcastId}/sermon/start`, { playlistId: selectedPlaylistId })
-      } else {
-        await api.patch(`/broadcasts/${broadcastId}/start`)
-      }
-
+      await api.patch(`/broadcasts/${broadcastId}/start`)
       setBroadcastId(broadcastId)
       setThumbnailUrl(thumbnail_url || '')
       setStatus('live')
@@ -480,16 +464,6 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
       onRefresh()
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to resume')
-    } finally { setActionLoading(false) }
-  }
-
-  async function skipSermon() {
-    if (!broadcastId) return
-    setActionLoading(true)
-    try {
-      await api.post(`/broadcasts/${broadcastId}/sermon/skip`)
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to skip sermon')
     } finally { setActionLoading(false) }
   }
 
@@ -619,8 +593,6 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     setThumbnailUrl(b.thumbnail_url || '')
     setStatus(b.status === 'live' ? 'live' : 'paused')
     setStartTime(b.started_at ? new Date(b.started_at) : new Date())
-    setBroadcastType((b as any).type === 'sermon' ? 'sermon' : 'live')
-    setSelectedPlaylistId((b as any).playlist_id || '')
     setView('studio')
   }
 
@@ -731,9 +703,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
             <p className="text-[10px] text-[#9a7c60] mt-1">
               {setupPage === 1
                 ? 'Step 1 of 2: Enter broadcast details.'
-                : broadcastType === 'sermon'
-                  ? 'Step 2 of 2: Choose sermon playlist.'
-                  : 'Step 2 of 2: Test audio and upload soundtrack.'}
+                : 'Step 2 of 2: Test audio and upload soundtrack.'}
             </p>
           </div>
 
@@ -753,29 +723,6 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
                     placeholder="e.g., Sunday Morning Service"
                     className="w-full rounded-lg px-3 py-2.5 text-xs bg-[#2f1206] border border-[rgba(240,190,100,0.08)] text-white outline-none focus:border-[#E05A1A]/40 transition-colors"
                   />
-                </div>
-
-                {/* Broadcast Mode Selector */}
-                <div>
-                  <label className="block text-[10px] font-medium text-[#9a7c60] uppercase tracking-wider mb-1.5">Broadcast Mode</label>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => setBroadcastType('live')}
-                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-medium border transition-colors ${
-                        broadcastType === 'live'
-                          ? 'bg-[#E05A1A]/10 border-[#E05A1A]/30 text-[#E05A1A]'
-                          : 'bg-[#2f1206] border-[rgba(240,190,100,0.08)] text-[#9a7c60] hover:text-white'
-                      }`}>
-                      <Mic className="w-3.5 h-3.5" /> Live Stream
-                    </button>
-                    <button type="button" onClick={() => setBroadcastType('sermon')}
-                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-medium border transition-colors ${
-                        broadcastType === 'sermon'
-                          ? 'bg-[#E05A1A]/10 border-[#E05A1A]/30 text-[#E05A1A]'
-                          : 'bg-[#2f1206] border-[rgba(240,190,100,0.08)] text-[#9a7c60] hover:text-white'
-                      }`}>
-                      <ListMusic className="w-3.5 h-3.5" /> Sermon Radio
-                    </button>
-                  </div>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-4">
@@ -911,43 +858,6 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
                   </button>
                 </div>
               </>
-            ) : broadcastType === 'sermon' ? (
-              /* ── PAGE 2: Sermon Playlist Selection ── */
-              <>
-                <div className="rounded-lg bg-[#2f1206] border border-[rgba(240,190,100,0.06)] p-4 space-y-3">
-                  <label className="block text-[10px] font-medium text-[#9a7c60] uppercase tracking-wider flex items-center gap-1">
-                    <ListMusic className="w-3 h-3" /> Sermon Playlist *
-                  </label>
-                  {sermonPlaylists.length === 0 ? (
-                    <p className="text-[11px] text-[#fca5a5]">
-                      No sermon playlists found. Create one in the Playlist Manager first.
-                    </p>
-                  ) : (
-                    <select value={selectedPlaylistId} onChange={e => setSelectedPlaylistId(e.target.value)}
-                      className="w-full rounded-lg px-3 py-2.5 text-xs bg-[#230d02] border border-[rgba(240,190,100,0.08)] text-white outline-none focus:border-[#E05A1A]/40 transition-colors">
-                      <option value="">Select a playlist...</option>
-                      {sermonPlaylists.map(pl => (
-                        <option key={pl.id} value={pl.id}>{pl.title}</option>
-                      ))}
-                    </select>
-                  )}
-                  <p className="text-[10px] text-[#9a7c60]">
-                    Choose a playlist of sermons to broadcast. Listeners will hear the sermons in sync.
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between pt-2">
-                  <button type="button" onClick={() => setSetupPage(1)}
-                    className="text-[11px] text-[#9a7c60] hover:text-white transition-colors px-3 py-2 flex items-center gap-1">
-                    <ChevronDown className="w-3.5 h-3.5 rotate-90" /> Back
-                  </button>
-                  <button type="button" onClick={createAndGoLive} disabled={creating || sermonPlaylists.length === 0}
-                    className="flex items-center gap-1.5 bg-[#ef4444] hover:bg-[#ef4444]/90 text-white text-[11px] font-medium px-5 py-2.5 rounded-lg transition-colors disabled:opacity-50">
-                    {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Radio className="w-3.5 h-3.5" />}
-                    {creating ? 'Starting...' : 'Go Live'}
-                  </button>
-                </div>
-              </>
             ) : (
               /* ── PAGE 2: Audio Pre-Flight ── */
               <>
@@ -1046,7 +956,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
         </button>
         <div className="flex items-center gap-2">
           <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-[rgba(240,190,100,0.08)] text-[#9a7c60] flex items-center gap-1">
-            {broadcastType === 'sermon' ? <><ListMusic className="w-3 h-3" /> Sermon Radio</> : <><Mic className="w-3 h-3" /> Live Stream</>}
+            <Mic className="w-3 h-3" /> Live Stream
           </span>
           <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${
             status === 'live' ? 'bg-[#ef4444]/10 text-[#ef4444]' : 'bg-[#eab308]/10 text-[#eab308]'
@@ -1074,8 +984,6 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
         musicBuffer={musicBuffer || undefined}
         musicName={musicName || undefined}
         initialMusicVolume={musicVolume}
-        broadcastType={broadcastType}
-        onSkipSermon={broadcastType === 'sermon' ? skipSermon : undefined}
       />
     </div>
   )

@@ -434,6 +434,8 @@ export default function Live() {
   const { user } = useAuth()
 
   const [broadcast, setBroadcast] = useState<Broadcast | null>(null)
+  const [radioCurrent, setRadioCurrent] = useState<any>(null)
+  const [radioStreaming, setRadioStreaming] = useState(false)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [chatMode, setChatMode] = useState<'public' | 'private'>('public')
@@ -462,11 +464,13 @@ export default function Live() {
   useEffect(() => { chatOpenRef.current = chatOpen }, [chatOpen])
 
   useEffect(() => {
-    fetchBroadcast(); fetchChatMessages(); fetchChatUsers()
+    fetchBroadcast(); fetchChatMessages(); fetchChatUsers(); fetchRadioCurrent()
     const broadcastPoll = setInterval(() => { fetchBroadcast(); fetchChatUsers() }, 8000)
+    const radioPoll = setInterval(() => { fetchRadioCurrent() }, 10000)
     chatPollRef.current = setInterval(() => { fetchChatMessages() }, 2000)
     return () => {
       clearInterval(broadcastPoll)
+      clearInterval(radioPoll)
       if (chatPollRef.current) clearInterval(chatPollRef.current)
     }
   }, [broadcastId])
@@ -522,6 +526,14 @@ export default function Live() {
       }
     } catch { setBroadcast(null) }
     finally { setLoading(false) }
+  }
+
+  async function fetchRadioCurrent() {
+    try {
+      const { data } = await api.get('/sermons/radio/current')
+      setRadioCurrent(data.current)
+      setRadioStreaming(data.isStreaming)
+    } catch { setRadioCurrent(null); setRadioStreaming(false) }
   }
 
   async function fetchChatMessages() {
@@ -592,14 +604,43 @@ export default function Live() {
           <Link to="/" className="inline-flex items-center gap-2 text-xs text-[#9a7c60] hover:text-white transition-colors mb-12">
             <ArrowLeft className="w-4 h-4" /> Back to Home
           </Link>
-          <div className="max-w-md mx-auto text-center py-20">
-            <Radio className="w-12 h-12 text-[#E05A1A] mx-auto mb-5 opacity-60" />
-            <h1 className="text-xl font-medium text-white mb-2 tracking-wide">No broadcast right now</h1>
-            <p className="text-sm text-[#9a7c60] mb-8 leading-relaxed">Check back during scheduled service times or browse our sermon archive.</p>
-            <Link to="/archive" className="inline-flex items-center gap-2 bg-[#E05A1A] hover:bg-[#F5A623] text-[#1b1208] text-xs font-semibold px-6 py-2.5 rounded-full transition-colors">
-              <BookOpen className="w-3.5 h-3.5" /> Browse Archive
-            </Link>
-          </div>
+          {radioStreaming && radioCurrent ? (
+            <div className="max-w-md mx-auto">
+              <div className="text-center space-y-4 mb-8">
+                <div className="w-16 h-16 rounded-full border border-[#E05A1A]/20 flex items-center justify-center mx-auto">
+                  <Radio className="w-7 h-7 text-[#E05A1A]" />
+                </div>
+                <div>
+                  <div className="text-[10px] font-mono font-medium tracking-widest text-[#E05A1A] mb-1.5">SERMON RADIO</div>
+                  <h2 className="text-lg font-semibold text-white">{radioCurrent.title || 'Radio'}</h2>
+                  {radioCurrent.speaker && (
+                    <p className="text-[11px] text-[#E05A1A] mt-1 flex items-center justify-center gap-1">
+                      <User className="w-3 h-3" />{radioCurrent.speaker}
+                    </p>
+                  )}
+                  {radioCurrent.scriptureReference && (
+                    <p className="text-[11px] text-[#E05A1A] mt-2 flex items-center justify-center gap-1"><BookOpen className="w-3 h-3" />{radioCurrent.scriptureReference}</p>
+                  )}
+                </div>
+              </div>
+              <StreamPlayer
+                broadcastId="radio"
+                title={radioCurrent.title || 'Sermon Radio'}
+                thumbnailUrl={radioCurrent.thumbnailUrl}
+                streamKey="sermon-radio"
+                streamType="srs_rtmp"
+              />
+            </div>
+          ) : (
+            <div className="max-w-md mx-auto text-center py-20">
+              <Radio className="w-12 h-12 text-[#E05A1A] mx-auto mb-5 opacity-60" />
+              <h1 className="text-xl font-medium text-white mb-2 tracking-wide">No broadcast right now</h1>
+              <p className="text-sm text-[#9a7c60] mb-8 leading-relaxed">Check back during scheduled service times or browse our sermon archive.</p>
+              <Link to="/archive" className="inline-flex items-center gap-2 bg-[#E05A1A] hover:bg-[#F5A623] text-[#1b1208] text-xs font-semibold px-6 py-2.5 rounded-full transition-colors">
+                <BookOpen className="w-3.5 h-3.5" /> Browse Archive
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     )
@@ -622,9 +663,7 @@ export default function Live() {
                 </span>
               )}
               <span className="text-[10px] font-mono font-medium tracking-widest text-[#E05A1A]">
-                {broadcast.status === 'live'
-                  ? broadcast.type === 'sermon' ? 'SERMON RADIO' : 'LIVE NOW'
-                  : 'ENDED'}
+                {broadcast.status === 'live' ? 'LIVE NOW' : 'ENDED'}
               </span>
             </div>
             <div className="text-xs font-medium text-white max-w-[200px] sm:max-w-xs truncate">{broadcast.title}</div>
@@ -690,25 +729,11 @@ export default function Live() {
                     </div>
                   )}
                   <div>
-                    {broadcast.type === 'sermon' && broadcast.current_sermon ? (
-                      <>
-                        <div className="text-[10px] font-mono font-medium tracking-widest text-[#E05A1A] mb-1.5">SERMON RADIO</div>
-                        <h2 className="text-lg font-semibold text-white">{broadcast.current_sermon.title}</h2>
-                        {broadcast.current_sermon.speaker && (
-                          <p className="text-[11px] text-[#E05A1A] mt-1 flex items-center justify-center gap-1">
-                            <User className="w-3 h-3" />{broadcast.current_sermon.speaker}
-                          </p>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <h2 className="text-lg font-semibold text-white">{broadcast.title}</h2>
-                        {broadcast.speaker && (
-                          <p className="text-[11px] text-[#E05A1A] mt-1 flex items-center justify-center gap-1">
-                            <User className="w-3 h-3" />{broadcast.speaker}
-                          </p>
-                        )}
-                      </>
+                    <h2 className="text-lg font-semibold text-white">{broadcast.title}</h2>
+                    {broadcast.speaker && (
+                      <p className="text-[11px] text-[#E05A1A] mt-1 flex items-center justify-center gap-1">
+                        <User className="w-3 h-3" />{broadcast.speaker}
+                      </p>
                     )}
                     {broadcast.description && <p className="text-xs text-[#9a7c60] mt-1 max-w-sm mx-auto">{broadcast.description}</p>}
                     {broadcast.scripture_reference && (
@@ -720,7 +745,7 @@ export default function Live() {
                 {broadcast.status === 'live' && (
                   <StreamPlayer
                     broadcastId={broadcast.id}
-                    title={broadcast.type === 'sermon' && broadcast.current_sermon ? broadcast.current_sermon.title : broadcast.title}
+                    title={broadcast.title}
                     thumbnailUrl={broadcast.thumbnail_url}
                     streamKey={broadcast.stream_key}
                     streamType={broadcast.stream_type}

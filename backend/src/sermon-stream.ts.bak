@@ -1,9 +1,9 @@
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process'
 import { db, initDb } from './db.js'
-
-const STREAM_KEY = 'sermon-radio'
+import { v4 as uuidv4 } from 'uuid'
 
 interface ActiveSermonStream {
+  broadcastId: string
   streamKey: string
   process: ChildProcessWithoutNullStreams
   currentSermonId: string
@@ -16,7 +16,6 @@ interface ActiveSermonStream {
 }
 
 let active: ActiveSermonStream | null = null
-let schedulerTimer: ReturnType<typeof setInterval> | null = null
 
 function getRtmpUrl(streamKey: string) {
   return `rtmp://127.0.0.1:1935/live/${streamKey}`
@@ -43,15 +42,12 @@ async function getPlaylistItems(playlistId: string) {
   }))
 }
 
-async function updateCurrentSermon(sermonId: string | null, offset: number) {
+async function updateBroadcastCurrentSermon(broadcastId: string, sermonId: string | null, offset: number) {
   await initDb()
-  // Store on the active playlist for reference
-  if (active) {
-    await db.run(
-      `UPDATE sermon_playlists SET current_sermon_id = $1, current_sermon_offset_seconds = $2 WHERE id = $3`,
-      [sermonId, offset, active.playlistId]
-    )
-  }
+  await db.run(
+    `UPDATE broadcasts SET current_sermon_id = $1, current_sermon_offset_seconds = $2 WHERE id = $3`,
+    [sermonId, offset, broadcastId]
+  )
 }
 
 async function startFfmpeg(audioUrl: string, streamKey: string, offsetSeconds: number = 0): Promise<ChildProcessWithoutNullStreams> {
@@ -69,7 +65,7 @@ async function startFfmpeg(audioUrl: string, streamKey: string, offsetSeconds: n
     getRtmpUrl(streamKey),
   ]
 
-  console.log(`[RADIO] spawning ffmpeg for ${audioUrl} offset=${offsetSeconds}s`)
+  console.log(`[SERMON-STREAM] spawning ffmpeg for ${audioUrl} offset=${offsetSeconds}s`)
   const proc = spawn('ffmpeg', args)
 
   let stderrBuf = ''
@@ -78,16 +74,16 @@ async function startFfmpeg(audioUrl: string, streamKey: string, offsetSeconds: n
     const lines = stderrBuf.split('\n')
     stderrBuf = lines.pop() || ''
     for (const line of lines) {
-      if (line.trim()) console.log('[RADIO] ffmpeg:', line.trim())
+      if (line.trim()) console.log('[SERMON-STREAM] ffmpeg:', line.trim())
     }
   })
 
   proc.on('error', (err) => {
-    console.error('[RADIO] ffmpeg error:', err.message)
+    console.error('[SERMON-STREAM] ffmpeg error:', err.message)
   })
 
   proc.on('exit', (code, signal) => {
-    console.log(`[RADIO] ffmpeg exited code=${code} signal=${signal}`)
+    console.log(`[SERMON-STREAM] ffmpeg exited code=${code} signal=${signal}`)
   })
 
   return proc
@@ -119,10 +115,10 @@ async function startSermonItem(item: ActiveSermonStream['playlistItems'][0], off
   active.offsetSeconds = offsetSeconds
   active.startedAt = Date.now()
 
-  await updateCurrentSermon(item.sermon_id, offsetSeconds)
+  await updateBroadcastCurrentSermon(active.broadcastId, item.sermon_id, offsetSeconds)
 
   if (!item.audio_url) {
-    console.error(`[RADIO] No audio_url for sermon ${item.sermon_id}, skipping`)
+    console.error(`[SERMON-STREAM] No audio_url for sermon ${item.sermon_id}, skipping`)
     setTimeout(() => playNextSermon(), 1000)
     return
   }
@@ -139,42 +135,29 @@ async function startSermonItem(item: ActiveSermonStream['playlistItems'][0], off
     if (!active) return
     // Check if we're still on the same sermon item
     if (active.currentSermonId === item.sermon_id) {
-      console.log('[RADIO] sermon finished naturally, advancing')
+      console.log('[SERMON-STREAM] sermon finished naturally, advancing')
       await playNextSermon()
     }
   })
 }
 
-async function findActivePlaylist() {
-  await initDb()
-  const now = new Date().toISOString()
-  // Find the active playlist whose schedule window includes now
-  const row = await db.get(
-    `SELECT * FROM sermon_playlists
-     WHERE is_active = true
-       AND start_time IS NOT NULL AND end_time IS NOT NULL
-       AND start_time <= $1 AND end_time >= $1
-     ORDER BY start_time ASC
-     LIMIT 1`,
-    [now]
-  )
-  return row || null
-}
-
-export async function startRadio(playlistId: string) {
+export async function startSermonBroadcast(broadcastId: string, playlistId: string): Promise<{ streamKey: string }> {
   if (active) {
-    console.log('[RADIO] Already streaming, stopping first')
-    await stopRadio()
+    throw new Error('Another sermon broadcast is already active')
   }
+
+  await initDb()
+  const broadcast = await db.get('SELECT * FROM broadcasts WHERE id = $1', [broadcastId])
+  if (!broadcast) throw new Error('Broadcast not found')
 
   const items = await getPlaylistItems(playlistId)
-  if (items.length === 0) {
-    console.log('[RADIO] Playlist has no sermons, not starting')
-    return
-  }
+  if (items.length === 0) throw new Error('Playlist has no sermons')
+
+  const streamKey = broadcast.stream_key || uuidv4()
 
   active = {
-    streamKey: STREAM_KEY,
+    broadcastId,
+    streamKey,
     process: null as any,
     currentSermonId: '',
     currentSermonAudioUrl: '',
@@ -186,10 +169,39 @@ export async function startRadio(playlistId: string) {
   }
 
   await startSermonItem(items[0], 0)
-  console.log(`[RADIO] Started streaming playlist ${playlistId} with ${items.length} items`)
+
+  return { streamKey }
 }
 
-export async function stopRadio(): Promise<void> {
+export async function pauseSermonBroadcast(): Promise<{ offsetSeconds: number }> {
+  if (!active) throw new Error('No active sermon broadcast')
+
+  const elapsed = Math.floor((Date.now() - active.startedAt) / 1000)
+  active.offsetSeconds = active.offsetSeconds + elapsed
+
+  if (active.process) {
+    active.process.kill('SIGTERM')
+    active.process = null as any
+  }
+
+  await updateBroadcastCurrentSermon(active.broadcastId, active.currentSermonId, active.offsetSeconds)
+
+  return { offsetSeconds: active.offsetSeconds }
+}
+
+export async function resumeSermonBroadcast(): Promise<void> {
+  if (!active) throw new Error('No active sermon broadcast')
+
+  const item = active.playlistItems[active.itemIndex]
+  await startSermonItem(item, active.offsetSeconds)
+}
+
+export async function skipSermonBroadcast(): Promise<void> {
+  if (!active) throw new Error('No active sermon broadcast')
+  await playNextSermon()
+}
+
+export async function stopSermonBroadcast(): Promise<void> {
   if (!active) return
 
   if (active.process) {
@@ -197,69 +209,26 @@ export async function stopRadio(): Promise<void> {
     active.process = null as any
   }
 
+  await initDb()
+  await db.run(
+    `UPDATE broadcasts SET status = 'ended', ended_at = CURRENT_TIMESTAMP WHERE id = $1`,
+    [active.broadcastId]
+  )
+
   active = null
-  console.log('[RADIO] Stopped streaming')
 }
 
-export async function skipSermon(): Promise<void> {
-  if (!active) throw new Error('Radio is not streaming')
-  await playNextSermon()
-}
-
-export function getRadioStatus() {
+export function getActiveSermonStream() {
   if (!active) return null
   const elapsed = Math.floor((Date.now() - active.startedAt) / 1000)
-  const item = active.playlistItems[active.itemIndex]
   return {
+    broadcastId: active.broadcastId,
     streamKey: active.streamKey,
-    playlistId: active.playlistId,
     currentSermonId: active.currentSermonId,
-    currentSermonTitle: item?.title || '',
-    currentSermonSpeaker: item?.speaker || '',
+    currentSermonTitle: active.playlistItems[active.itemIndex]?.title || '',
+    currentSermonSpeaker: active.playlistItems[active.itemIndex]?.speaker || '',
     offsetSeconds: active.offsetSeconds + elapsed,
     itemIndex: active.itemIndex,
     totalItems: active.playlistItems.length,
-  }
-}
-
-// ── Scheduler ─────────────────────────────────────────────────────────────
-
-async function tick() {
-  const playlist = await findActivePlaylist()
-
-  if (playlist) {
-    // We have an active scheduled playlist
-    if (!active || active.playlistId !== playlist.id) {
-      // Need to start or switch to this playlist
-      console.log(`[RADIO-SCHEDULER] Active playlist found: ${playlist.id}, starting radio`)
-      await startRadio(playlist.id)
-    }
-    // If already streaming same playlist, nothing to do
-  } else {
-    // No active playlist in the current time window
-    if (active) {
-      console.log('[RADIO-SCHEDULER] No active playlist in current window, stopping radio')
-      await stopRadio()
-    }
-  }
-}
-
-export function initRadioScheduler(intervalMs = 60000) {
-  console.log('[RADIO-SCHEDULER] Initializing radio scheduler')
-  if (schedulerTimer) {
-    clearInterval(schedulerTimer)
-  }
-  // Run immediately once
-  tick().catch(err => console.error('[RADIO-SCHEDULER] initial tick error:', err))
-  // Then run periodically
-  schedulerTimer = setInterval(() => {
-    tick().catch(err => console.error('[RADIO-SCHEDULER] tick error:', err))
-  }, intervalMs)
-}
-
-export function stopRadioScheduler() {
-  if (schedulerTimer) {
-    clearInterval(schedulerTimer)
-    schedulerTimer = null
   }
 }

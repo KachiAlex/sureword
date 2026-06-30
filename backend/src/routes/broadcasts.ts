@@ -5,7 +5,6 @@ import { v2 as cloudinary } from 'cloudinary'
 import { db, initDb } from '../db.js'
 import { authenticateToken, requireRole, AuthenticatedRequest } from '../middleware/auth.js'
 import { optimizeImage } from '../middleware/optimizeImage.js'
-import { startSermonBroadcast, pauseSermonBroadcast, resumeSermonBroadcast, skipSermonBroadcast, stopSermonBroadcast, getActiveSermonStream } from '../sermon-stream.js'
 
 const uploadImage = multer({
   storage: multer.memoryStorage(),
@@ -42,15 +41,6 @@ router.get('/active', async (req, res) => {
   try {
     await initDb()
     const broadcast = await db.get("SELECT * FROM broadcasts WHERE status = 'live' ORDER BY started_at DESC LIMIT 1")
-    if (broadcast) {
-      // Enrich sermon broadcast with current sermon info
-      if (broadcast.type === 'sermon' && broadcast.current_sermon_id) {
-        const sermon = await db.get('SELECT title, speaker, audio_url, thumbnail_url FROM sermons WHERE id = $1', [broadcast.current_sermon_id])
-        if (sermon) {
-          broadcast.current_sermon = sermon
-        }
-      }
-    }
     res.json({ broadcast: broadcast || null })
   } catch (err: any) {
     console.error('[BROADCASTS] active error:', err.message)
@@ -142,13 +132,6 @@ router.patch('/:id/pause', authenticateToken, requireRole('broadcaster', 'admin'
     const broadcast = await db.get('SELECT * FROM broadcasts WHERE id = $1', [req.params.id])
     if (!broadcast) { res.status(404).json({ error: 'Broadcast not found' }); return }
 
-    if (broadcast.type === 'sermon') {
-      const { offsetSeconds } = await pauseSermonBroadcast()
-      await db.run("UPDATE broadcasts SET status = 'paused' WHERE id = $1", [req.params.id])
-      res.json({ success: true, offsetSeconds })
-      return
-    }
-
     await db.run("UPDATE broadcasts SET status = 'paused' WHERE id = $1", [req.params.id])
     res.json({ success: true })
   } catch (err: any) {
@@ -163,13 +146,6 @@ router.patch('/:id/resume', authenticateToken, requireRole('broadcaster', 'admin
     const broadcast = await db.get('SELECT * FROM broadcasts WHERE id = $1', [req.params.id])
     if (!broadcast) { res.status(404).json({ error: 'Broadcast not found' }); return }
 
-    if (broadcast.type === 'sermon') {
-      await resumeSermonBroadcast()
-      await db.run("UPDATE broadcasts SET status = 'live' WHERE id = $1", [req.params.id])
-      res.json({ success: true })
-      return
-    }
-
     await db.run("UPDATE broadcasts SET status = 'live' WHERE id = $1", [req.params.id])
     res.json({ success: true })
   } catch (err: any) {
@@ -183,16 +159,6 @@ router.patch('/:id/end', authenticateToken, requireRole('broadcaster', 'admin'),
     await initDb()
     const broadcast = await db.get('SELECT * FROM broadcasts WHERE id = $1', [req.params.id])
     if (!broadcast) { res.status(404).json({ error: 'Broadcast not found' }); return }
-
-    if (broadcast.type === 'sermon') {
-      await stopSermonBroadcast()
-      await db.run(
-        "UPDATE broadcasts SET status = 'ended', ended_at = COALESCE(ended_at, CURRENT_TIMESTAMP) WHERE id = $1",
-        [req.params.id]
-      )
-      res.json({ success: true })
-      return
-    }
 
     await db.run(
       "UPDATE broadcasts SET status = 'ended', ended_at = COALESCE(ended_at, CURRENT_TIMESTAMP) WHERE id = $1",
@@ -265,55 +231,6 @@ router.patch('/:id/recording', authenticateToken, requireRole('broadcaster', 'ad
     await db.run(`UPDATE broadcasts SET recording_url=$1 WHERE id=$2`, [recording_url, req.params.id])
     res.json({ success: true })
   } catch (err: any) {
-    res.status(500).json({ error: err.message })
-  }
-})
-
-// ── Sermon broadcast endpoints ──────────────────────────────────
-
-router.post('/:id/sermon/start', authenticateToken, requireRole('broadcaster', 'admin'), async (req: AuthenticatedRequest, res) => {
-  try {
-    await initDb()
-    const { playlistId } = req.body
-    if (!playlistId) { res.status(400).json({ error: 'playlistId required' }); return }
-
-    const broadcast = await db.get('SELECT * FROM broadcasts WHERE id = $1', [req.params.id])
-    if (!broadcast) { res.status(404).json({ error: 'Broadcast not found' }); return }
-
-    // Mark as sermon broadcast
-    await db.run(
-      `UPDATE broadcasts SET type = 'sermon', playlist_id = $1, status = 'live',
-       started_at = COALESCE(started_at, CURRENT_TIMESTAMP)
-       WHERE id = $2`,
-      [playlistId, req.params.id]
-    )
-
-    const { streamKey } = await startSermonBroadcast(req.params.id, playlistId)
-    const updated = await db.get('SELECT * FROM broadcasts WHERE id = $1', [req.params.id])
-
-    res.json({ broadcast: updated, streamKey })
-  } catch (err: any) {
-    console.error('[BROADCASTS] sermon/start error:', err.message)
-    res.status(500).json({ error: err.message })
-  }
-})
-
-router.post('/:id/sermon/skip', authenticateToken, requireRole('broadcaster', 'admin'), async (req, res) => {
-  try {
-    await skipSermonBroadcast()
-    res.json({ success: true })
-  } catch (err: any) {
-    console.error('[BROADCASTS] sermon/skip error:', err.message)
-    res.status(500).json({ error: err.message })
-  }
-})
-
-router.get('/:id/sermon/current', authenticateToken, requireRole('broadcaster', 'admin'), async (req, res) => {
-  try {
-    const stream = getActiveSermonStream()
-    res.json({ stream })
-  } catch (err: any) {
-    console.error('[BROADCASTS] sermon/current error:', err.message)
     res.status(500).json({ error: err.message })
   }
 })
