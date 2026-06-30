@@ -6,4 +6,4 @@ Disallow: /dashboard
 Disallow: /admin
 Disallow: /broadcast
 
-Sitemap: https://zionite.vercel.app/sitemap.xml
+Sitemap: https://surewordradio.org/sitemap.xml

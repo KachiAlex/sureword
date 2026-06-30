@@ -1,14 +1,14 @@
 {
-  "name": "SureWord Radio - Church Broadcast",
+  "name": "SureWord Radio - The Whole Word to the Whole World",
   "short_name": "SureWord Radio",
-  "description": "The Whole Word to the Whole World - Live broadcasts, sermons, and community",
+  "description": "Live broadcasts, sermons, podcasts, music, and community for Sure Word Media.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0c0c12",
   "theme_color": "#0c0c12",
   "orientation": "portrait-primary",
   "icons": [
-    { "src": "/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml" },
-    { "src": "/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml" }
+    { "src": "/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable" }
   ]
 }
