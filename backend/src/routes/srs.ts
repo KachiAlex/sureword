@@ -88,22 +88,13 @@ router.get('/streams/:streamKey/ready', async (req, res) => {
       }
     } catch {}
 
-    if (isLive && hasSegments) {
-      console.log('[SRS] ready check - db live + segments:', streamKey)
-      return res.json({ ready: true, source: 'db_live' })
+    // Ready if broadcast is marked live (webhook worked) OR manifest has segments
+    if (isLive || hasSegments) {
+      console.log('[SRS] ready check - ready:', streamKey, 'isLive=', isLive, 'hasSegments=', hasSegments)
+      return res.json({ ready: true, source: isLive ? 'db_live' : 'filesystem' })
     }
 
-    // Fallback: if manifest has segments even without webhook, allow playback
-    if (hasSegments) {
-      console.log('[SRS] ready check - filesystem fallback:', streamKey)
-      return res.json({ ready: true, source: 'filesystem' })
-    }
-
-    if (isLive) {
-      console.log('[SRS] ready check - db live but no segments yet:', streamKey)
-    } else {
-      console.log('[SRS] ready check - not ready:', streamKey)
-    }
+    console.log('[SRS] ready check - not ready:', streamKey, 'isLive=', isLive, 'hasSegments=', hasSegments)
     return res.json({ ready: false })
   } catch (err: any) {
     console.error('[SRS] ready check error:', err.message)
@@ -115,14 +106,24 @@ router.get('/streams/:streamKey/ready', async (req, res) => {
 router.post('/hooks/on_publish', async (req, res) => {
   try {
     await initDb()
-    const stream = req.body?.stream || req.query?.stream
-    if (!stream) { res.status(400).json({ error: 'Missing stream key' }); return }
+    const body = req.body || {}
+    const stream = body.stream || body.name || req.query?.stream
+    console.log('[SRS] on_publish webhook received:', JSON.stringify(body))
+    if (!stream) {
+      console.error('[SRS] on_publish - missing stream key. Body keys:', Object.keys(body))
+      res.status(400).json({ error: 'Missing stream key' })
+      return
+    }
 
-    await db.run(
+    const result = await db.run(
       `UPDATE broadcasts SET status = 'live' WHERE stream_key = $1`,
       [stream]
     )
-    console.log('[SRS] stream started:', stream)
+    if (result.changes === 0) {
+      console.warn('[SRS] on_publish - no broadcast found for stream_key:', stream)
+    } else {
+      console.log('[SRS] stream started and db updated:', stream, 'changes:', result.changes)
+    }
     res.json({ code: 0 })
   } catch (err: any) {
     console.error('[SRS] on_publish error:', err.message)

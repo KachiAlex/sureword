@@ -203,12 +203,8 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl, streamKey, streamType 
       hls.loadSource(`${SOCKET_BASE}/hls/live/${streamKey}.m3u8`)
       hls.on(Hls.Events.MANIFEST_PARSED, (_event, data) => {
         if (!data.levels || data.levels.length === 0) {
-          console.warn('[HLS] manifest parsed but no levels')
-          setStatusText('Stream unavailable. Tap to retry.')
-          hls.destroy()
-          hlsRef.current = null
-          if (playbackTimeoutRef.current) { clearTimeout(playbackTimeoutRef.current); playbackTimeoutRef.current = null }
-          return
+          console.warn('[HLS] manifest parsed but no levels, waiting for next refresh...')
+          return // Live manifest will refresh; playback timeout handles stuck streams
         }
         mediaRef.current!.play().then(() => {
           setIsPlaying(true)
