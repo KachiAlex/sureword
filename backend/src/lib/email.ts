@@ -4,8 +4,8 @@ const BREVO_SMTP_KEY = process.env.BREVO_SMTP_KEY || ''
 const BREVO_SMTP_LOGIN = process.env.BREVO_SMTP_LOGIN || ''
 const BREVO_SMTP_HOST = process.env.BREVO_SMTP_HOST || 'smtp-relay.brevo.com'
 const BREVO_SMTP_PORT = parseInt(process.env.BREVO_SMTP_PORT || '587', 10)
-const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@zionite.online'
-const FROM_NAME = process.env.FROM_NAME || 'ZioniteFM'
+const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@surewordradio.org'
+const FROM_NAME = process.env.FROM_NAME || 'SureWord Radio'
 
 const transporter = nodemailer.createTransport({
   host: BREVO_SMTP_HOST,

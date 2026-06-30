@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'fm.zionite.app',
-  appName: 'ZioniteFM',
+  appId: 'org.sureword.radio',
+  appName: 'SureWord Radio',
   webDir: 'dist',
   server: {
     androidScheme: 'https',

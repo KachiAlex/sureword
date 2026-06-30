@@ -9,7 +9,7 @@ const router = Router()
 // Configure web-push VAPID keys from env
 const vapidPublic = process.env.VAPID_PUBLIC_KEY || ''
 const vapidPrivate = process.env.VAPID_PRIVATE_KEY || ''
-const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:admin@zionite.online'
+const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:admin@surewordradio.org'
 if (vapidPublic && vapidPrivate) {
   webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate)
 }
@@ -129,7 +129,7 @@ async function sendPushNotifications(title: string, body: string, reference?: st
   // 1. Web Push
   if (vapidPublic && vapidPrivate) {
     const subs = await db.all(`SELECT endpoint, p256dh, auth FROM push_subscriptions`)
-    const payload = JSON.stringify({ title: 'ZioniteFM', body: fullBody, icon: '/logo.png', badge: '/logo.png' })
+    const payload = JSON.stringify({ title: 'SureWord Radio', body: fullBody, icon: '/logo.png', badge: '/logo.png' })
     for (const sub of subs) {
       try {
         await webpush.sendNotification(
@@ -158,7 +158,7 @@ async function sendPushNotifications(title: string, body: string, reference?: st
           },
           body: JSON.stringify({
             to: row.token,
-            notification: { title: 'ZioniteFM', body: fullBody },
+            notification: { title: 'SureWord Radio', body: fullBody },
             data: { type: 'daily_verse', title, body, reference }
           })
         })

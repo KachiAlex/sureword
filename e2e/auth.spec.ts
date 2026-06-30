@@ -37,7 +37,7 @@ test.describe('Navigation', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ events: [] }) })
     })
     await page.goto('/')
-    await expect(page.getByText(/zionite\s*fm/i).first()).toBeVisible({ timeout: 20000 })
+    await expect(page.getByText(/sureword\s*radio/i).first()).toBeVisible({ timeout: 20000 })
   })
 
   test('archive page loads', async ({ page }) => {

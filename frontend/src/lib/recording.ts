@@ -1,4 +1,4 @@
-﻿const DB_NAME = 'zionite-recording'
+﻿const DB_NAME = 'sureword-recording'
 const DB_VERSION = 1
 const STORE_NAME = 'config'
 

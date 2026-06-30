@@ -113,7 +113,7 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
       let thumbnail_url = editForm.thumbnail_url
       if (editThumbnailFile) {
         setEditStep('Uploading thumbnail...')
-        thumbnail_url = await uploadToCloudinary(editThumbnailFile, 'zionite/sermons/thumbnails')
+        thumbnail_url = await uploadToCloudinary(editThumbnailFile, 'sureword/sermons/thumbnails')
       }
       setEditStep('Saving...')
       await api.patch(`/sermons/${editingSermon.id}`, {
@@ -164,12 +164,12 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
 
       if (mode === 'audio' && audioFile) {
         setUploadStep('Uploading audio to Cloudinary...')
-        audioUrl = await uploadToCloudinary(audioFile, 'zionite/sermons/audio')
+        audioUrl = await uploadToCloudinary(audioFile, 'sureword/sermons/audio')
       }
 
       if (thumbnailFile) {
         setUploadStep('Uploading thumbnail to Cloudinary...')
-        thumbnailUrl = await uploadToCloudinary(thumbnailFile, 'zionite/sermons/thumbnails')
+        thumbnailUrl = await uploadToCloudinary(thumbnailFile, 'sureword/sermons/thumbnails')
       }
 
       setUploadStep('Saving sermon...')

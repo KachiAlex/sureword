@@ -20,7 +20,7 @@ interface FavoritesContextType {
   count: number
 }
 
-const STORAGE_KEY = 'zionite:favorites'
+const STORAGE_KEY = 'sureword:favorites'
 
 function loadFromStorage(): FavoritesState {
   try {

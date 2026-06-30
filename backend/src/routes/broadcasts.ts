@@ -2,9 +2,10 @@ import { Router } from 'express'
 import multer from 'multer'
 import { v4 as uuidv4 } from 'uuid'
 import { v2 as cloudinary } from 'cloudinary'
-import { db, initDb } from '../db.js'
+import { db } from '../db.js'
 import { authenticateToken, requireRole, AuthenticatedRequest } from '../middleware/auth.js'
 import { optimizeImage } from '../middleware/optimizeImage.js'
+import { clearCachePrefix } from '../middleware/cache.js'
 
 const uploadImage = multer({
   storage: multer.memoryStorage(),
@@ -28,7 +29,6 @@ const router = Router()
 
 router.get('/', async (req, res) => {
   try {
-    await initDb()
     const broadcasts = await db.all('SELECT * FROM broadcasts ORDER BY created_at DESC')
     res.json({ broadcasts })
   } catch (err: any) {
@@ -39,7 +39,6 @@ router.get('/', async (req, res) => {
 
 router.get('/active', async (req, res) => {
   try {
-    await initDb()
     const broadcast = await db.get("SELECT * FROM broadcasts WHERE status = 'live' ORDER BY started_at DESC LIMIT 1")
     res.json({ broadcast: broadcast || null })
   } catch (err: any) {
@@ -50,7 +49,6 @@ router.get('/active', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
-    await initDb()
     const broadcast = await db.get('SELECT * FROM broadcasts WHERE id = $1', [req.params.id])
     if (!broadcast) { res.status(404).json({ error: 'Broadcast not found' }); return }
     res.json({ broadcast })
@@ -62,7 +60,6 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', authenticateToken, requireRole('broadcaster', 'admin'), async (req: AuthenticatedRequest, res) => {
   try {
-    await initDb()
     const { title, description, scripture_reference, thumbnail_url, speaker } = req.body
     if (!title) { res.status(400).json({ error: 'Title is required' }); return }
 
@@ -73,6 +70,7 @@ router.post('/', authenticateToken, requireRole('broadcaster', 'admin'), async (
        VALUES ($1, $2, $3, $4, 'scheduled', CURRENT_TIMESTAMP, $5, $6, $7, $8, 'srs_rtmp')`,
       [id, title, description || null, scripture_reference || null, req.user!.id, thumbnail_url || null, speaker || null, streamKey]
     )
+    clearCachePrefix('/broadcasts')
     res.json({ broadcast: { id, title, description, scripture_reference, status: 'scheduled', broadcaster_id: req.user!.id, thumbnail_url, speaker, stream_key: streamKey, stream_type: 'srs_rtmp' } })
   } catch (err: any) {
     console.error('[BROADCASTS] create error:', err.message)
@@ -94,7 +92,6 @@ router.post('/uploads/image', authenticateToken, requireRole('broadcaster', 'adm
 
 router.post('/:id/end', authenticateToken, requireRole('broadcaster', 'admin'), async (req, res) => {
   try {
-    await initDb()
     const { id } = req.params
     const broadcast = await db.get('SELECT * FROM broadcasts WHERE id = $1', [id])
     if (!broadcast) { res.status(404).json({ error: 'Broadcast not found' }); return }
@@ -102,6 +99,7 @@ router.post('/:id/end', authenticateToken, requireRole('broadcaster', 'admin'), 
       "UPDATE broadcasts SET status = 'ended', ended_at = CURRENT_TIMESTAMP WHERE id = $1",
       [id]
     )
+    clearCachePrefix('/broadcasts')
     res.json({ success: true })
   } catch (err: any) {
     console.error('[BROADCASTS] end error:', err.message)
@@ -111,7 +109,6 @@ router.post('/:id/end', authenticateToken, requireRole('broadcaster', 'admin'), 
 
 router.patch('/:id/start', authenticateToken, requireRole('broadcaster', 'admin'), async (req, res) => {
   try {
-    await initDb()
     const broadcast = await db.get('SELECT * FROM broadcasts WHERE id = $1', [req.params.id])
     if (!broadcast) { res.status(404).json({ error: 'Broadcast not found' }); return }
     await db.run(
@@ -119,6 +116,7 @@ router.patch('/:id/start', authenticateToken, requireRole('broadcaster', 'admin'
       [req.params.id]
     )
     const updated = await db.get('SELECT * FROM broadcasts WHERE id = $1', [req.params.id])
+    clearCachePrefix('/broadcasts')
     res.json({ broadcast: updated })
   } catch (err: any) {
     console.error('[BROADCASTS] start error:', err.message)
@@ -128,12 +126,12 @@ router.patch('/:id/start', authenticateToken, requireRole('broadcaster', 'admin'
 
 router.patch('/:id/pause', authenticateToken, requireRole('broadcaster', 'admin'), async (req, res) => {
   try {
-    await initDb()
     const broadcast = await db.get('SELECT * FROM broadcasts WHERE id = $1', [req.params.id])
     if (!broadcast) { res.status(404).json({ error: 'Broadcast not found' }); return }
 
     await db.run("UPDATE broadcasts SET status = 'paused' WHERE id = $1", [req.params.id])
-    res.json({ success: true })
+    clearCachePrefix('/broadcasts')
+    res.json({ success: true, status: 'paused' })
   } catch (err: any) {
     console.error('[BROADCASTS] pause error:', err.message)
     res.status(500).json({ error: 'Failed to pause broadcast' })
@@ -142,12 +140,12 @@ router.patch('/:id/pause', authenticateToken, requireRole('broadcaster', 'admin'
 
 router.patch('/:id/resume', authenticateToken, requireRole('broadcaster', 'admin'), async (req, res) => {
   try {
-    await initDb()
     const broadcast = await db.get('SELECT * FROM broadcasts WHERE id = $1', [req.params.id])
     if (!broadcast) { res.status(404).json({ error: 'Broadcast not found' }); return }
 
     await db.run("UPDATE broadcasts SET status = 'live' WHERE id = $1", [req.params.id])
-    res.json({ success: true })
+    clearCachePrefix('/broadcasts')
+    res.json({ success: true, status: 'live' })
   } catch (err: any) {
     console.error('[BROADCASTS] resume error:', err.message)
     res.status(500).json({ error: 'Failed to resume broadcast' })
@@ -156,7 +154,6 @@ router.patch('/:id/resume', authenticateToken, requireRole('broadcaster', 'admin
 
 router.patch('/:id/end', authenticateToken, requireRole('broadcaster', 'admin'), async (req, res) => {
   try {
-    await initDb()
     const broadcast = await db.get('SELECT * FROM broadcasts WHERE id = $1', [req.params.id])
     if (!broadcast) { res.status(404).json({ error: 'Broadcast not found' }); return }
 
@@ -164,6 +161,7 @@ router.patch('/:id/end', authenticateToken, requireRole('broadcaster', 'admin'),
       "UPDATE broadcasts SET status = 'ended', ended_at = COALESCE(ended_at, CURRENT_TIMESTAMP) WHERE id = $1",
       [req.params.id]
     )
+    clearCachePrefix('/broadcasts')
     res.json({ success: true })
   } catch (err: any) {
     console.error('[BROADCASTS] end error:', err.message)
@@ -173,7 +171,6 @@ router.patch('/:id/end', authenticateToken, requireRole('broadcaster', 'admin'),
 
 router.get('/stats/overview', authenticateToken, requireRole('broadcaster', 'admin'), async (req, res) => {
   try {
-    await initDb()
     const result = await db.get("SELECT COUNT(*) as total FROM chat_messages")
     const total = parseInt(result?.total || '0', 10)
     res.json({ listening: total, peak: total, avg: Math.floor(total / 2) })
@@ -186,10 +183,9 @@ router.get('/stats/overview', authenticateToken, requireRole('broadcaster', 'adm
 router.post('/:id/recording', authenticateToken, requireRole('broadcaster', 'admin'), uploadRecording.single('recording'), async (req: AuthenticatedRequest, res) => {
   try {
     if (!req.file) { res.status(400).json({ error: 'Recording file required' }); return }
-    await initDb()
     const recording_url = await new Promise<string>((resolve, reject) => {
       cloudinary.uploader.upload_stream(
-        { folder: 'zionite/broadcasts', resource_type: 'video', tags: ['broadcast_recording'] },
+        { folder: 'sureword/broadcasts', resource_type: 'video', tags: ['broadcast_recording'] },
         (err, result) => {
           if (err || !result) reject(err || new Error('Upload failed'))
           else resolve(result.secure_url)
@@ -205,7 +201,6 @@ router.post('/:id/recording', authenticateToken, requireRole('broadcaster', 'adm
 
 router.get('/:id/recording/download', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
-    await initDb()
     const row = await db.get(`SELECT title, recording_url FROM broadcasts WHERE id=$1`, [req.params.id])
     if (!row?.recording_url) { res.status(404).json({ error: 'No recording found' }); return }
     const response = await fetch(row.recording_url)
@@ -225,7 +220,6 @@ router.get('/:id/recording/download', authenticateToken, async (req: Authenticat
 
 router.patch('/:id/recording', authenticateToken, requireRole('broadcaster', 'admin'), async (req: AuthenticatedRequest, res) => {
   try {
-    await initDb()
     const { recording_url } = req.body
     if (!recording_url) { res.status(400).json({ error: 'recording_url required' }); return }
     await db.run(`UPDATE broadcasts SET recording_url=$1 WHERE id=$2`, [recording_url, req.params.id])

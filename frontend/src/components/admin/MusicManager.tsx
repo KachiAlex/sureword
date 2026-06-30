@@ -61,7 +61,7 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
       // -- Step 1: Upload files directly to Cloudinary (signed) --
       // Use fetch (not axios) so the global Authorization header isn't sent to Cloudinary
       if (file) {
-        const { data: sig } = await api.get('/music/signature?folder=zionite/music/audio')
+        const { data: sig } = await api.get('/music/signature?folder=sureword/music/audio')
         const fd = new FormData()
         fd.append('file', file)
         fd.append('api_key', sig.apiKey)
@@ -75,7 +75,7 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
       }
 
       if (coverFile) {
-        const { data: sig } = await api.get('/music/signature?folder=zionite/music/covers')
+        const { data: sig } = await api.get('/music/signature?folder=sureword/music/covers')
         const fd = new FormData()
         fd.append('file', coverFile)
         fd.append('api_key', sig.apiKey)

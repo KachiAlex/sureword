@@ -472,7 +472,10 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
     setActionLoading(true)
     try {
       await api.patch(`/broadcasts/${broadcastId}/end`)
-    } catch { /* ignore */ }
+    } catch (err: any) {
+      const msg = err.response?.data?.error || 'Failed to end broadcast. It may still be live.'
+      alert(msg)
+    }
     // Wait for cloud recording upload to finish before navigating away
     if (uploadDone) {
       try { await uploadDone } catch {}

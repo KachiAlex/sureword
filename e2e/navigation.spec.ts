@@ -18,7 +18,7 @@ test.describe('Navigation & Pages', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ events: [] }) })
     })
     await page.goto('/')
-    await expect(page.getByText(/zionite\s*fm/i).first()).toBeVisible({ timeout: 20000 })
+    await expect(page.getByText(/sureword\s*radio/i).first()).toBeVisible({ timeout: 20000 })
     await expect(page.getByText(/the voice of redemption/i).first()).toBeVisible({ timeout: 20000 })
   })
 
@@ -56,7 +56,7 @@ test.describe('Navigation & Pages', () => {
 
   test('about page loads', async ({ page }) => {
     await page.goto('/about')
-    await expect(page.getByRole('heading', { name: /about zionitefm/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /about sureword radio/i })).toBeVisible()
   })
 
   test('status page loads', async ({ page }) => {

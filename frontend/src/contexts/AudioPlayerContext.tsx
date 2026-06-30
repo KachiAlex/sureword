@@ -201,9 +201,14 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     if (audioRef.current) {
       audioRef.current.pause()
       audioRef.current.currentTime = 0
+      audioRef.current.src = ''
     }
     setIsPlaying(false)
     setProgress(0)
+    setQueue([])
+    setOriginalIndex(0)
+    setShuffleIndices([])
+    setShufflePos(0)
   }, [])
 
   const setVolume = useCallback((v: number) => {

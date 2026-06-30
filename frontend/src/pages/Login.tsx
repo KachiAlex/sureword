@@ -95,7 +95,7 @@ export default function Login() {
               {isRegister ? 'Create Account' : 'Welcome Back'}
             </h1>
             <p className="mt-2 text-sm" style={{ color: 'var(--dim)' }}>
-              {isRegister ? 'Join Zionite FM to start broadcasting' : 'Sign in to your account'}
+              {isRegister ? 'Join SureWord Radio to start broadcasting' : 'Sign in to your account'}
             </p>
           </div>
 

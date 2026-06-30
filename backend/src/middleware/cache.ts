@@ -23,3 +23,9 @@ export function cacheMiddleware(durationMs: number = 60000) {
 export function clearCache() {
   cache.clear()
 }
+
+export function clearCachePrefix(prefix: string) {
+  for (const key of cache.keys()) {
+    if (key.startsWith(prefix)) cache.delete(key)
+  }
+}

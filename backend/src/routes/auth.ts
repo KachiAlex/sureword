@@ -192,11 +192,11 @@ router.post('/forgot-password', async (req, res) => {
       [token, expires.toISOString(), user.id]
     )
 
-    const resetUrl = `${process.env.FRONTEND_URL || 'https://www.zionite.online'}/reset-password?token=${token}`
+    const resetUrl = `${process.env.FRONTEND_URL || 'https://surewordradio.org'}/reset-password?token=${token}`
     await sendEmail({
       to: user.email,
       toName: user.name,
-      subject: 'Reset your ZioniteFM password',
+      subject: 'Reset your SureWord Radio password',
       htmlContent: `<p>Hello ${user.name || 'there'},</p>
         <p>You requested a password reset. Click the link below to set a new password (expires in 1 hour):</p>
         <p><a href="${resetUrl}" style="padding:10px 20px;background:#c9a227;color:#1b1208;text-decoration:none;border-radius:6px;">Reset Password</a></p>

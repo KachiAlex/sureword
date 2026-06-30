@@ -858,7 +858,7 @@ app.get('/music/signature', auth, requireRole('admin'), (req: AuthReq, res) => {
     res.status(500).json({ error: 'Cloudinary not configured' })
     return
   }
-  const folder = (req.query.folder as string) || 'zionite/uploads'
+  const folder = (req.query.folder as string) || 'sureword/uploads'
   const timestamp = Math.round(Date.now() / 1000)
   const signature = generateCloudinarySignature(folder, timestamp)
   if (!signature) {
@@ -894,14 +894,14 @@ app.post('/music', auth, requireRole('admin'), upload.fields([{ name: 'audio', m
       const audioFile = files.audio[0]
       file_format = audioFile.mimetype
       file_size = audioFile.size
-      audio_url = await uploadToCloudinary(audioFile.buffer, 'zionite/music/audio', 'video')
+      audio_url = await uploadToCloudinary(audioFile.buffer, 'sureword/music/audio', 'video')
     }
     if (!audio_url) { res.status(400).json({ error: 'Audio file or URL required' }); return }
 
     let finalCoverUrl = cover_url || req.body.cover_url || ''
     if (files?.cover && files.cover[0]) {
       const coverFile = files.cover[0]
-      finalCoverUrl = await uploadToCloudinary(coverFile.buffer, 'zionite/music/covers', 'image')
+      finalCoverUrl = await uploadToCloudinary(coverFile.buffer, 'sureword/music/covers', 'image')
     }
 
     const id = uuidv4()
@@ -915,7 +915,7 @@ app.post('/music', auth, requireRole('admin'), upload.fields([{ name: 'audio', m
 app.post('/uploads/image', auth, requireRole('admin'), uploadImage.single('image'), async (req: AuthReq, res) => {
   try {
     if (!req.file) { res.status(400).json({ error: 'Image file required' }); return }
-    const image_url = await uploadToCloudinary(req.file.buffer, 'zionite/uploads', 'image')
+    const image_url = await uploadToCloudinary(req.file.buffer, 'sureword/uploads', 'image')
     res.json({ image_url })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
@@ -923,7 +923,7 @@ app.post('/uploads/image', auth, requireRole('admin'), uploadImage.single('image
 app.post('/uploads/audio', auth, requireRole('admin'), upload.single('audio'), async (req: AuthReq, res) => {
   try {
     if (!req.file) { res.status(400).json({ error: 'Audio file required' }); return }
-    const audio_url = await uploadToCloudinary(req.file.buffer, 'zionite/audio', 'video')
+    const audio_url = await uploadToCloudinary(req.file.buffer, 'sureword/audio', 'video')
     res.json({ audio_url })
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
@@ -934,7 +934,7 @@ app.post('/broadcasts/:id/recording', auth, requireRole('admin', 'broadcaster'),
     await initDb()
     const recording_url = await new Promise<string>((resolve, reject) => {
       cloudinary.uploader.upload_stream(
-        { folder: 'zionite/broadcasts', resource_type: 'video', tags: ['broadcast_recording'] },
+        { folder: 'sureword/broadcasts', resource_type: 'video', tags: ['broadcast_recording'] },
         (err, result) => {
           if (err || !result) reject(err || new Error('Upload failed'))
           else resolve(result.secure_url)
