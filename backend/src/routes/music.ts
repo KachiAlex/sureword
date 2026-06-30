@@ -2,6 +2,7 @@ import { Router } from 'express'
 import multer from 'multer'
 import { v2 as cloudinary } from 'cloudinary'
 import { v4 as uuidv4 } from 'uuid'
+import crypto from 'node:crypto'
 import { db, initDb } from '../db.js'
 import { authenticateToken, requireRole } from '../middleware/auth.js'
 
@@ -48,7 +49,6 @@ router.get('/signature', authenticateToken, requireRole('admin'), (req, res) => 
   }
   const folder = (req.query.folder as string) || 'sureword/uploads'
   const timestamp = Math.round(Date.now() / 1000)
-  const crypto = require('crypto')
   const signature = crypto
     .createHash('sha1')
     .update(`folder=${folder}&timestamp=${timestamp}${apiSecret}`)
