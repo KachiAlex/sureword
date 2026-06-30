@@ -1063,7 +1063,7 @@ export default function RadioStudio({
         </div>
 
         {/* Mic Device Selector (live mode only) */}
-        {!isSermonMode && audioDevices.length > 1 && (
+        {audioDevices.length > 1 && (
           <div className="rounded-xl p-4" style={{ background: 'var(--ink)', border: '1px solid var(--line)' }}>
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-medium flex items-center gap-2">
