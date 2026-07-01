@@ -6,11 +6,11 @@ const STREAM_KEY = 'sermon-radio'
 interface ActiveSermonStream {
   streamKey: string
   process: ChildProcessWithoutNullStreams
-  currentSermonId: string
-  currentSermonAudioUrl: string
+  currentContentId: string
+  currentAudioUrl: string
   offsetSeconds: number
   playlistId: string
-  playlistItems: Array<{ id: string; sermon_id: string; audio_url: string; title: string; speaker: string; duration_minutes: number }>
+  playlistItems: Array<{ id: string; content_type: string; content_id: string; audio_url: string; title: string; speaker: string; duration_minutes: number }>
   itemIndex: number
   startedAt: number
 }
@@ -25,17 +25,21 @@ function getRtmpUrl(streamKey: string) {
 async function getPlaylistItems(playlistId: string) {
   await initDb()
   const rows = await db.all(
-    `SELECT spi.id as item_id, spi.sermon_id, spi.order_index, spi.duration_minutes,
-            s.title, s.speaker, s.audio_url
-     FROM sermon_playlist_items spi
-     JOIN sermons s ON s.id = spi.sermon_id
-     WHERE spi.playlist_id = $1
-     ORDER BY spi.order_index ASC`,
+    `SELECT pi.id, pi.content_type, pi.content_id, pi.order_index, pi.duration_minutes,
+            COALESCE(s.title, m.title) as title,
+            COALESCE(s.speaker, m.artist) as speaker,
+            COALESCE(s.audio_url, m.audio_url) as audio_url
+     FROM playlist_items pi
+     LEFT JOIN sermons s ON s.id = pi.content_id AND pi.content_type = 'sermon'
+     LEFT JOIN music m ON m.id = pi.content_id AND pi.content_type = 'music'
+     WHERE pi.playlist_id = $1
+     ORDER BY pi.order_index ASC`,
     [playlistId]
   )
   return rows.map((r: any) => ({
-    id: r.item_id,
-    sermon_id: r.sermon_id,
+    id: r.id,
+    content_type: r.content_type,
+    content_id: r.content_id,
     audio_url: r.audio_url,
     title: r.title,
     speaker: r.speaker,
@@ -43,15 +47,15 @@ async function getPlaylistItems(playlistId: string) {
   }))
 }
 
-async function updateCurrentSermon(sermonId: string | null, offset: number) {
+async function updateRadioState(scheduleId: string | null, itemId: string | null, offset: number) {
   await initDb()
-  // Store on the active playlist for reference
-  if (active) {
-    await db.run(
-      `UPDATE sermon_playlists SET current_sermon_id = $1, current_sermon_offset_seconds = $2 WHERE id = $3`,
-      [sermonId, offset, active.playlistId]
-    )
-  }
+  await db.run(
+    `INSERT INTO radio_state (id, schedule_id, current_item_id, offset_seconds, updated_at)
+     VALUES ('singleton', $1, $2, $3, NOW())
+     ON CONFLICT (id) DO UPDATE SET
+       schedule_id = $1, current_item_id = $2, offset_seconds = $3, updated_at = NOW()`,
+    [scheduleId, itemId, offset]
+  )
 }
 
 async function startFfmpeg(audioUrl: string, streamKey: string, offsetSeconds: number = 0): Promise<ChildProcessWithoutNullStreams> {
@@ -106,6 +110,15 @@ async function playNextSermon() {
   await startSermonItem(item, 0)
 }
 
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
 async function startSermonItem(item: ActiveSermonStream['playlistItems'][0], offsetSeconds: number) {
   if (!active) return
   // Kill existing ffmpeg if running
@@ -114,15 +127,15 @@ async function startSermonItem(item: ActiveSermonStream['playlistItems'][0], off
     active.process = null as any
   }
 
-  active.currentSermonId = item.sermon_id
-  active.currentSermonAudioUrl = item.audio_url
+  active.currentContentId = item.content_id
+  active.currentAudioUrl = item.audio_url
   active.offsetSeconds = offsetSeconds
   active.startedAt = Date.now()
 
-  await updateCurrentSermon(item.sermon_id, offsetSeconds)
+  await updateRadioState(null, item.id, offsetSeconds)
 
   if (!item.audio_url) {
-    console.error(`[RADIO] No audio_url for sermon ${item.sermon_id}, skipping`)
+    console.error(`[RADIO] No audio_url for item ${item.content_id}, skipping`)
     setTimeout(() => playNextSermon(), 1000)
     return
   }
@@ -130,54 +143,59 @@ async function startSermonItem(item: ActiveSermonStream['playlistItems'][0], off
   const proc = await startFfmpeg(item.audio_url, active.streamKey, offsetSeconds)
   active.process = proc
 
-  // When ffmpeg exits naturally, move to next sermon
+  // When ffmpeg exits naturally, move to next item
   proc.on('exit', async (code, signal) => {
     if (signal === 'SIGTERM' || signal === 'SIGKILL') {
       // Manually stopped, don't auto-advance
       return
     }
     if (!active) return
-    // Check if we're still on the same sermon item
-    if (active.currentSermonId === item.sermon_id) {
-      console.log('[RADIO] sermon finished naturally, advancing')
+    // Check if we're still on the same item
+    if (active.currentContentId === item.content_id) {
+      console.log('[RADIO] item finished naturally, advancing')
       await playNextSermon()
     }
   })
 }
 
-async function findActivePlaylist() {
+async function findActiveSchedule() {
   await initDb()
   const now = new Date().toISOString()
-  // Find the active playlist whose schedule window includes now
   const row = await db.get(
-    `SELECT * FROM sermon_playlists
-     WHERE is_active = true
-       AND start_time IS NOT NULL AND end_time IS NOT NULL
-       AND start_time <= $1 AND end_time >= $1
-     ORDER BY start_time ASC
+    `SELECT rs.*, p.title as playlist_title, p.repeat_mode, p.shuffle
+     FROM radio_schedules rs
+     JOIN playlists p ON p.id = rs.playlist_id
+     WHERE rs.is_active = true
+       AND rs.start_time IS NOT NULL
+       AND rs.start_time <= $1 AND (rs.end_time IS NULL OR rs.end_time >= $1)
+     ORDER BY rs.start_time ASC
      LIMIT 1`,
     [now]
   )
   return row || null
 }
 
-export async function startRadio(playlistId: string) {
+export async function startRadio(playlistId: string, shuffle = false, repeatMode = 'none') {
   if (active) {
     console.log('[RADIO] Already streaming, stopping first')
     await stopRadio()
   }
 
-  const items = await getPlaylistItems(playlistId)
+  let items = await getPlaylistItems(playlistId)
   if (items.length === 0) {
-    console.log('[RADIO] Playlist has no sermons, not starting')
+    console.log('[RADIO] Playlist has no items, not starting')
     return
+  }
+
+  if (shuffle) {
+    items = shuffleArray(items)
   }
 
   active = {
     streamKey: STREAM_KEY,
     process: null as any,
-    currentSermonId: '',
-    currentSermonAudioUrl: '',
+    currentContentId: '',
+    currentAudioUrl: '',
     offsetSeconds: 0,
     playlistId,
     playlistItems: items,
@@ -186,7 +204,7 @@ export async function startRadio(playlistId: string) {
   }
 
   await startSermonItem(items[0], 0)
-  console.log(`[RADIO] Started streaming playlist ${playlistId} with ${items.length} items`)
+  console.log(`[RADIO] Started streaming playlist ${playlistId} with ${items.length} items (shuffle=${shuffle}, repeat=${repeatMode})`)
 }
 
 export async function stopRadio(): Promise<void> {
@@ -198,6 +216,7 @@ export async function stopRadio(): Promise<void> {
   }
 
   active = null
+  await updateRadioState(null, null, 0)
   console.log('[RADIO] Stopped streaming')
 }
 
@@ -213,7 +232,7 @@ export function getRadioStatus() {
   return {
     streamKey: active.streamKey,
     playlistId: active.playlistId,
-    currentSermonId: active.currentSermonId,
+    currentSermonId: active.currentContentId,
     currentSermonTitle: item?.title || '',
     currentSermonSpeaker: item?.speaker || '',
     offsetSeconds: active.offsetSeconds + elapsed,
@@ -225,20 +244,20 @@ export function getRadioStatus() {
 // ── Scheduler ─────────────────────────────────────────────────────────────
 
 async function tick() {
-  const playlist = await findActivePlaylist()
+  const schedule = await findActiveSchedule()
 
-  if (playlist) {
+  if (schedule) {
     // We have an active scheduled playlist
-    if (!active || active.playlistId !== playlist.id) {
+    if (!active || active.playlistId !== schedule.playlist_id) {
       // Need to start or switch to this playlist
-      console.log(`[RADIO-SCHEDULER] Active playlist found: ${playlist.id}, starting radio`)
-      await startRadio(playlist.id)
+      console.log(`[RADIO-SCHEDULER] Active schedule found: ${schedule.id} (playlist ${schedule.playlist_id}), starting radio`)
+      await startRadio(schedule.playlist_id, schedule.shuffle, schedule.repeat_mode)
     }
     // If already streaming same playlist, nothing to do
   } else {
-    // No active playlist in the current time window
+    // No active schedule in the current time window
     if (active) {
-      console.log('[RADIO-SCHEDULER] No active playlist in current window, stopping radio')
+      console.log('[RADIO-SCHEDULER] No active schedule in current window, stopping radio')
       await stopRadio()
     }
   }

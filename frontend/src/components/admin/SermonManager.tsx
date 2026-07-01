@@ -1,6 +1,7 @@
 ﻿import { useState } from 'react'
 import { api } from '../../lib/api'
-import { Headphones, Plus, Loader2, Image, Upload, Cloud, Video, AudioLines, Star, Pencil, X, Save } from 'lucide-react'
+import AddToPlaylistMenu from '../../components/AddToPlaylistMenu'
+import { Headphones, Plus, Loader2, Image, Upload, Cloud, Video, AudioLines, Star, Pencil, X, Save, ListMusic } from 'lucide-react'
 
 interface Sermon {
   id: string
@@ -567,6 +568,15 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
                   >
                     <Star className="w-3.5 h-3.5" fill={s.is_featured ? '#E05A1A' : 'none'} style={{ color: s.is_featured ? '#E05A1A' : 'var(--dim)' }} />
                   </button>
+                  <AddToPlaylistMenu contentType="sermon" contentId={s.id} duration={s.duration ? s.duration * 60 : undefined}>
+                    <button
+                      title="Add to Playlist"
+                      className="p-1.5 rounded-lg transition-colors"
+                      style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--dim)' }}
+                    >
+                      <ListMusic className="w-3.5 h-3.5" />
+                    </button>
+                  </AddToPlaylistMenu>
                   <a
                     href={s.video_url || s.audio_url}
                     target="_blank"

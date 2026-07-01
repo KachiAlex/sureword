@@ -2,6 +2,7 @@
 import axios from 'axios'
 import { API_BASE } from '../lib/api'
 import { usePageTitle } from '../hooks/usePageTitle'
+import AddToPlaylistMenu from '../components/AddToPlaylistMenu'
 import { useAudioPlayer } from '../contexts/AudioPlayerContext'
 import { useFavorites } from '../contexts/FavoritesContext'
 import {
@@ -233,6 +234,14 @@ export default function MusicPage() {
                   >
                     <Heart className={`w-3.5 h-3.5 ${isFavorite(track.id, 'music') ? 'fill-current' : ''}`} />
                   </button>
+                  <div className="absolute top-2 right-10" onClick={e => e.stopPropagation()}>
+                    <AddToPlaylistMenu contentType="music" contentId={track.id} duration={track.duration || undefined}>
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center transition-colors"
+                        style={{ background: 'rgba(0,0,0,0.5)', color: '#fff' }} title="Add to Playlist">
+                        <ListMusic className="w-3.5 h-3.5" />
+                      </div>
+                    </AddToPlaylistMenu>
+                  </div>
                 </div>
                 <h3 className="font-medium truncate">{track.title}</h3>
                 <p className="text-sm truncate mt-0.5" style={{ color: 'var(--dim)' }}>

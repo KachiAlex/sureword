@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import axios from 'axios'
 import { API_BASE } from '../lib/api'
 import { usePageTitle } from '../hooks/usePageTitle'
+import AddToPlaylistMenu from '../components/AddToPlaylistMenu'
 import { useAudioPlayer } from '../contexts/AudioPlayerContext'
 import { useFavorites } from '../contexts/FavoritesContext'
 import {
@@ -231,6 +232,15 @@ export default function Archive() {
                     >
                       <Heart className={`w-3.5 h-3.5 ${isFavorite(s.id, 'sermon') ? 'fill-current' : ''}`} />
                     </button>
+                    {/* Add to playlist */}
+                    <div className="absolute top-2 right-10 z-10" onClick={e => e.stopPropagation()}>
+                      <AddToPlaylistMenu contentType="sermon" contentId={s.id} duration={s.duration || undefined}>
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center transition-colors"
+                          style={{ background: 'rgba(0,0,0,0.5)', color: '#fff' }} title="Add to Playlist">
+                          <ListMusic className="w-3.5 h-3.5" />
+                        </div>
+                      </AddToPlaylistMenu>
+                    </div>
 
                     {/* Play overlay (audio only) */}
                     {isAudio && s.audio_url && (

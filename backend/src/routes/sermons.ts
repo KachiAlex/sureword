@@ -98,18 +98,20 @@ router.delete('/featured/:sermon_id', authenticateToken, requireRole('admin'), a
   }
 })
 
-// Radio current - returns the sermon currently on air based on active playlist
+// Radio current - returns the sermon currently on air based on active schedule
 router.get('/radio/current', async (_req, res) => {
   try {
     await initDb()
     const now = new Date()
-    const playlist = await db.get(
-      `SELECT * FROM sermon_playlists
-       WHERE is_active = TRUE AND start_time <= $1 AND (end_time IS NULL OR end_time >= $1)
-       ORDER BY start_time DESC LIMIT 1`,
+    const schedule = await db.get(
+      `SELECT rs.*, p.title as playlist_title
+       FROM radio_schedules rs
+       JOIN playlists p ON p.id = rs.playlist_id
+       WHERE rs.is_active = TRUE AND rs.start_time <= $1 AND (rs.end_time IS NULL OR rs.end_time >= $1)
+       ORDER BY rs.start_time DESC LIMIT 1`,
       [now.toISOString()]
     )
-    if (!playlist) {
+    if (!schedule) {
       // Fall back to most recent sermon
       const latest = await db.get('SELECT * FROM sermons ORDER BY date DESC LIMIT 1')
       const stream = getRadioStatus()
@@ -122,17 +124,22 @@ router.get('/radio/current', async (_req, res) => {
       return
     }
     const items = await db.all(
-      `SELECT spi.id as item_id, spi.sermon_id, spi.order_index, spi.duration_minutes,
-              s.title, s.speaker, s.audio_url, s.thumbnail_url, s.description, s.scripture_reference
-       FROM sermon_playlist_items spi
-       JOIN sermons s ON s.id = spi.sermon_id
-       WHERE spi.playlist_id = $1
-       ORDER BY spi.order_index ASC`,
-      [playlist.id]
+      `SELECT pi.id as item_id, pi.content_type, pi.content_id, pi.order_index, pi.duration_minutes,
+              COALESCE(s.title, m.title) as title,
+              COALESCE(s.speaker, m.artist) as speaker,
+              COALESCE(s.audio_url, m.audio_url) as audio_url,
+              COALESCE(s.thumbnail_url, m.cover_url) as thumbnail_url,
+              s.description, s.scripture_reference
+       FROM playlist_items pi
+       LEFT JOIN sermons s ON s.id = pi.content_id AND pi.content_type = 'sermon'
+       LEFT JOIN music m ON m.id = pi.content_id AND pi.content_type = 'music'
+       WHERE pi.playlist_id = $1
+       ORDER BY pi.order_index ASC`,
+      [schedule.playlist_id]
     )
     if (!items || items.length === 0) { res.json({ current: null, playlist: null }); return }
 
-    const elapsedMin = (now.getTime() - new Date(playlist.start_time).getTime()) / 60000
+    const elapsedMin = (now.getTime() - new Date(schedule.start_time).getTime()) / 60000
     const totalDuration = items.reduce((s: number, i: any) => s + (i.duration_minutes || 30), 0)
     const loopedMin = totalDuration > 0 ? elapsedMin % totalDuration : 0
 
@@ -150,7 +157,7 @@ router.get('/radio/current', async (_req, res) => {
     res.json({
       current: {
         itemId: currentItem.item_id,
-        sermonId: currentItem.sermon_id,
+        sermonId: currentItem.content_id,
         title: currentItem.title,
         speaker: currentItem.speaker,
         audioUrl: currentItem.audio_url,
@@ -159,7 +166,7 @@ router.get('/radio/current', async (_req, res) => {
         scriptureReference: currentItem.scripture_reference,
         offsetSeconds: Math.floor(offsetMin * 60),
       },
-      playlist: { id: playlist.id, title: playlist.title, startTime: playlist.start_time },
+      playlist: { id: schedule.playlist_id, title: schedule.playlist_title, startTime: schedule.start_time },
       isStreaming: !!stream,
       streamKey: stream?.streamKey || 'sermon-radio',
     })

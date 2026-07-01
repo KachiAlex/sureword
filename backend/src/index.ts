@@ -25,6 +25,8 @@ import printMediaRoutes from './routes/print-media.js'
 import bookmarkRoutes from './routes/bookmarks.js'
 import historyRoutes from './routes/history.js'
 import sermonPlaylistRoutes from './routes/sermon-playlists.js'
+import playlistRoutes from './routes/playlists.js'
+import radioScheduleRoutes from './routes/radio-schedules.js'
 import musicRoutes from './routes/music.js'
 import uploadsRoutes from './routes/uploads.js'
 import radioRoutes from './routes/radio.js'
@@ -109,6 +111,8 @@ app.use('/print-media', printMediaRoutes)
 app.use('/bookmarks', bookmarkRoutes)
 app.use('/history', historyRoutes)
 app.use('/sermon-playlists', sermonPlaylistRoutes)
+app.use('/playlists', playlistRoutes)
+app.use('/radio-schedules', radioScheduleRoutes)
 app.use('/music', musicRoutes)
 app.use('/uploads', uploadsRoutes)
 app.use('/radio', radioRoutes)

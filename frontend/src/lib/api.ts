@@ -94,6 +94,11 @@ export interface SermonPlaylist { id: string; title: string; description: string
 export interface SermonPlaylistItem { id: string; playlist_id: string; sermon_id: string; order_index: number; duration_minutes: number; title?: string; speaker?: string; thumbnail_url?: string; audio_url?: string }
 export interface RadioCurrent { itemId: string; sermonId: string; title: string; speaker: string; audioUrl: string; thumbnailUrl?: string; description?: string; scriptureReference?: string; offsetSeconds: number }
 
+/* ─── New Playlist Model ─── */
+export interface Playlist { id: string; title: string; description?: string; repeat_mode: 'none' | 'all' | 'one'; shuffle: boolean; created_at: string }
+export interface PlaylistItem { id: string; playlist_id: string; content_type: 'sermon' | 'music'; content_id: string; order_index: number; duration_minutes: number; title?: string; speaker?: string; thumbnail_url?: string; audio_url?: string }
+export interface RadioSchedule { id: string; playlist_id: string; playlist_title?: string; start_time: string; end_time?: string; is_active: boolean; created_at: string }
+
 /* ─── Queries ─── */
 export function useBroadcasts() {
   return useQuery<Broadcast[]>({
@@ -512,6 +517,42 @@ export function useSermonPlaylistItems(playlistId?: string) {
     const { data } = await api.get(`/sermon-playlists/${playlistId}/items`)
     return data.items as SermonPlaylistItem[]
   }, enabled: !!playlistId })
+}
+
+/* ─── New Playlist Hooks ─── */
+export function usePlaylists() {
+  return useQuery<Playlist[]>({ queryKey: ['playlists'], queryFn: async () => {
+    const { data } = await api.get('/playlists')
+    return data.playlists as Playlist[]
+  }})
+}
+
+export function usePlaylistItems(playlistId?: string) {
+  return useQuery<PlaylistItem[]>({ queryKey: ['playlists', playlistId, 'items'], queryFn: async () => {
+    const { data } = await api.get(`/playlists/${playlistId}/items`)
+    return data.items as PlaylistItem[]
+  }, enabled: !!playlistId })
+}
+
+export function useRadioSchedules() {
+  return useQuery<RadioSchedule[]>({ queryKey: ['radio-schedules'], queryFn: async () => {
+    const { data } = await api.get('/radio-schedules')
+    return data.schedules as RadioSchedule[]
+  }})
+}
+
+export function useActiveRadioSchedule() {
+  return useQuery<RadioSchedule | null>({ queryKey: ['radio-schedules', 'active'], queryFn: async () => {
+    const { data } = await api.get('/radio-schedules/active')
+    return data.schedule as RadioSchedule | null
+  }})
+}
+
+export function useMusicTracks() {
+  return useQuery<MusicTrack[]>({ queryKey: ['music'], queryFn: async () => {
+    const { data } = await api.get('/music')
+    return data.music as MusicTrack[]
+  }})
 }
 
 // ── Bookmarks ──────────────────────────────────────────────────

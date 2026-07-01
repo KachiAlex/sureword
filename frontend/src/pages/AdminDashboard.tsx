@@ -24,10 +24,11 @@ const EventManager = lazy(() => import('../components/admin/EventManager'))
 const DailyVerseManager = lazy(() => import('../components/admin/DailyVerseManager'))
 const PrintManager = lazy(() => import('../components/admin/PrintManager'))
 const SermonPlaylistManager = lazy(() => import('../components/admin/SermonPlaylistManager'))
+const SermonRadioManager = lazy(() => import('../components/admin/SermonRadioManager'))
 
 interface ChatMessage { id: string; broadcast_id?: string; user_name: string; message: string; created_at: string }
 
-type Tab = 'dashboard' | 'broadcasts' | 'users' | 'sermons' | 'chat' | 'settings' | 'music' | 'speakers' | 'prayer' | 'testimonies' | 'events' | 'dailyverse' | 'print' | 'playlists'
+type Tab = 'dashboard' | 'broadcasts' | 'users' | 'sermons' | 'chat' | 'settings' | 'music' | 'speakers' | 'prayer' | 'testimonies' | 'events' | 'dailyverse' | 'print' | 'playlists' | 'radio'
 
 function formatDuration(totalSeconds: number) {
   const h = Math.floor(totalSeconds / 3600)
@@ -329,6 +330,7 @@ export default function AdminDashboard() {
         <NavItem label="Overview" tab="dashboard" icon={LayoutGrid} />
         <NavItem label="Broadcast Console" tab="broadcasts" icon={Radio} />
         <NavItem label="Playlist Manager" tab="playlists" icon={ListMusic} />
+        <NavItem label="Sermon Radio" tab="radio" icon={Radio} />
         <NavGroup title="Content" />
         <NavItem label="Sermons" tab="sermons" icon={BookOpen} />
         <NavItem label="Print Media" tab="print" icon={FileText} />
@@ -683,6 +685,13 @@ export default function AdminDashboard() {
               <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Sermon Playlists</div>
               <Suspense fallback={<div className="p-8 text-center text-sm" style={{ color: 'var(--ash)' }}>Loading...</div>}>
                 <SermonPlaylistManager onRefresh={refresh} />
+              </Suspense>
+            </div>
+          ) : activeTab === 'radio' ? (
+            <div className="admin-card p-4">
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Sermon Radio Schedules</div>
+              <Suspense fallback={<div className="p-8 text-center text-sm" style={{ color: 'var(--ash)' }}>Loading...</div>}>
+                <SermonRadioManager onRefresh={refresh} />
               </Suspense>
             </div>
           ) : null}

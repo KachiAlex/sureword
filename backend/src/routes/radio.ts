@@ -12,10 +12,10 @@ router.post('/start', authenticateToken, requireRole('admin'), async (req: Authe
     if (!playlistId) { res.status(400).json({ error: 'playlistId required' }); return }
 
     await initDb()
-    const playlist = await db.get('SELECT * FROM sermon_playlists WHERE id = $1', [playlistId])
+    const playlist = await db.get('SELECT * FROM playlists WHERE id = $1', [playlistId])
     if (!playlist) { res.status(404).json({ error: 'Playlist not found' }); return }
 
-    await startRadio(playlistId)
+    await startRadio(playlistId, playlist.shuffle, playlist.repeat_mode)
 
     res.json({ success: true, message: 'Radio started', playlistId })
   } catch (err: any) {
@@ -50,12 +50,20 @@ router.post('/skip', authenticateToken, requireRole('admin'), async (_req, res) 
 router.get('/status', async (_req, res) => {
   try {
     const status = getRadioStatus()
-    let playlist = null
+    let schedule = null
     if (status) {
       await initDb()
-      playlist = await db.get('SELECT id, title, start_time, end_time, is_active FROM sermon_playlists WHERE id = $1', [status.playlistId])
+      const now = new Date().toISOString()
+      schedule = await db.get(
+        `SELECT rs.id, p.title, rs.start_time, rs.end_time, rs.is_active
+         FROM radio_schedules rs
+         JOIN playlists p ON p.id = rs.playlist_id
+         WHERE rs.playlist_id = $1 AND rs.start_time <= $2 AND (rs.end_time IS NULL OR rs.end_time >= $2)
+         ORDER BY rs.start_time ASC LIMIT 1`,
+        [status.playlistId, now]
+      )
     }
-    res.json({ status, playlist })
+    res.json({ status, playlist: schedule })
   } catch (err: any) {
     console.error('[RADIO] status error:', err.message)
     res.status(500).json({ error: err.message })

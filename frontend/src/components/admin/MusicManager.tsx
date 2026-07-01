@@ -1,6 +1,7 @@
 ﻿import { useState, useRef } from 'react'
 import { api } from '../../lib/api'
-import { Music, Plus, Loader2, Trash2, Link2, Upload, FileAudio, Image } from 'lucide-react'
+import AddToPlaylistMenu from '../../components/AddToPlaylistMenu'
+import { Music, Plus, Loader2, Trash2, Link2, Upload, FileAudio, Image, ListMusic } from 'lucide-react'
 
 interface MusicTrack {
   id: string
@@ -310,6 +311,15 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
                   </p>
                 </div>
                 <audio src={track.audio_url} controls className="h-8 w-40 hidden sm:block" />
+                <AddToPlaylistMenu contentType="music" contentId={track.id} duration={track.duration}>
+                  <button
+                    title="Add to Playlist"
+                    className="p-1.5 rounded-lg transition-colors shrink-0"
+                    style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--dim)' }}
+                  >
+                    <ListMusic className="w-4 h-4" />
+                  </button>
+                </AddToPlaylistMenu>
                 <button
                   onClick={() => deleteTrack(track.id)}
                   disabled={deleting === track.id}
