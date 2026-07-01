@@ -98,7 +98,7 @@ function StreamPlayer({ broadcastId, title, thumbnailUrl, streamKey, streamType 
     if (!('mediaSession' in navigator)) return
     const artwork: MediaImage[] = thumbnailUrl
       ? [{ src: thumbnailUrl, sizes: '512x512', type: 'image/jpeg' }]
-      : [{ src: '/logo.png', sizes: '512x512', type: 'image/png' }]
+      : [{ src: '/icon-512.png', sizes: '512x512', type: 'image/png' }]
     navigator.mediaSession.metadata = new MediaMetadata({
       title: broadcastTitle, artist: 'SUREWORD RADIO', album: 'The Whole Word to the Whole World', artwork
     })

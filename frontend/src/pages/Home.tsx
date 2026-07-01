@@ -12,19 +12,18 @@ import StructuredData from '../components/StructuredData'
 import { Play, Pause, BookOpen, Download, FileText, Bell, X, Radio, Video } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
-/* ── Logo SVGs ── */
+/* ── Logo ── */
 function SignalLogo({ size = 100 }: { size?: number }) {
   return (
-    <svg viewBox="0 0 60 60" width={size} height={size} aria-hidden="true">
-      <circle cx="30" cy="30" r="29" fill="#2f1206" stroke="#E05A1A" strokeWidth="2" />
-      <circle cx="30" cy="30" r="20" fill="none" stroke="#F5A623" strokeWidth="1" strokeDasharray="3 4" />
-      <rect x="24" y="12" width="12" height="21" rx="6" fill="#E05A1A" />
-      <line x1="30" y1="33" x2="30" y2="40" stroke="#F5A623" strokeWidth="2" />
-      <line x1="23" y1="40" x2="37" y2="40" stroke="#F5A623" strokeWidth="2" strokeLinecap="round" />
-      <line x1="25" y1="19" x2="35" y2="19" stroke="#fff" strokeWidth="1" opacity=".5" />
-      <line x1="25" y1="23" x2="35" y2="23" stroke="#fff" strokeWidth="1" opacity=".5" />
-      <line x1="25" y1="27" x2="35" y2="27" stroke="#fff" strokeWidth="1" opacity=".5" />
-    </svg>
+    <img
+      src="/logo.png"
+      alt="Sure Word Radio"
+      width={size}
+      height={size}
+      style={{ borderRadius: '50%', objectFit: 'cover' }}
+      loading="eager"
+      decoding="async"
+    />
   )
 }
 

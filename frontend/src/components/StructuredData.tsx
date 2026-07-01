@@ -5,7 +5,7 @@
     name: 'SureWord Radio',
     alternateName: 'The Whole Word to the Whole World',
     url: 'https://surewordradio.org',
-    logo: 'https://surewordradio.org/icon-512.svg',
+    logo: 'https://surewordradio.org/logo.png',
     description: 'The official digital radio ministry of Sure Word Media.',
     sameAs: [
       'https://facebook.com/surewordradio',

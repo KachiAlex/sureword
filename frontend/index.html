@@ -7,21 +7,28 @@
     <meta name="theme-color" content="#faf8f5" media="(prefers-color-scheme: light)" />
 
     <!-- Favicons -->
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/logo.png" />
-    <link rel="apple-touch-icon" href="/icon-192.svg" />
-    <link rel="mask-icon" href="/favicon.svg" color="#E05A1A" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/logo.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icon-192.png" />
+    <link rel="mask-icon" href="/logo.png" color="#E05A1A" />
 
-    <!-- Preconnects -->
+    <!-- Performance: Preconnect to critical origins -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://sureword.fly.dev" />
+    <link rel="dns-prefetch" href="https://sureword.fly.dev" />
+    <link rel="dns-prefetch" href="https://res.cloudinary.com" />
 
     <!-- Primary Meta -->
     <title>SureWord Radio - The Whole Word to the Whole World</title>
-    <meta name="description" content="SureWord Radio - The Whole Word to the Whole World. Live broadcasts, sermons, podcasts, music, and community for Sure Word Media." />
-    <meta name="keywords" content="SureWord Radio, live broadcast, sermons, podcast, Christian radio, church, scripture, prayer, Sure Word Media" />
+    <meta name="description" content="SureWord Radio brings the whole Word to the whole world. Listen to live broadcasts, on-demand sermons, Christian podcasts, worship music, and join our prayer community — 24/7." />
+    <meta name="keywords" content="SureWord Radio, live broadcast, sermons, Christian podcast, worship music, church radio, scripture, prayer, Sure Word Media, gospel, faith, online radio" />
     <meta name="author" content="Sure Word Media" />
-    <meta name="robots" content="index, follow" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="googlebot" content="index, follow" />
+    <meta name="bingbot" content="index, follow" />
+    <meta name="language" content="English" />
+    <meta name="revisit-after" content="7 days" />
 
     <!-- Canonical -->
     <link rel="canonical" href="https://surewordradio.org/" />
@@ -29,10 +36,11 @@
     <!-- Open Graph -->
     <meta property="og:site_name" content="SureWord Radio" />
     <meta property="og:title" content="SureWord Radio - The Whole Word to the Whole World" />
-    <meta property="og:description" content="Live broadcasts, sermons, podcasts, music, and community for Sure Word Media." />
+    <meta property="og:description" content="Listen to live broadcasts, on-demand sermons, Christian podcasts, worship music, and join our prayer community — 24/7." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://surewordradio.org/" />
     <meta property="og:image" content="https://surewordradio.org/logo.png" />
+    <meta property="og:image:alt" content="SureWord Radio logo - The Whole Word to the Whole World" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:locale" content="en_US" />
@@ -40,8 +48,9 @@
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="SureWord Radio - The Whole Word to the Whole World" />
-    <meta name="twitter:description" content="Live broadcasts, sermons, podcasts, music, and community for Sure Word Media." />
+    <meta name="twitter:description" content="Listen to live broadcasts, on-demand sermons, Christian podcasts, worship music, and join our prayer community — 24/7." />
     <meta name="twitter:image" content="https://surewordradio.org/logo.png" />
+    <meta name="twitter:image:alt" content="SureWord Radio logo" />
 
     <!-- PWA -->
     <link rel="manifest" href="/manifest.json" />
@@ -49,9 +58,19 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="SureWord Radio" />
     <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- Color scheme -->
+    <meta name="color-scheme" content="dark light" />
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <noscript>
+      <div style="max-width:600px;margin:80px auto;padding:0 24px;font-family:system-ui,sans-serif;text-align:center;color:#333;">
+        <h1 style="font-size:24px;margin-bottom:12px;">SureWord Radio</h1>
+        <p>JavaScript is required to use this site. Please enable JavaScript in your browser settings to listen to live broadcasts, sermons, and worship music.</p>
+        <p style="margin-top:16px;font-size:14px;color:#666;">The Whole Word to the Whole World — 24/7 Christian radio ministry.</p>
+      </div>
+    </noscript>
   </body>
 </html>

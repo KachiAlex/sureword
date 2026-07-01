@@ -6,18 +6,17 @@ import {
   Search, Users, Menu, X, LayoutDashboard, LogOut, LogIn
 } from 'lucide-react'
 
-function LogoSVG({ size = 40 }: { size?: number }) {
+function LogoImg({ size = 40 }: { size?: number }) {
   return (
-    <svg viewBox="0 0 40 40" width={size} height={size} aria-label="Sure Word Radio logo">
-      <circle cx="20" cy="20" r="19" fill="#2f1206" stroke="#E05A1A" strokeWidth="1.5" />
-      <circle cx="20" cy="20" r="13" fill="none" stroke="#F5A623" strokeWidth=".8" strokeDasharray="2 3" />
-      <rect x="16.5" y="9" width="7" height="13" rx="3.5" fill="#E05A1A" />
-      <line x1="20" y1="22" x2="20" y2="27" stroke="#F5A623" strokeWidth="1.5" />
-      <line x1="16" y1="27" x2="24" y2="27" stroke="#F5A623" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="17" y1="13" x2="23" y2="13" stroke="#fff" strokeWidth=".7" opacity=".5" />
-      <line x1="17" y1="15.5" x2="23" y2="15.5" stroke="#fff" strokeWidth=".7" opacity=".5" />
-      <line x1="17" y1="18" x2="23" y2="18" stroke="#fff" strokeWidth=".7" opacity=".5" />
-    </svg>
+    <img
+      src="/logo.png"
+      alt="Sure Word Radio"
+      width={size}
+      height={size}
+      style={{ borderRadius: '50%', objectFit: 'cover' }}
+      loading="eager"
+      decoding="async"
+    />
   )
 }
 
@@ -56,7 +55,7 @@ export default function Navbar() {
       <div className="max-w-[1200px] mx-auto px-6" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 62, gap: 20 }}>
         {/* Logo */}
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-          <LogoSVG size={38} />
+          <LogoImg size={38} />
           <div style={{ lineHeight: 1 }} className="hidden sm:block">
             <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 20, letterSpacing: '.06em', color: 'var(--white)' }}>Sure Word Radio</div>
             <div style={{ fontSize: 10, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ash)' }}>surewordradio.org</div>
