@@ -13,8 +13,18 @@ export default function SermonRadioManager({ onRefresh }: { onRefresh?: () => vo
   const { data: activeSchedule } = useActiveRadioSchedule()
 
   const [creating, setCreating] = useState(false)
-  const [form, setForm] = useState({ playlist_id: '', start_time: '', end_time: '' })
+  const [form, setForm] = useState({
+    playlist_id: '',
+    start_date: '', start_time: '',
+    end_date: '', end_time: '',
+  })
   const [saving, setSaving] = useState(false)
+
+  function toISO(date: string, time: string) {
+    if (!date) return ''
+    const t = time || '00:00'
+    return new Date(`${date}T${t}`).toISOString()
+  }
 
   const [radioLoading, setRadioLoading] = useState(false)
 
@@ -27,16 +37,16 @@ export default function SermonRadioManager({ onRefresh }: { onRefresh?: () => vo
 
   async function createSchedule(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.playlist_id || !form.start_time) return
+    if (!form.playlist_id || !form.start_date) return
     setSaving(true)
     try {
       await api.post('/radio-schedules', {
         playlist_id: form.playlist_id,
-        start_time: new Date(form.start_time).toISOString(),
-        end_time: form.end_time ? new Date(form.end_time).toISOString() : null,
+        start_time: toISO(form.start_date, form.start_time),
+        end_time: form.end_date ? toISO(form.end_date, form.end_time) : null,
       })
       setCreating(false)
-      setForm({ playlist_id: '', start_time: '', end_time: '' })
+      setForm({ playlist_id: '', start_date: '', start_time: '', end_date: '', end_time: '' })
       refresh()
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to create schedule')
@@ -144,15 +154,29 @@ export default function SermonRadioManager({ onRefresh }: { onRefresh?: () => vo
                 {playlists.map(pl => <option key={pl.id} value={pl.id}>{pl.title}</option>)}
               </select>
             </div>
-            <div>
-              <label className="block text-[10px] mb-1" style={{ color: 'var(--dim)' }}><Calendar className="w-3 h-3 inline mr-1" />Start Time *</label>
-              <input type="datetime-local" value={form.start_time} onChange={e => setForm({ ...form, start_time: e.target.value })} required
-                className="w-full rounded-xl px-4 py-2.5 text-sm" style={inp} />
+            <div className="sm:col-span-2 grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] mb-1" style={{ color: 'var(--dim)' }}><Calendar className="w-3 h-3 inline mr-1" />Start Date *</label>
+                <input type="date" value={form.start_date} onChange={e => setForm({ ...form, start_date: e.target.value })} required
+                  className="w-full rounded-xl px-4 py-2.5 text-sm" style={inp} />
+              </div>
+              <div>
+                <label className="block text-[10px] mb-1" style={{ color: 'var(--dim)' }}><Clock className="w-3 h-3 inline mr-1" />Start Time *</label>
+                <input type="time" value={form.start_time} onChange={e => setForm({ ...form, start_time: e.target.value })} required
+                  className="w-full rounded-xl px-4 py-2.5 text-sm" style={inp} />
+              </div>
             </div>
-            <div>
-              <label className="block text-[10px] mb-1" style={{ color: 'var(--dim)' }}><Calendar className="w-3 h-3 inline mr-1" />End Time (optional)</label>
-              <input type="datetime-local" value={form.end_time} onChange={e => setForm({ ...form, end_time: e.target.value })}
-                className="w-full rounded-xl px-4 py-2.5 text-sm" style={inp} />
+            <div className="sm:col-span-2 grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] mb-1" style={{ color: 'var(--dim)' }}><Calendar className="w-3 h-3 inline mr-1" />End Date (optional)</label>
+                <input type="date" value={form.end_date} onChange={e => setForm({ ...form, end_date: e.target.value })}
+                  className="w-full rounded-xl px-4 py-2.5 text-sm" style={inp} />
+              </div>
+              <div>
+                <label className="block text-[10px] mb-1" style={{ color: 'var(--dim)' }}><Clock className="w-3 h-3 inline mr-1" />End Time (optional)</label>
+                <input type="time" value={form.end_time} onChange={e => setForm({ ...form, end_time: e.target.value })}
+                  className="w-full rounded-xl px-4 py-2.5 text-sm" style={inp} />
+              </div>
             </div>
             <div className="sm:col-span-2 flex gap-2">
               <button type="submit" disabled={saving} className="btn-gold disabled:opacity-50 text-sm">
