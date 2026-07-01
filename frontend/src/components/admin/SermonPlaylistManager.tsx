@@ -1,10 +1,10 @@
-﻿import { useState, useMemo } from 'react'
+﻿import { useState, useMemo, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { api, useSermons, useMusicTracks, usePlaylists, usePlaylistItems, type Playlist } from '../../lib/api'
 import {
   Plus, Trash2, Loader2, ListMusic, Clock, Save, X,
   Headphones, Search, BookOpen, Music, Upload, GripVertical,
-  Repeat, Shuffle
+  Repeat, Shuffle, Play, Pause
 } from 'lucide-react'
 
 export default function SermonPlaylistManager({ onRefresh }: { onRefresh?: () => void }) {
@@ -33,12 +33,20 @@ export default function SermonPlaylistManager({ onRefresh }: { onRefresh?: () =>
 
   // ── Inline upload ─────────────────────────────────────────
   const [uploadOpen, setUploadOpen] = useState(false)
-  const [uploadForm, setUploadForm] = useState({ title: '', speaker: '', scripture_reference: '', description: '' })
+  const [uploadType, setUploadType] = useState<'sermon' | 'music'>('sermon')
+  const [uploadForm, setUploadForm] = useState({
+    title: '', speaker: '', scripture_reference: '', description: '',
+    artist: '', album: '', genre: '', lyrics: '', duration: ''
+  })
   const [audioFile, setAudioFile] = useState<File | null>(null)
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
   const [thumbnailPreview, setThumbnailPreview] = useState('')
   const [uploading, setUploading] = useState(false)
   const [uploadStep, setUploadStep] = useState('')
+
+  // ── Audio preview ─────────────────────────────────────────
+  const [playingId, setPlayingId] = useState<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
   const inPlaylist = useMemo(() => new Set(items.map(i => i.content_id)), [items])
 
@@ -63,6 +71,7 @@ export default function SermonPlaylistManager({ onRefresh }: { onRefresh?: () =>
     qc.invalidateQueries({ queryKey: ['playlists', selectedId, 'items'] })
     qc.invalidateQueries({ queryKey: ['sermons'] })
     qc.invalidateQueries({ queryKey: ['sermons', 'radio', 'current'] })
+    qc.invalidateQueries({ queryKey: ['music'] })
     onRefresh?.()
   }
 
@@ -179,6 +188,19 @@ export default function SermonPlaylistManager({ onRefresh }: { onRefresh?: () =>
   const totalMin = items.reduce((s, i) => s + (i.duration_minutes || 30), 0)
   const inp = { background: 'var(--ink)', border: '1px solid var(--line)', color: 'var(--parchment)' }
 
+  function togglePlay(audioUrl: string, id: string) {
+    if (playingId === id) {
+      audioRef.current?.pause()
+      setPlayingId(null)
+    } else {
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = '' }
+      const audio = new Audio(audioUrl)
+      audioRef.current = audio
+      audio.play().then(() => setPlayingId(id)).catch(() => setPlayingId(null))
+      audio.onended = () => setPlayingId(null)
+    }
+  }
+
   // ── Upload helpers ──
   async function uploadToCloudinary(file: File, folder: string): Promise<string> {
     const { data: sig } = await api.get(`/music/signature?folder=${folder}`)
@@ -200,31 +222,56 @@ export default function SermonPlaylistManager({ onRefresh }: { onRefresh?: () =>
     setUploading(true)
     try {
       setUploadStep('Uploading audio to Cloudinary...')
-      const audioUrl = await uploadToCloudinary(audioFile, 'sureword/sermons/audio')
+      const audioUrl = await uploadToCloudinary(audioFile, uploadType === 'sermon' ? 'sureword/sermons/audio' : 'sureword/music/audio')
       let thumbnailUrl = ''
       if (thumbnailFile) {
-        setUploadStep('Uploading thumbnail...')
-        thumbnailUrl = await uploadToCloudinary(thumbnailFile, 'sureword/sermons/thumbnails')
+        setUploadStep('Uploading cover art...')
+        thumbnailUrl = await uploadToCloudinary(thumbnailFile, uploadType === 'sermon' ? 'sureword/sermons/thumbnails' : 'sureword/music/covers')
       }
-      setUploadStep('Creating sermon...')
-      const { data: sermonData } = await api.post('/sermons', {
-        title: uploadForm.title,
-        speaker: uploadForm.speaker,
-        scripture_reference: uploadForm.scripture_reference,
-        description: uploadForm.description,
-        date: new Date().toISOString().slice(0, 10),
-        audio_url: audioUrl,
-        thumbnail_url: thumbnailUrl || undefined,
-      })
-      setUploadStep('Adding to playlist...')
-      await api.post(`/playlists/${selectedId}/items`, {
-        content_type: 'sermon',
-        content_id: sermonData.id || sermonData.sermon?.id,
-        order_index: items.length,
-        duration_minutes: 30,
-      })
+
+      if (uploadType === 'sermon') {
+        setUploadStep('Creating sermon...')
+        const { data: sermonData } = await api.post('/sermons', {
+          title: uploadForm.title,
+          speaker: uploadForm.speaker,
+          scripture_reference: uploadForm.scripture_reference,
+          description: uploadForm.description,
+          date: new Date().toISOString().slice(0, 10),
+          audio_url: audioUrl,
+          thumbnail_url: thumbnailUrl || undefined,
+        })
+        setUploadStep('Adding to playlist...')
+        await api.post(`/playlists/${selectedId}/items`, {
+          content_type: 'sermon',
+          content_id: sermonData.id || sermonData.sermon?.id,
+          order_index: items.length,
+          duration_minutes: 30,
+        })
+      } else {
+        setUploadStep('Creating music track...')
+        const { data: musicData } = await api.post('/music', {
+          title: uploadForm.title,
+          artist: uploadForm.artist,
+          album: uploadForm.album,
+          genre: uploadForm.genre,
+          audio_url: audioUrl,
+          cover_url: thumbnailUrl || '',
+          duration: uploadForm.duration ? parseInt(uploadForm.duration) : 0,
+          lyrics: uploadForm.lyrics || '',
+          file_format: audioFile.type,
+          file_size: audioFile.size,
+        })
+        setUploadStep('Adding to playlist...')
+        await api.post(`/playlists/${selectedId}/items`, {
+          content_type: 'music',
+          content_id: musicData.id || musicData.music?.id || musicData.track?.id,
+          order_index: items.length,
+          duration_minutes: uploadForm.duration ? Math.ceil(parseInt(uploadForm.duration) / 60) : 3,
+        })
+      }
+
       setUploadOpen(false)
-      setUploadForm({ title: '', speaker: '', scripture_reference: '', description: '' })
+      setUploadForm({ title: '', speaker: '', scripture_reference: '', description: '', artist: '', album: '', genre: '', lyrics: '', duration: '' })
       setAudioFile(null)
       setThumbnailFile(null)
       setThumbnailPreview('')
@@ -381,6 +428,14 @@ export default function SermonPlaylistManager({ onRefresh }: { onRefresh?: () =>
                               {item.duration_minutes ? ` · ${item.duration_minutes} min` : ''}
                             </p>
                           </div>
+                          {item.content_type === 'music' && item.audio_url && (
+                            <button onClick={() => togglePlay(item.audio_url, item.id)}
+                              className="p-1.5 rounded-lg transition-colors shrink-0"
+                              style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: playingId === item.id ? 'var(--gold)' : 'var(--dim)' }}
+                              title={playingId === item.id ? 'Pause' : 'Play'}>
+                              {playingId === item.id ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                            </button>
+                          )}
                           <button onClick={() => deleteItem(item.id)} className="p-1.5 text-red-400 hover:text-red-300 transition-colors shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
                         </div>
                       ))}
@@ -396,25 +451,51 @@ export default function SermonPlaylistManager({ onRefresh }: { onRefresh?: () =>
               {uploadOpen && (
                 <div className="rounded-2xl p-5" style={{ background: 'var(--ink-2)', border: '1px solid var(--line)' }}>
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-semibold text-white">Upload &amp; Add Sermon</h4>
-                    <button onClick={() => { setUploadOpen(false); setUploadForm({ title: '', speaker: '', scripture_reference: '', description: '' }); setAudioFile(null); setThumbnailFile(null); setThumbnailPreview('') }} style={{ color: 'var(--dim)' }}><X className="w-4 h-4" /></button>
+                    <h4 className="text-sm font-semibold text-white">Upload &amp; Add {uploadType === 'sermon' ? 'Sermon' : 'Music'}</h4>
+                    <button onClick={() => { setUploadOpen(false); setUploadType('sermon'); setUploadForm({ title: '', speaker: '', scripture_reference: '', description: '', artist: '', album: '', genre: '', lyrics: '', duration: '' }); setAudioFile(null); setThumbnailFile(null); setThumbnailPreview('') }} style={{ color: 'var(--dim)' }}><X className="w-4 h-4" /></button>
+                  </div>
+                  {/* Type toggle */}
+                  <div className="flex gap-2 mb-4">
+                    <button onClick={() => setUploadType('sermon')} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${uploadType === 'sermon' ? 'bg-[var(--gold)] text-[#1b1208] border-transparent' : ''}`} style={uploadType !== 'sermon' ? { borderColor: 'var(--line)', color: 'var(--dim)' } : {}}>
+                      <BookOpen className="w-3.5 h-3.5" /> Sermon
+                    </button>
+                    <button onClick={() => setUploadType('music')} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${uploadType === 'music' ? 'bg-[var(--gold)] text-[#1b1208] border-transparent' : ''}`} style={uploadType !== 'music' ? { borderColor: 'var(--line)', color: 'var(--dim)' } : {}}>
+                      <Music className="w-3.5 h-3.5" /> Music
+                    </button>
                   </div>
                   <form onSubmit={handleUploadAndAdd} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <input placeholder="Title *" value={uploadForm.title} onChange={e => setUploadForm({ ...uploadForm, title: e.target.value })} required
                       className="w-full rounded-xl px-4 py-2.5 text-sm sm:col-span-2" style={inp} />
-                    <input placeholder="Speaker" value={uploadForm.speaker} onChange={e => setUploadForm({ ...uploadForm, speaker: e.target.value })}
-                      className="w-full rounded-xl px-4 py-2.5 text-sm" style={inp} />
-                    <input placeholder="Scripture Reference" value={uploadForm.scripture_reference} onChange={e => setUploadForm({ ...uploadForm, scripture_reference: e.target.value })}
-                      className="w-full rounded-xl px-4 py-2.5 text-sm" style={inp} />
-                    <textarea placeholder="Description" value={uploadForm.description} onChange={e => setUploadForm({ ...uploadForm, description: e.target.value })}
-                      rows={2} className="w-full rounded-xl px-4 py-2.5 text-sm sm:col-span-2" style={inp} />
+                    {uploadType === 'sermon' ? (
+                      <>
+                        <input placeholder="Speaker" value={uploadForm.speaker} onChange={e => setUploadForm({ ...uploadForm, speaker: e.target.value })}
+                          className="w-full rounded-xl px-4 py-2.5 text-sm" style={inp} />
+                        <input placeholder="Scripture Reference" value={uploadForm.scripture_reference} onChange={e => setUploadForm({ ...uploadForm, scripture_reference: e.target.value })}
+                          className="w-full rounded-xl px-4 py-2.5 text-sm" style={inp} />
+                        <textarea placeholder="Description" value={uploadForm.description} onChange={e => setUploadForm({ ...uploadForm, description: e.target.value })}
+                          rows={2} className="w-full rounded-xl px-4 py-2.5 text-sm sm:col-span-2" style={inp} />
+                      </>
+                    ) : (
+                      <>
+                        <input placeholder="Artist" value={uploadForm.artist} onChange={e => setUploadForm({ ...uploadForm, artist: e.target.value })}
+                          className="w-full rounded-xl px-4 py-2.5 text-sm" style={inp} />
+                        <input placeholder="Album" value={uploadForm.album} onChange={e => setUploadForm({ ...uploadForm, album: e.target.value })}
+                          className="w-full rounded-xl px-4 py-2.5 text-sm" style={inp} />
+                        <input placeholder="Genre" value={uploadForm.genre} onChange={e => setUploadForm({ ...uploadForm, genre: e.target.value })}
+                          className="w-full rounded-xl px-4 py-2.5 text-sm" style={inp} />
+                        <input placeholder="Duration (seconds)" type="number" value={uploadForm.duration} onChange={e => setUploadForm({ ...uploadForm, duration: e.target.value })}
+                          className="w-full rounded-xl px-4 py-2.5 text-sm" style={inp} />
+                        <textarea placeholder="Lyrics (optional)" value={uploadForm.lyrics} onChange={e => setUploadForm({ ...uploadForm, lyrics: e.target.value })}
+                          rows={2} className="w-full rounded-xl px-4 py-2.5 text-sm sm:col-span-2" style={inp} />
+                      </>
+                    )}
                     <div className="sm:col-span-2">
                       <label className="block text-[10px] mb-1" style={{ color: 'var(--dim)' }}>Audio File *</label>
                       <input type="file" accept="audio/*" onChange={e => setAudioFile(e.target.files?.[0] || null)}
                         className="w-full text-xs text-white" />
                     </div>
                     <div className="sm:col-span-2">
-                      <label className="block text-[10px] mb-1" style={{ color: 'var(--dim)' }}>Thumbnail (optional)</label>
+                      <label className="block text-[10px] mb-1" style={{ color: 'var(--dim)' }}>{uploadType === 'sermon' ? 'Thumbnail' : 'Cover Art'} (optional)</label>
                       <input type="file" accept="image/*" onChange={handleThumbnailChange} className="w-full text-xs text-white" />
                       {thumbnailPreview && <img src={thumbnailPreview} alt="Preview" className="w-16 h-16 rounded object-cover mt-2" />}
                     </div>
@@ -496,6 +577,14 @@ export default function SermonPlaylistManager({ onRefresh }: { onRefresh?: () =>
                                   <p className="text-sm font-medium truncate text-white">{t.title}</p>
                                   <p className="text-[10px]" style={{ color: 'var(--dim)' }}>{t.artist}{t.album ? ` · ${t.album}` : ''}{durMin ? ` · ${durMin} min` : ''}</p>
                                 </div>
+                                {t.audio_url && (
+                                  <button onClick={() => togglePlay(t.audio_url, t.id)}
+                                    className="p-1.5 rounded-lg transition-colors shrink-0"
+                                    style={{ background: 'var(--ink)', border: '1px solid var(--line)', color: playingId === t.id ? 'var(--gold)' : 'var(--dim)' }}
+                                    title={playingId === t.id ? 'Pause' : 'Play'}>
+                                    {playingId === t.id ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                                  </button>
+                                )}
                                 <button onClick={() => !already && addContentToPlaylist('music', t.id, t.duration)}
                                   disabled={already || isAdding}
                                   className="text-[11px] px-3 py-1.5 rounded-lg border transition-colors shrink-0 disabled:opacity-50"
