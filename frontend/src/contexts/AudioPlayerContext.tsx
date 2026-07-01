@@ -8,6 +8,7 @@ export interface Track {
   audioUrl: string
   thumbnail?: string
   trackType?: 'music' | 'sermon'
+  offsetSeconds?: number
 }
 
 type RepeatMode = 'off' | 'all' | 'one'
@@ -103,6 +104,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const loadAndPlay = useCallback((track: Track) => {
     if (audioRef.current) {
       audioRef.current.src = track.audioUrl
+      audioRef.current.currentTime = track.offsetSeconds || 0
       audioRef.current.play().catch(() => setIsPlaying(false))
       setIsPlaying(true)
       trackPlay(track)

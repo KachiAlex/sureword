@@ -357,7 +357,7 @@ export default function Home() {
               onClick={() => {
                 if (nowPlaying) {
                   if (currentTrack?.id === nowPlaying.itemId) togglePlay()
-                  else playTrack({ id: nowPlaying.itemId, title: nowPlaying.title, speaker: nowPlaying.speaker, audioUrl: nowPlaying.audioUrl, thumbnail: nowPlaying.thumbnailUrl, trackType: 'sermon' })
+                  else playTrack({ id: nowPlaying.itemId, title: nowPlaying.title, speaker: nowPlaying.speaker, audioUrl: nowPlaying.audioUrl, thumbnail: nowPlaying.thumbnailUrl, trackType: 'sermon', offsetSeconds: nowPlaying.offsetSeconds })
                 }
               }}>
                 {npActive ? <Pause style={{ width: 18, height: 18 }} /> : <Play style={{ width: 18, height: 18 }} />}
