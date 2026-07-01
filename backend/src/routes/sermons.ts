@@ -205,4 +205,15 @@ router.post('/:id/transcript', authenticateToken, requireRole('admin'), async (r
   }
 })
 
+// POST /sermons/:id/play  (public — increment play count)
+router.post('/:id/play', async (req, res) => {
+  try {
+    await initDb()
+    await db.run('UPDATE sermons SET play_count = COALESCE(play_count, 0) + 1 WHERE id = $1', [req.params.id])
+    res.json({ ok: true })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 export default router
