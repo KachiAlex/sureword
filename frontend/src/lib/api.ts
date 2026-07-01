@@ -541,6 +541,13 @@ export function useRadioSchedules() {
   }})
 }
 
+export function usePublicRadioSchedules() {
+  return useQuery<RadioSchedule[]>({ queryKey: ['radio-schedules', 'public'], queryFn: async () => {
+    const { data } = await api.get('/radio-schedules/public')
+    return data.schedules as RadioSchedule[]
+  }})
+}
+
 export function useActiveRadioSchedule() {
   return useQuery<RadioSchedule | null>({ queryKey: ['radio-schedules', 'active'], queryFn: async () => {
     const { data } = await api.get('/radio-schedules/active')

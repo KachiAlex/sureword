@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useNotifications } from '../contexts/NotificationContext'
 import {
   useActiveBroadcast, useFeaturedSermons, usePrintMedia,
-  useRadioCurrent
+  useRadioCurrent, usePublicRadioSchedules
 } from '../lib/api'
 import type { Sermon } from '../lib/api'
 import StructuredData from '../components/StructuredData'
@@ -95,6 +95,19 @@ function SermonListItem({ s, index, onPlay }: { s: Sermon; index: number; onPlay
     className="hover-lift"
     onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--flame)'; e.currentTarget.style.background = 'var(--mahog)' }}
     onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.background = 'var(--coal)' }}>
+      {/* Thumbnail */}
+      {s.thumbnail_url ? (
+        <img
+          src={s.thumbnail_url}
+          alt={s.title}
+          style={{ width: 52, height: 52, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }}
+          loading="lazy"
+        />
+      ) : (
+        <div style={{ width: 52, height: 52, borderRadius: 4, background: 'var(--panel2)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <BookOpen style={{ width: 20, height: 20, color: 'var(--ash)', opacity: 0.5 }} />
+        </div>
+      )}
       <div style={{
         fontFamily: "'Bebas Neue',sans-serif", fontSize: 22,
         color: isCurrent ? 'var(--flame)' : 'var(--ash)', minWidth: 28, textAlign: 'center'
@@ -131,6 +144,7 @@ export default function Home() {
   const { data: sermons = [], isLoading: sermonsLoading } = useFeaturedSermons()
   const { data: printItems = [], isLoading: printLoading } = usePrintMedia()
   const { data: radioData } = useRadioCurrent()
+  const { data: scheduleItems = [], isLoading: scheduleLoading } = usePublicRadioSchedules()
   const { playTrack, togglePlay, currentTrack, isPlaying } = useAudioPlayer()
   const isLive = broadcast?.status === 'live'
   const [dismissedPush, setDismissedPush] = useState(() => localStorage.getItem('push_dismissed') === '1')
@@ -389,41 +403,63 @@ export default function Home() {
           </p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 16 }}>
-          {[
-            { hr: '6:00', ap: 'AM', title: 'Morning Devotion', meta: 'Pastor Agyei · 45 min', now: false },
-            { hr: '8:00', ap: 'AM', title: 'Praise & Worship Hour', meta: 'Worship team · 60 min', now: false },
-            { hr: '10:00', ap: 'AM', title: nowPlaying?.title || 'Grace That Never Fails', meta: `${nowPlaying?.speaker || 'Reverend Austin Oviawe'} · Romans 5`, now: true },
-            { hr: '12:00', ap: 'PM', title: 'Midday Prayer', meta: 'Elder Grace · 30 min', now: false },
-            { hr: '2:00', ap: 'PM', title: 'Faith & Family', meta: 'Various speakers · 60 min', now: false },
-            { hr: '7:00', ap: 'PM', title: 'Evening Word', meta: 'Reverend Austin Oviawe · 45 min', now: false },
-          ].map((s) => (
-            <div key={s.hr + s.title} style={{
-              background: s.now ? 'var(--mahog)' : 'var(--coal)',
-              border: '1px solid var(--line)', borderRadius: 4, padding: '18px 20px',
-              display: 'flex', gap: 14, alignItems: 'flex-start',
-              transition: 'border-color .2s', cursor: 'pointer'
-            }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--flame)'}
-            onMouseLeave={e => e.currentTarget.style.borderColor = s.now ? 'var(--flame)' : 'var(--line)'}>
-              <div style={{ textAlign: 'center', minWidth: 48 }}>
-                <div className="font-bebas" style={{ fontSize: 22, color: 'var(--sunrise)', lineHeight: 1 }}>{s.hr}</div>
-                <div style={{ fontSize: 11, color: 'var(--ash)' }}>{s.ap}</div>
+          {scheduleLoading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} style={{ background: 'var(--coal)', border: '1px solid var(--line)', borderRadius: 4, padding: '18px 20px', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                <div style={{ textAlign: 'center', minWidth: 48 }}>
+                  <div style={{ height: 20, width: 40, background: 'var(--panel2)', borderRadius: 3, animation: 'shimmer 1.6s infinite' }} />
+                  <div style={{ height: 12, width: 24, background: 'var(--panel2)', borderRadius: 3, marginTop: 4, animation: 'shimmer 1.6s infinite' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ height: 14, background: 'var(--panel2)', borderRadius: 3, width: '70%', marginBottom: 8, animation: 'shimmer 1.6s infinite' }} />
+                  <div style={{ height: 10, background: 'var(--panel2)', borderRadius: 3, width: '50%', animation: 'shimmer 1.6s infinite' }} />
+                </div>
               </div>
-              <div>
-                {s.now && (
-                  <div style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 5,
-                    background: 'var(--flame)', color: '#fff', fontSize: 10, fontWeight: 700,
-                    letterSpacing: '.06em', padding: '3px 8px', borderRadius: 2, marginBottom: 5
-                  }}>
-                    <span className="ldot" style={{ width: 5, height: 5 }} /> LIVE
-                  </div>
-                )}
-                <div style={{ fontWeight: 600, fontSize: 14.5, marginBottom: 2, color: 'var(--white)' }}>{s.title}</div>
-                <div style={{ fontSize: 12, color: 'var(--ash)' }}>{s.meta}</div>
-              </div>
+            ))
+          ) : scheduleItems.length === 0 ? (
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '32px 0', color: 'var(--ash)' }}>
+              <Radio style={{ width: 32, height: 32, margin: '0 auto 8px', opacity: .4 }} />
+              <p>No upcoming broadcasts scheduled.</p>
             </div>
-          ))}
+          ) : scheduleItems.map((s) => {
+            const start = new Date(s.start_time)
+            const end = s.end_time ? new Date(s.end_time) : null
+            const now = new Date()
+            const isNow = start <= now && (!end || end >= now)
+            const hr = start.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true })
+            const ap = start.toLocaleTimeString('en-US', { minute: '2-digit' })
+            const dur = end ? Math.round((end.getTime() - start.getTime()) / 60000) : null
+            return (
+              <div key={s.id} style={{
+                background: isNow ? 'var(--mahog)' : 'var(--coal)',
+                border: '1px solid var(--line)', borderRadius: 4, padding: '18px 20px',
+                display: 'flex', gap: 14, alignItems: 'flex-start',
+                transition: 'border-color .2s', cursor: 'pointer'
+              }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--flame)'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = isNow ? 'var(--flame)' : 'var(--line)'}>
+                <div style={{ textAlign: 'center', minWidth: 48 }}>
+                  <div className="font-bebas" style={{ fontSize: 22, color: 'var(--sunrise)', lineHeight: 1 }}>{hr}</div>
+                  <div style={{ fontSize: 11, color: 'var(--ash)' }}>{ap}</div>
+                </div>
+                <div>
+                  {isNow && (
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      background: 'var(--flame)', color: '#fff', fontSize: 10, fontWeight: 700,
+                      letterSpacing: '.06em', padding: '3px 8px', borderRadius: 2, marginBottom: 5
+                    }}>
+                      <span className="ldot" style={{ width: 5, height: 5 }} /> LIVE
+                    </div>
+                  )}
+                  <div style={{ fontWeight: 600, fontSize: 14.5, marginBottom: 2, color: 'var(--white)' }}>{s.playlist_title || 'Broadcast'}</div>
+                  <div style={{ fontSize: 12, color: 'var(--ash)' }}>
+                    {dur ? `${dur} min` : 'Until finished'}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
         </div>
       </section>
 

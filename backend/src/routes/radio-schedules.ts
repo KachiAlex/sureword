@@ -64,6 +64,24 @@ router.delete('/:id', authenticateToken, requireRole('admin'), async (req, res) 
   } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
+/* ── GET /radio-schedules/public ────────────────────────────── */
+router.get('/public', async (_req, res) => {
+  try {
+    await initDb()
+    const now = new Date().toISOString()
+    const rows = await db.all(
+      `SELECT rs.*, p.title as playlist_title
+       FROM radio_schedules rs
+       JOIN playlists p ON p.id = rs.playlist_id
+       WHERE rs.is_active = true
+         AND (rs.end_time IS NULL OR rs.end_time >= $1)
+       ORDER BY rs.start_time ASC`,
+      [now]
+    )
+    res.json({ schedules: rows })
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
+})
+
 /* ── GET /radio-schedules/active ────────────────────────────── */
 router.get('/active', authenticateToken, requireRole('admin'), async (_req, res) => {
   try {
