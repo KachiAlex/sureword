@@ -9,7 +9,7 @@ import {
 } from '../lib/api'
 import type { Sermon } from '../lib/api'
 import StructuredData from '../components/StructuredData'
-import { Play, Pause, BookOpen, Download, FileText, Bell, X } from 'lucide-react'
+import { Play, Pause, BookOpen, Download, FileText, Bell, X, Radio, Video } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
 /* ── Logo SVGs ── */
@@ -199,16 +199,42 @@ export default function Home() {
 
             {/* LEFT */}
             <div style={{ paddingRight: 40 }}>
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 10,
-                background: 'rgba(224,90,26,.1)', border: '1px solid rgba(224,90,26,.25)',
-                borderLeft: '3px solid var(--flame)', padding: '8px 16px', marginBottom: 32,
-                fontSize: 11.5, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase',
-                color: 'var(--flame3)'
-              }}>
-                <span className="ldot" />
-                Broadcasting 24 hours · 7 days a week
-              </div>
+              {isLive ? (
+                <Link to={`/live/${broadcast.id}`} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 10,
+                  background: 'rgba(239,68,68,.12)', border: '1px solid rgba(239,68,68,.3)',
+                  borderLeft: '3px solid #ef4444', padding: '8px 16px', marginBottom: 32,
+                  fontSize: 11.5, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase',
+                  color: '#fca5a5', textDecoration: 'none', borderRadius: 2,
+                  transition: 'transform .15s'
+                }} className="hover:scale-[1.02]">
+                  <span className="ldot" style={{ background: '#ef4444', boxShadow: '0 0 6px #ef4444' }} />
+                  <Video style={{ width: 14, height: 14 }} /> Live Broadcast
+                </Link>
+              ) : nowPlaying ? (
+                <Link to="/archive" style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 10,
+                  background: 'rgba(201,162,39,.1)', border: '1px solid rgba(201,162,39,.25)',
+                  borderLeft: '3px solid var(--gold)', padding: '8px 16px', marginBottom: 32,
+                  fontSize: 11.5, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase',
+                  color: 'var(--flame3)', textDecoration: 'none', borderRadius: 2,
+                  transition: 'transform .15s'
+                }} className="hover:scale-[1.02]">
+                  <span className="ldot" />
+                  <Radio style={{ width: 14, height: 14 }} /> Sermon Radio On Air
+                </Link>
+              ) : (
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 10,
+                  background: 'rgba(224,90,26,.1)', border: '1px solid rgba(224,90,26,.25)',
+                  borderLeft: '3px solid var(--flame)', padding: '8px 16px', marginBottom: 32,
+                  fontSize: 11.5, fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase',
+                  color: 'var(--flame3)'
+                }}>
+                  <span className="ldot" />
+                  Broadcasting 24 hours · 7 days a week
+                </div>
+              )}
 
               {/* Single-line headline */}
               <h1 style={{
@@ -232,7 +258,7 @@ export default function Home() {
               <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
                 <Link to={isLive && broadcast ? `/live/${broadcast.id}` : '/live'} className="btn btn-flame" style={{ fontSize: 15, padding: '14px 32px' }}>
                   <svg viewBox="0 0 24 24" width={16} height={16} fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                  Listen Live
+                  {isLive ? 'Watch Live' : 'Listen Live'}
                 </Link>
                 <Link to="/archive" className="btn btn-out" style={{ fontSize: 15, padding: '14px 32px' }}>Browse Sermons</Link>
               </div>
@@ -294,12 +320,12 @@ export default function Home() {
           <div style={{ maxWidth: 1240, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 20, height: 84 }}>
             <div style={{
               display: 'flex', alignItems: 'center', gap: 7,
-              background: 'var(--flame)', padding: '5px 12px', borderRadius: 2,
+              background: isLive ? '#ef4444' : 'var(--flame)', padding: '5px 12px', borderRadius: 2,
               fontSize: 11, fontWeight: 700, letterSpacing: '.08em',
               color: '#fff', flexShrink: 0
             }}>
               <span className="ldot" style={{ width: 6, height: 6 }} />
-              NOW PLAYING
+              {isLive ? 'LIVE BROADCAST' : 'NOW PLAYING'}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--white)' }}>
