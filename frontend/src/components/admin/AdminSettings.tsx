@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect } from 'react'
 import { api } from '../../lib/api'
+import { useToast } from '../../contexts/ToastContext'
 import {
   Lock, Loader2, Bell, BellOff, Fingerprint, Trash2,
   Mail, Users, Send, CheckCircle, Smartphone, ShieldCheck, BookOpen
@@ -7,6 +8,7 @@ import {
 import { useNotifications } from '../../contexts/NotificationContext'
 
 function SpiritualHealthForm() {
+  const { showToast } = useToast()
   const [scripture, setScripture] = useState('')
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
@@ -14,7 +16,7 @@ function SpiritualHealthForm() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!scripture.trim()) { alert('Scripture is required'); return }
+    if (!scripture.trim()) { showToast('Scripture is required', 'error'); return }
     setSending(true)
     setResult(null)
     try {
@@ -45,6 +47,7 @@ function SpiritualHealthForm() {
 }
 
 export default function AdminSettings() {
+  const { showToast } = useToast()
   const {
     pushEnabled, pushSupported, requestPush, disablePush, loadingPush,
     biometricSupported, biometricRegistered, registerBiometric, removeBiometric,
@@ -70,8 +73,8 @@ export default function AdminSettings() {
 
   async function changePassword(e: React.FormEvent) {
     e.preventDefault()
-    if (!pwdForm.current || !pwdForm.newPass || !pwdForm.confirm) { alert('All fields required'); return }
-    if (pwdForm.newPass !== pwdForm.confirm) { alert('New passwords do not match'); return }
+    if (!pwdForm.current || !pwdForm.newPass || !pwdForm.confirm) { showToast('All fields required', 'error'); return }
+    if (pwdForm.newPass !== pwdForm.confirm) { showToast('New passwords do not match', 'error'); return }
     setChanging(true)
     setPwdSuccess(false)
     try {
@@ -79,13 +82,13 @@ export default function AdminSettings() {
       setPwdForm({ current: '', newPass: '', confirm: '' })
       setPwdSuccess(true)
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to change password')
+      showToast(err.response?.data?.error || 'Failed to change password', 'error')
     } finally { setChanging(false) }
   }
 
   async function sendPushBroadcast(e: React.FormEvent) {
     e.preventDefault()
-    if (!pushForm.title || !pushForm.body) { alert('Title and message are required'); return }
+    if (!pushForm.title || !pushForm.body) { showToast('Title and message are required', 'error'); return }
     setSending(true)
     setSendResult(null)
     try {

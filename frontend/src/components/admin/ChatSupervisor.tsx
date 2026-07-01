@@ -1,5 +1,6 @@
 ﻿import { useState } from 'react'
 import { api } from '../../lib/api'
+import { useToast } from '../../contexts/ToastContext'
 import { MessageSquare, Trash2, Loader2, RefreshCw } from 'lucide-react'
 
 interface ChatMessage {
@@ -11,6 +12,7 @@ interface ChatMessage {
 }
 
 export default function ChatSupervisor({ messages, onRefresh }: { messages: ChatMessage[]; onRefresh: () => void }) {
+  const { showToast } = useToast()
   const [deleting, setDeleting] = useState<string | null>(null)
 
   async function deleteMessage(id: string) {
@@ -20,7 +22,7 @@ export default function ChatSupervisor({ messages, onRefresh }: { messages: Chat
       await api.delete(`/chat/${id}`)
       onRefresh()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to delete')
+      showToast(err.response?.data?.error || 'Failed to delete', 'error')
     } finally {
       setDeleting(null)
     }

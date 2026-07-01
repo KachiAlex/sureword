@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../contexts/AuthContext'
 import { api, useBroadcasts, useSermons, useUsers, usePrayers, useMusic, useDashboardAnalytics, usePrintMedia } from '../lib/api'
+import { useToast } from '../contexts/ToastContext'
 import {
   Users, Radio, Headphones, MessageSquare, Settings, Heart, Calendar,
   BookOpen, DollarSign, Pause, StopCircle, BarChart3,
@@ -99,6 +100,7 @@ function SignalBars({ label, value }: { label: string; value: number }) {
 }
 
 export default function AdminDashboard() {
+  const { showToast } = useToast()
   const { user } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -187,7 +189,7 @@ export default function AdminDashboard() {
       const { data } = await api.get('/radio/status')
       setRadioStatus(data.status)
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to skip sermon')
+      showToast(err.response?.data?.error || 'Failed to skip sermon', 'error')
     } finally { setRadioLoading(false) }
   }
 
@@ -197,7 +199,7 @@ export default function AdminDashboard() {
       await api.post('/radio/stop')
       setRadioStatus(null)
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to stop radio')
+      showToast(err.response?.data?.error || 'Failed to stop radio', 'error')
     } finally { setRadioLoading(false) }
   }
 
@@ -222,7 +224,7 @@ export default function AdminDashboard() {
     try {
       await api.put(`/auth/users/${userId}/role`, { role: newRole })
       queryClient.setQueryData(['users'], (old: any) => old?.map((u: any) => u.id === userId ? { ...u, role: newRole } : u))
-    } catch (err: any) { alert(err.response?.data?.error || 'Failed to update role') }
+    } catch (err: any) { showToast(err.response?.data?.error || 'Failed to update role', 'error') }
   }
 
   /* -- Broadcast control helpers -- */
@@ -235,7 +237,7 @@ export default function AdminDashboard() {
       queryClient.invalidateQueries({ queryKey: ['broadcasts'] })
       queryClient.invalidateQueries({ queryKey: ['analytics'] })
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to end broadcast')
+      showToast(err.response?.data?.error || 'Failed to end broadcast', 'error')
     } finally {
       setBcActionLoading(false)
     }
@@ -250,7 +252,7 @@ export default function AdminDashboard() {
       await api.post(`/broadcasts/${live.id}/end`)
       queryClient.invalidateQueries({ queryKey: ['broadcasts'] })
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to end broadcast')
+      showToast(err.response?.data?.error || 'Failed to end broadcast', 'error')
     } finally {
       setBcActionLoading(false)
     }

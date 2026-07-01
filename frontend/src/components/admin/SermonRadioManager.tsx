@@ -1,12 +1,14 @@
 import { useState, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { api, usePlaylists, useRadioSchedules, useActiveRadioSchedule } from '../../lib/api'
+import { useToast } from '../../contexts/ToastContext'
 import {
   Plus, Trash2, Loader2, Clock, Calendar, Save, X,
   Radio, Play, Square, SkipForward, ListMusic, Headphones
 } from 'lucide-react'
 
 export default function SermonRadioManager({ onRefresh }: { onRefresh?: () => void }) {
+  const { showToast } = useToast()
   const qc = useQueryClient()
   const { data: playlists = [] } = usePlaylists()
   const { data: schedules = [], isLoading: schLoading } = useRadioSchedules()
@@ -49,7 +51,7 @@ export default function SermonRadioManager({ onRefresh }: { onRefresh?: () => vo
       setForm({ playlist_id: '', start_date: '', start_time: '', end_date: '', end_time: '' })
       refresh()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to create schedule')
+      showToast(err.response?.data?.error || 'Failed to create schedule', 'error')
     } finally { setSaving(false) }
   }
 
@@ -67,7 +69,7 @@ export default function SermonRadioManager({ onRefresh }: { onRefresh?: () => vo
       await api.post('/radio/start', { scheduleId })
       refresh()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to start radio')
+      showToast(err.response?.data?.error || 'Failed to start radio', 'error')
     } finally { setRadioLoading(false) }
   }
 
@@ -77,7 +79,7 @@ export default function SermonRadioManager({ onRefresh }: { onRefresh?: () => vo
       await api.post('/radio/stop')
       refresh()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to stop radio')
+      showToast(err.response?.data?.error || 'Failed to stop radio', 'error')
     } finally { setRadioLoading(false) }
   }
 
@@ -87,7 +89,7 @@ export default function SermonRadioManager({ onRefresh }: { onRefresh?: () => vo
       await api.post('/radio/skip')
       refresh()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to skip')
+      showToast(err.response?.data?.error || 'Failed to skip', 'error')
     } finally { setRadioLoading(false) }
   }
 

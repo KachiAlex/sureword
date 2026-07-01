@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useNotifications } from '../contexts/NotificationContext'
 import {
   useActiveBroadcast, useFeaturedSermons, usePrintMedia,
-  useRadioCurrent, usePublicRadioSchedules
+  useRadioCurrent, usePublicRadioSchedules, getOptimizedImageUrl
 } from '../lib/api'
 import type { Sermon } from '../lib/api'
 import StructuredData from '../components/StructuredData'
@@ -98,7 +98,7 @@ function SermonListItem({ s, index, onPlay }: { s: Sermon; index: number; onPlay
       {/* Thumbnail */}
       {s.thumbnail_url ? (
         <img
-          src={s.thumbnail_url}
+          src={getOptimizedImageUrl(s.thumbnail_url, 104)}
           alt={s.title}
           style={{ width: 52, height: 52, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }}
           loading="lazy"

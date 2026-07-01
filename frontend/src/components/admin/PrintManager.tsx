@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { useAdminPrintMedia, useCreatePrintMedia, useUpdatePrintMedia, useDeletePrintMedia } from '../../lib/api'
+import { useToast } from '../../contexts/ToastContext'
 import { Plus, FileText, Trash2, Pencil, Loader2, Upload, X, Tag, ExternalLink } from 'lucide-react'
 
 const CATEGORIES = ['tract', 'booklet', 'poster', 'study-guide', 'magazine', 'devotional', 'bulletin']
@@ -7,6 +8,7 @@ const CATEGORIES = ['tract', 'booklet', 'poster', 'study-guide', 'magazine', 'de
 const emptyForm = { title: '', description: '', category: 'bulletin', page_count: '', published_date: '' }
 
 export default function PrintManager() {
+  const { showToast } = useToast()
   const { data: items = [], isLoading } = useAdminPrintMedia()
   const createMutation = useCreatePrintMedia()
   const updateMutation = useUpdatePrintMedia()
@@ -22,8 +24,8 @@ export default function PrintManager() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.title.trim()) { alert('Title is required'); return }
-    if (!pdfFile && !editingId) { alert('PDF file is required'); return }
+    if (!form.title.trim()) { showToast('Title is required', 'error'); return }
+    if (!pdfFile && !editingId) { showToast('PDF file is required', 'error'); return }
 
     try {
       if (editingId) {
@@ -57,7 +59,7 @@ export default function PrintManager() {
       }
       reset()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to save print media')
+      showToast(err.response?.data?.error || 'Failed to save print media', 'error')
     }
   }
 
@@ -123,7 +125,7 @@ export default function PrintManager() {
             <div style={{ gridColumn: '1/-1', display: 'flex', gap: 8 }}>
               <button type="submit" disabled={submitting} className="btn btn-flame btn-sm">
                 {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                {submitting ? 'Uploading…' : (editingId ? 'Save Changes' : 'Upload to Cloudinary')}
+                {submitting ? 'Uploading…' : (editingId ? 'Save Changes' : 'Upload')}
               </button>
               <button type="button" onClick={reset} className="btn btn-sm" style={{ background: 'transparent', border: '1px solid var(--line)', color: 'var(--ash)' }}>Cancel</button>
             </div>

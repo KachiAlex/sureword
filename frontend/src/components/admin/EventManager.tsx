@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect } from 'react'
-import { api } from '../../lib/api'
+import { api, uploadFile } from '../../lib/api'
+import { useToast } from '../../contexts/ToastContext'
 import {
   Calendar, Plus, X, Save, Trash2, Pencil, Users,
   Image, Loader2, Upload
@@ -29,6 +30,7 @@ interface Rsvp {
 const CATEGORIES = ['Conference', 'Service', 'Outreach', 'Bible Study', 'Fellowship', 'Youth', 'Other']
 
 export default function EventManager() {
+  const { showToast } = useToast()
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -87,29 +89,16 @@ export default function EventManager() {
     setViewRsvps(null)
   }
 
-  async function uploadToCloudinary(file: File): Promise<string> {
-    const { data: sig } = await api.get('/music/signature?folder=events')
-    const fd = new FormData()
-    fd.append('file', file)
-    fd.append('api_key', sig.apiKey)
-    fd.append('timestamp', sig.timestamp)
-    fd.append('signature', sig.signature)
-    fd.append('folder', sig.folder)
-    const res = await fetch(sig.uploadUrl, { method: 'POST', body: fd })
-    const up = await res.json()
-    if (!res.ok) throw new Error(up.error?.message || 'Cloudinary upload failed')
-    return up.secure_url
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.title.trim()) { alert('Title is required'); return }
+    if (!form.title.trim()) { showToast('Title is required', 'error'); return }
     setSubmitting(true); setUploadStep('')
     try {
       let imageUrl = form.image_url
       if (imageFile) {
         setUploadStep('Uploading image...')
-        imageUrl = await uploadToCloudinary(imageFile)
+        imageUrl = await uploadFile(imageFile, 'image')
       }
       const payload = { ...form, image_url: imageUrl }
       if (editingId) {
@@ -121,7 +110,7 @@ export default function EventManager() {
       resetForm()
       fetchEvents()
     } catch (err: any) {
-      alert(err.response?.data?.error || `Failed to ${editingId ? 'update' : 'create'}`)
+      showToast(err.response?.data?.error || `Failed to ${editingId ? 'update' : 'create'}`, 'error')
     } finally {
       setSubmitting(false)
       setUploadStep('')
@@ -134,7 +123,7 @@ export default function EventManager() {
       await api.delete(`/events/${id}`)
       fetchEvents()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to delete')
+      showToast(err.response?.data?.error || 'Failed to delete', 'error')
     }
   }
 
@@ -143,7 +132,7 @@ export default function EventManager() {
       await api.patch(`/events/${evt.id}`, { is_active: !evt.is_active })
       fetchEvents()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to update')
+      showToast(err.response?.data?.error || 'Failed to update', 'error')
     }
   }
 

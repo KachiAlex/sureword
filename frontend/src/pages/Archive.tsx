@@ -1,7 +1,7 @@
 ﻿import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
-import { API_BASE } from '../lib/api'
+import { API_BASE, getOptimizedImageUrl } from '../lib/api'
 import { usePageTitle } from '../hooks/usePageTitle'
 import AddToPlaylistMenu from '../components/AddToPlaylistMenu'
 import { useAudioPlayer } from '../contexts/AudioPlayerContext'
@@ -209,7 +209,7 @@ export default function Archive() {
                   {/* Thumbnail */}
                   <div className="aspect-video relative overflow-hidden" style={{ background: 'var(--ink)' }}>
                     {s.thumbnail_url ? (
-                      <img src={s.thumbnail_url} alt={s.title} loading="lazy" className="w-full h-full object-cover" />
+                      <img src={getOptimizedImageUrl(s.thumbnail_url, 400)} alt={s.title} loading="lazy" className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <Headphones className="w-12 h-12" style={{ color: 'var(--line)' }} />

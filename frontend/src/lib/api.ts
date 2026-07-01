@@ -562,6 +562,27 @@ export function useMusicTracks() {
   }})
 }
 
+// ── Upload helpers (Cloudinary abstracted) ───────────────────
+export async function uploadFile(file: File, type: 'image' | 'audio'): Promise<string> {
+  const fd = new FormData()
+  fd.append(type, file)
+  const { data } = await api.post(`/uploads/${type}`, fd, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+  return data.url as string
+}
+
+// ── Image optimization helper ────────────────────────────────
+export function getOptimizedImageUrl(url: string | undefined, width?: number): string {
+  if (!url) return ''
+  // Only optimize Cloudinary URLs
+  if (!url.includes('cloudinary.com')) return url
+  // Insert transforms into Cloudinary path: /upload/ -> /upload/f_auto,q_auto,w_N/
+  const transforms = [`f_auto`, `q_auto`]
+  if (width) transforms.push(`w_${width}`)
+  return url.replace('/upload/', `/upload/${transforms.join(',')}/`)
+}
+
 // ── Bookmarks ──────────────────────────────────────────────────
 export function useBookmarks(enabled = true) {
   return useQuery<Sermon[]>({

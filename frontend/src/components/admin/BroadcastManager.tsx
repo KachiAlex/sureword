@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect, useRef } from 'react'
 import { API_BASE, api } from '../../lib/api'
+import { useToast } from '../../contexts/ToastContext'
 import {
   Radio, Play, Square, Plus, Loader2, ArrowLeft,
   Mic, BookOpen, ExternalLink, AlertCircle, Monitor, ChevronDown, ChevronUp,
@@ -94,6 +95,7 @@ function MicMeter({ stream }: { stream: MediaStream | null }) {
 }
 
 export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts: Broadcast[]; onRefresh: () => void }) {
+  const { showToast } = useToast()
   const [view, setView] = useState<StudioView>('list')
   const [selectedBroadcast, setSelectedBroadcast] = useState<Broadcast | null>(null)
   const [chatHistory, setChatHistory] = useState<ChatMsg[]>([])
@@ -133,7 +135,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
       a.remove()
       URL.revokeObjectURL(url)
     } catch (e: any) {
-      alert('Download failed: ' + (e.message || 'Unknown error'))
+      showToast('Download failed: ' + (e.message || 'Unknown error'), 'error')
     }
   }
 
@@ -439,7 +441,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
       }
       onRefresh()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to start broadcast')
+      showToast(err.response?.data?.error || 'Failed to start broadcast', 'error')
     } finally { setActionLoading(false) }
   }
 
@@ -451,7 +453,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
       setStatus('paused')
       onRefresh()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to pause')
+      showToast(err.response?.data?.error || 'Failed to pause', 'error')
     } finally { setActionLoading(false) }
   }
 
@@ -463,7 +465,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
       setStatus('live')
       onRefresh()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to resume')
+      showToast(err.response?.data?.error || 'Failed to resume', 'error')
     } finally { setActionLoading(false) }
   }
 
@@ -474,7 +476,7 @@ export default function BroadcastManager({ broadcasts, onRefresh }: { broadcasts
       await api.patch(`/broadcasts/${broadcastId}/end`)
     } catch (err: any) {
       const msg = err.response?.data?.error || 'Failed to end broadcast. It may still be live.'
-      alert(msg)
+      showToast(msg, 'error')
     }
     // Wait for cloud recording upload to finish before navigating away
     if (uploadDone) {

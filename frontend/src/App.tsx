@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import { AudioPlayerProvider } from './contexts/AudioPlayerContext'
 import { FavoritesProvider } from './contexts/FavoritesContext'
 import { NotificationProvider } from './contexts/NotificationContext'
+import { ToastProvider } from './contexts/ToastContext'
 import Layout from './components/Layout'
 import ErrorBoundary from './components/ErrorBoundary'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -98,15 +99,17 @@ function App() {
       <AudioPlayerProvider>
         <FavoritesProvider>
           <NotificationProvider>
-          <BrowserRouter>
-            <ErrorBoundary>
-              <Layout>
-                <Suspense fallback={<PageLoader />}>
-                  <AnimatedRoutes />
-                </Suspense>
-              </Layout>
-            </ErrorBoundary>
-          </BrowserRouter>
+            <ToastProvider>
+              <BrowserRouter>
+                <ErrorBoundary>
+                  <Layout>
+                    <Suspense fallback={<PageLoader />}>
+                      <AnimatedRoutes />
+                    </Suspense>
+                  </Layout>
+                </ErrorBoundary>
+              </BrowserRouter>
+            </ToastProvider>
           </NotificationProvider>
         </FavoritesProvider>
       </AudioPlayerProvider>

@@ -1,5 +1,6 @@
 ﻿import { useState, useRef } from 'react'
-import { api } from '../../lib/api'
+import { api, uploadFile } from '../../lib/api'
+import { useToast } from '../../contexts/ToastContext'
 import AddToPlaylistMenu from '../../components/AddToPlaylistMenu'
 import { Music, Plus, Loader2, Trash2, Link2, Upload, FileAudio, Image, ListMusic } from 'lucide-react'
 
@@ -19,6 +20,7 @@ interface MusicTrack {
 }
 
 export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]; onRefresh: () => void }) {
+  const { showToast } = useToast()
   const [mode, setMode] = useState<'file' | 'url'>('file')
   const [form, setForm] = useState({
     title: '', artist: '', album: '', genre: '', duration: '', lyrics: '', audio_url: ''
@@ -49,47 +51,23 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.title.trim()) { alert('Title is required'); return }
+    if (!form.title.trim()) { showToast('Title is required', 'error'); return }
 
-    if (mode === 'file' && !file && !form.audio_url) { alert('Audio file or URL required'); return }
-    if (mode === 'url' && !form.audio_url.trim()) { alert('Audio URL is required'); return }
+    if (mode === 'file' && !file && !form.audio_url) { showToast('Audio file or URL required', 'error'); return }
+    if (mode === 'url' && !form.audio_url.trim()) { showToast('Audio URL is required', 'error'); return }
 
     setSubmitting(true)
     try {
       let audioUrl = form.audio_url
       let coverUrl = ''
 
-      // -- Step 1: Upload files directly to Cloudinary (signed) --
-      // Use fetch (not axios) so the global Authorization header isn't sent to Cloudinary
       if (file) {
-        const { data: sig } = await api.get('/music/signature?folder=sureword/music/audio')
-        const fd = new FormData()
-        fd.append('file', file)
-        fd.append('api_key', sig.apiKey)
-        fd.append('timestamp', sig.timestamp)
-        fd.append('signature', sig.signature)
-        fd.append('folder', sig.folder)
-        const res = await fetch(sig.uploadUrl, { method: 'POST', body: fd })
-        const up = await res.json()
-        if (!res.ok) throw new Error(up.error?.message || 'Cloudinary audio upload failed')
-        audioUrl = up.secure_url
+        audioUrl = await uploadFile(file, 'audio')
       }
 
       if (coverFile) {
-        const { data: sig } = await api.get('/music/signature?folder=sureword/music/covers')
-        const fd = new FormData()
-        fd.append('file', coverFile)
-        fd.append('api_key', sig.apiKey)
-        fd.append('timestamp', sig.timestamp)
-        fd.append('signature', sig.signature)
-        fd.append('folder', sig.folder)
-        const res = await fetch(sig.uploadUrl, { method: 'POST', body: fd })
-        const up = await res.json()
-        if (!res.ok) throw new Error(up.error?.message || 'Cloudinary cover upload failed')
-        coverUrl = up.secure_url
+        coverUrl = await uploadFile(coverFile, 'image')
       }
-
-      // -- Step 2: Save metadata + Cloudinary URLs to backend --
       await api.post('/music', {
         title: form.title,
         artist: form.artist,
@@ -117,7 +95,7 @@ export default function MusicManager({ music, onRefresh }: { music: MusicTrack[]
       } else if (err?.message) {
         msg = err.message
       }
-      alert(msg)
+      showToast(msg, 'error')
     } finally {
       setSubmitting(false)
     }

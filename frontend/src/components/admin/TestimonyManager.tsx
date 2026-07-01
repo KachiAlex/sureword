@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect } from 'react'
 import { api } from '../../lib/api'
+import { useToast } from '../../contexts/ToastContext'
 import { Star, Trash2, CheckCircle, Clock, User } from 'lucide-react'
 
 interface Testimony {
@@ -14,6 +15,7 @@ interface Testimony {
 }
 
 export default function TestimonyManager() {
+  const { showToast } = useToast()
   const [testimonies, setTestimonies] = useState<Testimony[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -37,7 +39,7 @@ export default function TestimonyManager() {
       await api.delete(`/testimonies/${id}`)
       fetchTestimonies()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to delete')
+      showToast(err.response?.data?.error || 'Failed to delete', 'error')
     }
   }
 
@@ -46,7 +48,7 @@ export default function TestimonyManager() {
       await api.patch(`/testimonies/${id}`, { status, is_featured })
       fetchTestimonies()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to update')
+      showToast(err.response?.data?.error || 'Failed to update', 'error')
     }
   }
 

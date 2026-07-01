@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect } from 'react'
 import { api } from '../../lib/api'
+import { useToast } from '../../contexts/ToastContext'
 import { Mic2, Plus, X, Save, Trash2 } from 'lucide-react'
 
 interface GuestSpeaker {
@@ -13,6 +14,7 @@ interface GuestSpeaker {
 }
 
 export default function GuestSpeakerManager() {
+  const { showToast } = useToast()
   const [speakers, setSpeakers] = useState<GuestSpeaker[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -40,7 +42,7 @@ export default function GuestSpeakerManager() {
       setForm({ name: '', bio: '', photo_url: '', topic: '', date: '', is_active: true })
       fetchSpeakers()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to create')
+      showToast(err.response?.data?.error || 'Failed to create', 'error')
     }
   }
 
@@ -50,7 +52,7 @@ export default function GuestSpeakerManager() {
       await api.delete(`/guest-speakers/${id}`)
       fetchSpeakers()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to delete')
+      showToast(err.response?.data?.error || 'Failed to delete', 'error')
     }
   }
 
@@ -59,7 +61,7 @@ export default function GuestSpeakerManager() {
       await api.patch(`/guest-speakers/${speaker.id}`, { is_active: !speaker.is_active })
       fetchSpeakers()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to update')
+      showToast(err.response?.data?.error || 'Failed to update', 'error')
     }
   }
 

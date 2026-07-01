@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { API_BASE } from '../lib/api'
 import { usePageTitle } from '../hooks/usePageTitle'
+import { useToast } from '../contexts/ToastContext'
 import {
   Calendar, MapPin, Clock, ArrowLeft, AlertCircle,
   Users, UserPlus, CheckCircle, Image
@@ -23,6 +24,7 @@ interface Event {
 export default function EventDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { showToast } = useToast()
   const [event, setEvent] = useState<Event | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -68,7 +70,7 @@ export default function EventDetail() {
       setRsvpSubmitted(true)
       fetchAttendees()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to submit RSVP.')
+      showToast(err.response?.data?.error || 'Failed to submit RSVP.', 'error')
     } finally { setRsvpLoading(false) }
   }
 

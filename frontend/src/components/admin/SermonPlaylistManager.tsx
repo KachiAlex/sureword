@@ -1,6 +1,7 @@
 ﻿import { useState, useMemo, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { api, useSermons, useMusicTracks, usePlaylists, usePlaylistItems, type Playlist } from '../../lib/api'
+import { api, uploadFile, useSermons, useMusicTracks, usePlaylists, usePlaylistItems, type Playlist } from '../../lib/api'
+import { useToast } from '../../contexts/ToastContext'
 import {
   Plus, Trash2, Loader2, ListMusic, Clock, Save, X,
   Headphones, Search, BookOpen, Music, Upload, GripVertical,
@@ -8,6 +9,7 @@ import {
 } from 'lucide-react'
 
 export default function SermonPlaylistManager({ onRefresh }: { onRefresh?: () => void }) {
+  const { showToast } = useToast()
   const qc = useQueryClient()
   const { data: playlists = [], isLoading: plLoading } = usePlaylists()
   const { data: allSermons = [], isLoading: sLoading } = useSermons()
@@ -90,7 +92,7 @@ export default function SermonPlaylistManager({ onRefresh }: { onRefresh?: () =>
       setForm({ title: '', description: '', repeat_mode: 'none', shuffle: false })
       refresh()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to create playlist')
+      showToast(err.response?.data?.error || 'Failed to create playlist', 'error')
     } finally { setSaving(false) }
   }
 
@@ -109,7 +111,7 @@ export default function SermonPlaylistManager({ onRefresh }: { onRefresh?: () =>
       setForm({ title: '', description: '', repeat_mode: 'none', shuffle: false })
       refresh()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to update playlist')
+      showToast(err.response?.data?.error || 'Failed to update playlist', 'error')
     } finally { setSaving(false) }
   }
 
@@ -139,7 +141,7 @@ export default function SermonPlaylistManager({ onRefresh }: { onRefresh?: () =>
       })
       refresh()
     } catch (err: any) {
-      if (err.response?.status !== 409) alert(err.response?.data?.error || 'Failed to add item')
+      if (err.response?.status !== 409) showToast(err.response?.data?.error || 'Failed to add item', 'error')
     } finally { setAdding(null) }
   }
 
@@ -202,31 +204,18 @@ export default function SermonPlaylistManager({ onRefresh }: { onRefresh?: () =>
   }
 
   // ── Upload helpers ──
-  async function uploadToCloudinary(file: File, folder: string): Promise<string> {
-    const { data: sig } = await api.get(`/music/signature?folder=${folder}`)
-    const fd = new FormData()
-    fd.append('file', file)
-    fd.append('api_key', sig.apiKey)
-    fd.append('timestamp', sig.timestamp)
-    fd.append('signature', sig.signature)
-    fd.append('folder', sig.folder)
-    const res = await fetch(sig.uploadUrl, { method: 'POST', body: fd })
-    const up = await res.json()
-    if (!res.ok) throw new Error(up.error?.message || 'Cloudinary upload failed')
-    return up.secure_url
-  }
 
   async function handleUploadAndAdd(e: React.FormEvent) {
     e.preventDefault()
-    if (!uploadForm.title.trim() || !audioFile || !selectedId) { alert('Title and audio file are required'); return }
+    if (!uploadForm.title.trim() || !audioFile || !selectedId) { showToast('Title and audio file are required', 'error'); return }
     setUploading(true)
     try {
-      setUploadStep('Uploading audio to Cloudinary...')
-      const audioUrl = await uploadToCloudinary(audioFile, uploadType === 'sermon' ? 'sureword/sermons/audio' : 'sureword/music/audio')
+      setUploadStep('Uploading audio...')
+      const audioUrl = await uploadFile(audioFile, 'audio')
       let thumbnailUrl = ''
       if (thumbnailFile) {
         setUploadStep('Uploading cover art...')
-        thumbnailUrl = await uploadToCloudinary(thumbnailFile, uploadType === 'sermon' ? 'sureword/sermons/thumbnails' : 'sureword/music/covers')
+        thumbnailUrl = await uploadFile(thumbnailFile, 'image')
       }
 
       if (uploadType === 'sermon') {
@@ -277,7 +266,7 @@ export default function SermonPlaylistManager({ onRefresh }: { onRefresh?: () =>
       setThumbnailPreview('')
       refresh()
     } catch (err: any) {
-      alert(err.response?.data?.error || err.message || 'Upload failed')
+      showToast(err.response?.data?.error || err.message || 'Upload failed', 'error')
     } finally {
       setUploading(false)
       setUploadStep('')

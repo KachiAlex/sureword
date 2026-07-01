@@ -3,6 +3,7 @@ import axios from 'axios'
 import { API_BASE } from '../lib/api'
 import { usePageTitle } from '../hooks/usePageTitle'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 import { prayerRequestSchema } from '../lib/validation'
 import { Heart, Send, AlertCircle, User, Check, CheckCircle2, RotateCcw } from 'lucide-react'
 
@@ -21,6 +22,7 @@ interface Prayer {
 export default function PrayerWall() {
   usePageTitle('Prayer Wall')
   const { user } = useAuth()
+  const { showToast } = useToast()
   const [prayers, setPrayers] = useState<Prayer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -74,10 +76,10 @@ export default function PrayerWall() {
       setPrayers(prayers.map(p => p.id === id ? { ...p, prayers_count: (p.prayers_count || 0) + 1, has_prayed: true } : p))
     } catch (err: any) {
       if (err.response?.status === 409) {
-        alert('You have already prayed for this request.')
+        showToast('You have already prayed for this request.', 'info')
       } else {
         console.error('Pray failed:', err)
-        alert(err.response?.data?.error || 'Failed to record prayer.')
+        showToast(err.response?.data?.error || 'Failed to record prayer.', 'error')
       }
     }
   }
@@ -88,7 +90,7 @@ export default function PrayerWall() {
       await axios.patch(`${API_BASE}/api/prayer/${id}/answered`, { is_answered: answered })
       setPrayers(prayers.map(p => p.id === id ? { ...p, is_answered: answered } : p))
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to update answered status.')
+      showToast(err.response?.data?.error || 'Failed to update answered status.', 'error')
     }
   }
 

@@ -1,7 +1,8 @@
 ﻿import { useEffect, useState, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { api, useRecordPlay } from '../lib/api'
+import { api, useRecordPlay, getOptimizedImageUrl } from '../lib/api'
 import { usePageTitle } from '../hooks/usePageTitle'
+import { useToast } from '../contexts/ToastContext'
 import { useAudioPlayer } from '../contexts/AudioPlayerContext'
 import { useFavorites } from '../contexts/FavoritesContext'
 import {
@@ -28,6 +29,7 @@ interface Sermon {
 export default function SermonDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { showToast } = useToast()
   const { currentTrack, isPlaying, playTrack, togglePlay } = useAudioPlayer()
   const { isFavorite, toggleFavorite } = useFavorites()
   const recordPlay = useRecordPlay()
@@ -119,7 +121,7 @@ export default function SermonDetail() {
         await navigator.share({ title: sermon.title, text: `Listen to "${sermon.title}" on SUREWORD RADIO`, url: shareUrl })
       } else {
         await navigator.clipboard.writeText(shareUrl)
-        alert('Link copied to clipboard!')
+        showToast('Link copied to clipboard!', 'success')
       }
     } catch { /* user cancelled */ }
   }
@@ -168,7 +170,7 @@ export default function SermonDetail() {
           <div className="flex flex-col md:flex-row gap-6">
             <div className="w-full md:w-48 h-48 rounded-xl overflow-hidden shrink-0 relative" style={{ background: 'var(--ink)' }}>
               {sermon.thumbnail_url ? (
-                <img src={sermon.thumbnail_url} alt={sermon.title} className="w-full h-full object-cover" />
+                <img src={getOptimizedImageUrl(sermon.thumbnail_url, 384)} alt={sermon.title} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <Headphones className="w-12 h-12" style={{ color: 'var(--line)' }} />
@@ -259,7 +261,7 @@ export default function SermonDetail() {
                   style={{ background: 'var(--ink-2)', border: '1px solid var(--line)', color: 'var(--parchment)' }}>
                   <div className="w-14 h-14 rounded-lg overflow-hidden shrink-0" style={{ background: 'var(--ink)' }}>
                     {s.thumbnail_url ? (
-                      <img src={s.thumbnail_url} alt={s.title} className="w-full h-full object-cover" />
+                      <img src={getOptimizedImageUrl(s.thumbnail_url, 112)} alt={s.title} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center"><Headphones className="w-5 h-5" style={{ color: 'var(--line)' }} /></div>
                     )}

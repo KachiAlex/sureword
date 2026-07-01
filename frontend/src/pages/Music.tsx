@@ -2,6 +2,7 @@
 import axios from 'axios'
 import { API_BASE } from '../lib/api'
 import { usePageTitle } from '../hooks/usePageTitle'
+import { useToast } from '../contexts/ToastContext'
 import AddToPlaylistMenu from '../components/AddToPlaylistMenu'
 import { useAudioPlayer } from '../contexts/AudioPlayerContext'
 import { useFavorites } from '../contexts/FavoritesContext'
@@ -26,6 +27,7 @@ interface Track {
 
 export default function MusicPage() {
   usePageTitle('Music Library')
+  const { showToast } = useToast()
   const { currentTrack, isPlaying, playTrack: globalPlayTrack, togglePlay, playQueue, shuffle, toggleShuffle } = useAudioPlayer()
   const { isFavorite, toggleFavorite } = useFavorites()
   const [tracks, setTracks] = useState<Track[]>([])
@@ -122,7 +124,7 @@ export default function MusicPage() {
         await navigator.share(shareData)
       } else {
         await navigator.clipboard.writeText(shareUrl)
-        alert('Link copied to clipboard!')
+        showToast('Link copied to clipboard!', 'success')
       }
     } catch {
       // user cancelled or share failed silently

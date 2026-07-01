@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect } from 'react'
 import { api } from '../../lib/api'
+import { useToast } from '../../contexts/ToastContext'
 import { Heart, Trash2, CheckCircle2 } from 'lucide-react'
 
 interface Prayer {
@@ -13,6 +14,7 @@ interface Prayer {
 }
 
 export default function PrayerManager() {
+  const { showToast } = useToast()
   const [prayers, setPrayers] = useState<Prayer[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -36,7 +38,7 @@ export default function PrayerManager() {
       await api.delete(`/prayer/${id}`)
       fetchPrayers()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to delete')
+      showToast(err.response?.data?.error || 'Failed to delete', 'error')
     }
   }
 

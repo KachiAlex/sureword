@@ -1,5 +1,6 @@
 ﻿import { useState } from 'react'
-import { api } from '../../lib/api'
+import { api, uploadFile } from '../../lib/api'
+import { useToast } from '../../contexts/ToastContext'
 import AddToPlaylistMenu from '../../components/AddToPlaylistMenu'
 import { Headphones, Plus, Loader2, Image, Upload, Cloud, Video, AudioLines, Star, Pencil, X, Save, ListMusic } from 'lucide-react'
 
@@ -46,19 +47,7 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
     return 'Failed to add sermon'
   }
 
-  async function uploadToCloudinary(file: File, folder: string): Promise<string> {
-    const { data: sig } = await api.get(`/music/signature?folder=${folder}`)
-    const fd = new FormData()
-    fd.append('file', file)
-    fd.append('api_key', sig.apiKey)
-    fd.append('timestamp', sig.timestamp)
-    fd.append('signature', sig.signature)
-    fd.append('folder', sig.folder)
-    const res = await fetch(sig.uploadUrl, { method: 'POST', body: fd })
-    const up = await res.json()
-    if (!res.ok) throw new Error(up.error?.message || 'Cloudinary upload failed')
-    return up.secure_url
-  }
+  const { showToast } = useToast()
 
   async function toggleFeatured(s: Sermon) {
     setTogglingId(s.id)
@@ -114,7 +103,7 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
       let thumbnail_url = editForm.thumbnail_url
       if (editThumbnailFile) {
         setEditStep('Uploading thumbnail...')
-        thumbnail_url = await uploadToCloudinary(editThumbnailFile, 'sureword/sermons/thumbnails')
+        thumbnail_url = await uploadFile(editThumbnailFile, 'image')
       }
       setEditStep('Saving...')
       await api.patch(`/sermons/${editingSermon.id}`, {
@@ -125,7 +114,7 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
       closeEdit()
       onRefresh()
     } catch (err: any) {
-      alert(errMsg(err))
+      showToast(errMsg(err), 'error')
     } finally {
       setEditSubmitting(false)
       setEditStep('')
@@ -148,14 +137,14 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
 
   async function addSermon(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.title.trim()) { alert('Title is required'); return }
+    if (!form.title.trim()) { showToast('Title is required', 'error'); return }
 
     if (mode === 'audio') {
-      if (!audioFile) { alert('Audio file is required'); return }
+      if (!audioFile) { showToast('Audio file is required', 'error'); return }
     } else {
-      if (!form.speaker.trim()) { alert('Speaker is required'); return }
-      if (!form.description.trim()) { alert('Description is required'); return }
-      if (!form.video_url.trim()) { alert('Video embed URL is required'); return }
+      if (!form.speaker.trim()) { showToast('Speaker is required', 'error'); return }
+      if (!form.description.trim()) { showToast('Description is required', 'error'); return }
+      if (!form.video_url.trim()) { showToast('Video embed URL is required', 'error'); return }
     }
 
     setSubmitting(true)
@@ -164,13 +153,13 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
       let thumbnailUrl = ''
 
       if (mode === 'audio' && audioFile) {
-        setUploadStep('Uploading audio to Cloudinary...')
-        audioUrl = await uploadToCloudinary(audioFile, 'sureword/sermons/audio')
+        setUploadStep('Uploading audio...')
+        audioUrl = await uploadFile(audioFile, 'audio')
       }
 
       if (thumbnailFile) {
-        setUploadStep('Uploading thumbnail to Cloudinary...')
-        thumbnailUrl = await uploadToCloudinary(thumbnailFile, 'sureword/sermons/thumbnails')
+        setUploadStep('Uploading thumbnail...')
+        thumbnailUrl = await uploadFile(thumbnailFile, 'image')
       }
 
       setUploadStep('Saving sermon...')
@@ -188,8 +177,9 @@ export default function SermonManager({ sermons, onRefresh }: { sermons: Sermon[
 
       resetForm()
       onRefresh()
+      showToast('Sermon added successfully', 'success')
     } catch (err: any) {
-      alert(errMsg(err))
+      showToast(errMsg(err), 'error')
     } finally {
       setSubmitting(false)
       setUploadStep('')
