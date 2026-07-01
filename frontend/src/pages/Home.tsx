@@ -4,7 +4,7 @@ import { useAudioPlayer } from '../contexts/AudioPlayerContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useNotifications } from '../contexts/NotificationContext'
 import {
-  useActiveBroadcast, useSermons, usePrintMedia,
+  useActiveBroadcast, useFeaturedSermons, usePrintMedia,
   useRadioCurrent
 } from '../lib/api'
 import type { Sermon } from '../lib/api'
@@ -129,7 +129,7 @@ export default function Home() {
   const { user } = useAuth()
   const { pushEnabled, pushSupported, requestPush, loadingPush } = useNotifications()
   const { data: broadcast } = useActiveBroadcast()
-  const { data: sermons = [], isLoading: sermonsLoading } = useSermons()
+  const { data: sermons = [], isLoading: sermonsLoading } = useFeaturedSermons()
   const { data: printItems = [], isLoading: printLoading } = usePrintMedia()
   const { data: radioData } = useRadioCurrent()
   const { playTrack, togglePlay, currentTrack, isPlaying } = useAudioPlayer()

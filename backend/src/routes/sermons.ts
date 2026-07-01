@@ -22,8 +22,12 @@ router.get('/', async (req, res) => {
     await initDb()
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined
     const query = limit
-      ? 'SELECT * FROM sermons ORDER BY date DESC LIMIT $1'
-      : 'SELECT * FROM sermons ORDER BY date DESC'
+      ? `SELECT s.*, CASE WHEN fs.sermon_id IS NOT NULL THEN 1 ELSE 0 END as is_featured
+         FROM sermons s LEFT JOIN featured_sermons fs ON s.id = fs.sermon_id
+         ORDER BY s.date DESC LIMIT $1`
+      : `SELECT s.*, CASE WHEN fs.sermon_id IS NOT NULL THEN 1 ELSE 0 END as is_featured
+         FROM sermons s LEFT JOIN featured_sermons fs ON s.id = fs.sermon_id
+         ORDER BY s.date DESC`
     const sermons = limit ? await db.all(query, [limit]) : await db.all(query)
     res.json({ sermons })
   } catch (err: any) {
@@ -65,6 +69,12 @@ router.get('/featured', async (req, res) => {
        JOIN featured_sermons fs ON s.id = fs.sermon_id
        ORDER BY fs.display_order ASC, fs.created_at DESC`
     )
+    if (!rows || rows.length === 0) {
+      // Default: first 4 sermons as featured
+      const defaults = await db.all('SELECT * FROM sermons ORDER BY date DESC LIMIT 4')
+      res.json({ sermons: defaults || [] })
+      return
+    }
     res.json({ sermons: rows })
   } catch (err: any) {
     res.status(500).json({ error: err.message })
@@ -200,6 +210,25 @@ router.post('/:id/transcript', authenticateToken, requireRole('admin'), async (r
     )
     const row = await db.get('SELECT * FROM transcripts WHERE sermon_id = $1', [req.params.id])
     res.json({ transcript: row })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// PATCH /sermons/:id/featured  (admin toggle featured status)
+router.patch('/:id/featured', authenticateToken, requireRole('admin'), async (req, res) => {
+  try {
+    await initDb()
+    const { is_featured } = req.body
+    if (is_featured) {
+      const existing = await db.get('SELECT 1 FROM featured_sermons WHERE sermon_id = $1', [req.params.id])
+      if (!existing) {
+        await db.run('INSERT INTO featured_sermons (id, sermon_id, display_order) VALUES ($1, $2, 0)', [uuidv4(), req.params.id])
+      }
+    } else {
+      await db.run('DELETE FROM featured_sermons WHERE sermon_id = $1', [req.params.id])
+    }
+    res.json({ ok: true, is_featured: !!is_featured })
   } catch (err: any) {
     res.status(500).json({ error: err.message })
   }
